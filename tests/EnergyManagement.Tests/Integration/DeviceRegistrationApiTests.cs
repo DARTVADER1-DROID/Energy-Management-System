@@ -103,6 +103,7 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
         using var householdRequest = new HttpRequestMessage(
             HttpMethod.Get, $"/api/households/{householdId}");
         householdRequest.Headers.Add("X-Test-User-Id", "2");
+        householdRequest.Headers.Add("X-Test-Role", "Household Member");
         var householdResponse = await _client.SendAsync(householdRequest);
 
         using var devicesRequest = new HttpRequestMessage(HttpMethod.Get, "/api/devices");
