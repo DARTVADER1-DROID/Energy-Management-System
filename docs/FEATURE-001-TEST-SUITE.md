@@ -11,7 +11,7 @@ This test suite protects the first functional increment of the Energy Management
 
 The suite is intentionally layered. Domain tests verify business invariants without HTTP or database dependencies. API integration tests exercise the public HTTP boundary using the application test host. PostgreSQL-backed tests verify real persistence and concurrent identifier allocation.
 
-The suite grew from the original 38-test baseline to 97 passing test cases. The additional boundary and invariant tests are regression protection, not a change to the production feature's behaviour.
+The suite grew from the original 38-test baseline to 102 passing test cases. The additional boundary and invariant tests are regression protection, not a change to the production feature's behaviour.
 
 ## 2. Test organisation
 
@@ -37,7 +37,7 @@ The integration tests use the actual PostgreSQL provider and apply the repositor
 - Required household name validation and whitespace trimming.
 - Maximum household-name length and its accepted boundary.
 - Household creation response, generated household code and resource location.
-- Listing households in deterministic identifier order.
+- Listing households in deterministic identifier order and retrieving a household by ID.
 - Invalid household requests return a client error.
 
 ### 3.2 Device domain invariants
@@ -64,7 +64,7 @@ The integration tests use the actual PostgreSQL provider and apply the repositor
 - Warning persistence duration rejects zero, negative and over-limit values, and accepts its lower and upper bounds.
 - Temperature remains optional when other thresholds are configured.
 - Invalid registration requests do not consume a device number.
-- Device listing supports household filtering and an unfiltered list.
+- Device listing supports household filtering, bounded pagination and page metadata headers.
 - Deactivation is idempotent; inactive devices remain retrievable and visible in the device list.
 
 ### 3.4 Identifier allocation and concurrency
@@ -115,19 +115,19 @@ See [TESTING.md](TESTING.md) for the complete local and CI workflow.
 
 ## 6. Latest recorded validation
 
-The expanded suite was run by GitHub Actions on 6 November 2026:
+The expanded suite was run by GitHub Actions on 6 November 2026 after the review fixes:
 
 | Result | Value |
 |---|---:|
-| Total | 97 |
-| Passed | 97 |
+| Total | 102 |
+| Passed | 102 |
 | Failed | 0 |
 | Skipped | 0 |
-| Test execution duration | 9 seconds |
+| Test execution duration | 10 seconds |
 | Target framework | .NET 10 |
 | Database | PostgreSQL 17 |
 
-- Workflow run: [42248843753](https://github.com/DARTVADER1-DROID/Energy-Management-System/actions/runs/42248843753)
+- Workflow run: [42253875877](https://github.com/DARTVADER1-DROID/Energy-Management-System/actions/runs/42253875877)
 - Test-suite expansion commit: [41257f6541a4d2972bdf7c80a286d90fc2910ebb](https://github.com/DARTVADER1-DROID/Energy-Management-System/commit/41257f6541a4d2972bdf7c80a286d90fc2910ebb)
 
 These figures describe that specific CI run; rerun the workflow after subsequent changes rather than treating this result as a guarantee for future commits.

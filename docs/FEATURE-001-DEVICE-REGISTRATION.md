@@ -20,8 +20,9 @@
 
 - `POST /api/households` — create a household; identifier is generated.
 - `GET /api/households` — list households.
+- `GET /api/households/{householdId}` — retrieve a household by its generated identifier.
 - `POST /api/devices/{householdId}` — register a device and generate its device code.
-- `GET /api/devices?householdId={id}` — list devices, optionally filtered by household.
+- `GET /api/devices?householdId={id}&page=1&pageSize=50` — list devices, optionally filtered by household and paginated. Page sizes are limited to 100; pagination metadata is returned in `X-Total-Count`, `X-Page`, `X-Page-Size` and `X-Total-Pages` headers.
 - `GET /api/devices/{deviceCode}` — retrieve a device.
 - `PATCH /api/devices/{deviceCode}/deactivate` — deactivate a device.
 
@@ -34,12 +35,12 @@ The API currently has no authentication or role enforcement because authenticati
 - A threshold persistence duration is optional until threshold evaluation is enabled; when supplied it must be positive.
 - Last-seen is a domain field only; no heartbeat endpoint updates it yet.
 - Database schema creation/migrations and automated tests are included.
-- Sequential allocation is protected by a serializable database transaction and household concurrency token. PostgreSQL concurrent-registration integration tests cover twenty simultaneous registrations, sequential unique identifiers and non-reuse after deactivation.
+- Sequential allocation uses an atomic PostgreSQL `UPDATE ... RETURNING` against the household row inside the same transaction as the device insert. The row update serializes allocations for that household; this is not a transaction configured at serializable isolation. PostgreSQL concurrent-registration integration tests cover twenty simultaneous registrations, sequential unique identifiers and non-reuse after deactivation.
 - No database is created automatically at application startup.
 
 ## Verification
 
-The Feature 001 test suite currently contains 97 test cases. The latest recorded CI run passed all 97 with no failures or skips against PostgreSQL 17.
+The Feature 001 test suite currently contains 102 test cases. The latest recorded CI run passed all 102 with no failures or skips against PostgreSQL 17.
 
 See [Feature 001 — Comprehensive Regression Test Suite](FEATURE-001-TEST-SUITE.md)
 for test organisation, coverage, execution instructions, validation evidence and explicit exclusions.

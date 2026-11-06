@@ -20,6 +20,7 @@ public sealed class Device
         int deviceNumber)
     {
         ArgumentNullException.ThrowIfNull(household);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(household.Id);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(deviceNumber);
 
         Name = Required(name, nameof(name));
@@ -116,11 +117,18 @@ public sealed class Device
                            thresholds.MaximumDailyEnergy is not null ||
                            thresholds.MaximumTemperature is not null;
 
-        if (hasThreshold && thresholds.WarningPersistenceSeconds is null or <= 0 or > 86400)
+        if (hasThreshold && thresholds.WarningPersistenceSeconds is null)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(thresholds),
-                "A warning persistence duration between 1 and 86400 seconds is required when thresholds are configured.");
+                "A warning persistence duration is required when thresholds are configured.");
+        }
+
+        if (thresholds.WarningPersistenceSeconds is <= 0 or > 86400)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(thresholds),
+                "Warning persistence duration must be between 1 and 86400 seconds.");
         }
     }
 

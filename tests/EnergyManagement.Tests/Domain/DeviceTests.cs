@@ -41,7 +41,7 @@ public sealed class DeviceTests
     {
         var device = CreateDevice(deviceNumber: 12);
 
-        Assert.Equal("H000-DEV012", device.DeviceCode);
+        Assert.Equal("H001-DEV012", device.DeviceCode);
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public sealed class DeviceTests
         device.Deactivate();
 
         Assert.False(device.IsActive);
-        Assert.Equal("H000-DEV001", device.DeviceCode);
+        Assert.Equal("H001-DEV001", device.DeviceCode);
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public sealed class DeviceTests
         ElectricalConfiguration configuration = ElectricalConfiguration.SinglePhase,
         int deviceNumber = 1) =>
         new(
-            new Household("Test Household"),
+            Household.Rehydrate(1, "Test Household"),
             name,
             " ESP32 ",
             "1.0.0",

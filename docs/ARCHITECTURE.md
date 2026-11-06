@@ -87,6 +87,7 @@ A responsive web application with SSR is required. The framework and hosting mod
 The first backend increment is intentionally small:
 - ASP.NET Core host.
 - Liveness endpoint at `GET /health/live`.
+- Readiness endpoint at `GET /health/ready`, which checks PostgreSQL connectivity.
 - No database, authentication, telemetry ingestion or hardware-control endpoints yet.
 
 The liveness endpoint only reports that the API process is responding. It is not a readiness or end-to-end health check.

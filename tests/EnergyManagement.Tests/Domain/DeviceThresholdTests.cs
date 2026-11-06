@@ -102,7 +102,7 @@ public sealed class DeviceThresholdTests
 
     private static Device CreateDevice(DeviceThresholds thresholds) =>
         new(
-            new Household("Test Household"),
+            Household.Rehydrate(1, "Test Household"),
             "Monitor",
             "ESP32",
             "1.0.0",

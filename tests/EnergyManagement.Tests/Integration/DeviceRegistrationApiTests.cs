@@ -35,6 +35,26 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
         Assert.NotNull(household);
         Assert.Equal("H001", household.HouseholdCode);
         Assert.Equal("Family Home", household.Name);
+        Assert.Equal($"/api/households/{household.Id}", response.Headers.Location?.ToString());
+        var getResponse = await _client.GetAsync(response.Headers.Location);
+        var retrieved = await getResponse.Content.ReadFromJsonAsync<HouseholdResponse>();
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+        Assert.Equal(household.Id, retrieved?.Id);
+    }
+
+    [Fact]
+    public async Task SwaggerDocument_IsAvailableInDevelopment()
+    {
+        var response = await _client.GetAsync("/swagger/v1/swagger.json");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Energy Management System API", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task ReadinessEndpoint_ReportsDatabaseConnectivity()
+    {
+        var response = await _client.GetAsync("/health/ready");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
@@ -61,6 +81,32 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
         Assert.Equal("Main Energy Monitor", device.Name);
         Assert.Equal(ElectricalConfiguration.SinglePhase, device.ElectricalConfiguration);
         Assert.True(device.IsActive);
+    }
+
+    [Fact]
+    public async Task ListDevices_AppliesPaginationAndReportsPageMetadata()
+    {
+        var householdId = await CreateHouseholdAsync("Pagination Home");
+        await _client.PostAsJsonAsync($"/api/devices/{householdId}", ValidRequest());
+        await _client.PostAsJsonAsync($"/api/devices/{householdId}", ValidRequest());
+
+        var response = await _client.GetAsync("/api/devices?page=2&pageSize=1");
+        var devices = await response.Content.ReadFromJsonAsync<DeviceResponse[]>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(devices);
+        Assert.Single(devices);
+        Assert.Equal("2", response.Headers.GetValues("X-Total-Count").Single());
+        Assert.Equal("2", response.Headers.GetValues("X-Page").Single());
+        Assert.Equal("1", response.Headers.GetValues("X-Page-Size").Single());
+        Assert.Equal("2", response.Headers.GetValues("X-Total-Pages").Single());
+    }
+
+    [Fact]
+    public async Task ListDevices_RejectsPageSizeAboveMaximum()
+    {
+        var response = await _client.GetAsync("/api/devices?pageSize=101");
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
@@ -177,5 +223,5 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
         "Main Distribution Board",
         ElectricalConfiguration.SinglePhase,
         null,
-        new DeviceThresholds());
+        new DeviceThresholdsRequest());
 }
