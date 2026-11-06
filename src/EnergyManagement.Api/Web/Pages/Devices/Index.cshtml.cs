@@ -15,7 +15,7 @@ public sealed class IndexModel(DashboardReadService dashboardReadService) : Page
         [FromQuery] int page = 1,
         CancellationToken cancellationToken = default)
     {
-        if (page < 1 || page > int.MaxValue / 25) return BadRequest();
+        if (page < 1) return BadRequest();
 
         Search = search;
         Inventory = await dashboardReadService.GetDevicesAsync(

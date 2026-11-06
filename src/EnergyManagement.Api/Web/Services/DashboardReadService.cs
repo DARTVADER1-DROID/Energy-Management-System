@@ -52,13 +52,10 @@ public sealed class DashboardReadService(EnergyManagementDbContext dbContext)
             .Select(item => new HouseholdOption(item.Id, item.HouseholdCode, item.Name))
             .ToArrayAsync(cancellationToken);
 
-        var selected = households.FirstOrDefault(item => item.Id == householdId)
-            ?? households.FirstOrDefault();
-
         var query = dbContext.Devices.AsNoTracking();
-        if (selected is not null)
+        if (householdId.HasValue)
         {
-            query = query.Where(item => item.HouseholdId == selected.Id);
+            query = query.Where(item => item.HouseholdId == householdId.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -89,6 +86,9 @@ public sealed class DashboardReadService(EnergyManagementDbContext dbContext)
                 item.RegisteredAtUtc,
                 item.LastSeenAtUtc))
             .ToArrayAsync(cancellationToken);
+
+        var selected = households.FirstOrDefault(item => item.Id == householdId)
+            ?? households.FirstOrDefault();
 
         return new DeviceInventoryPage(
             households,
