@@ -12,6 +12,7 @@ public sealed class IdentityDbContext(
     public DbSet<HouseholdMembership> HouseholdMemberships => Set<HouseholdMembership>();
     public DbSet<MfaRecoveryCode> MfaRecoveryCodes => Set<MfaRecoveryCode>();
     public DbSet<HouseholdInvitation> HouseholdInvitations => Set<HouseholdInvitation>();
+    public DbSet<SecurityAuditEvent> SecurityAuditEvents => Set<SecurityAuditEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -70,6 +71,22 @@ public sealed class IdentityDbContext(
             entity.HasOne<ApplicationUser>()
                 .WithMany()
                 .HasForeignKey(invitation => invitation.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<SecurityAuditEvent>(entity =>
+        {
+            entity.ToTable("security_audit_events");
+            entity.HasKey(auditEvent => auditEvent.Id);
+            entity.HasIndex(auditEvent => new { auditEvent.HouseholdId, auditEvent.CreatedAtUtc });
+            entity.HasIndex(auditEvent => new { auditEvent.TargetUserId, auditEvent.CreatedAtUtc });
+            entity.Property(auditEvent => auditEvent.EventType).HasMaxLength(80).IsRequired();
+            entity.Property(auditEvent => auditEvent.CreatedAtUtc).IsRequired();
+            entity.HasOne<ApplicationUser>().WithMany()
+                .HasForeignKey(auditEvent => auditEvent.ActorUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>().WithMany()
+                .HasForeignKey(auditEvent => auditEvent.TargetUserId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }

@@ -172,6 +172,7 @@ builder.Services.AddScoped<HouseholdAccessService>();
 builder.Services.AddScoped<InitialAdminBootstrapper>();
 builder.Services.AddScoped<MfaRecoveryCodeService>();
 builder.Services.AddScoped<HouseholdInvitationService>();
+builder.Services.AddScoped<MfaAdministrativeRecoveryService>();
 builder.Services.AddRazorPages(options =>
 {
     options.RootDirectory = "/Web/Pages";

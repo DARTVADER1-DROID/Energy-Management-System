@@ -91,6 +91,13 @@
                                     </select>
                                     <button type="submit" class="secondary-button">Save</button>
                                 </form>
+                                <form method="post" asp-page-handler="ResetMfa"
+                                      onsubmit="return confirm('Reset this user’s authenticator and invalidate their active sessions? They will need to enroll a new authenticator.');"
+                                      class="mt-2">
+                                    <input type="hidden" name="householdId" value="@Model.HouseholdId" />
+                                    <input type="hidden" name="userId" value="@member.UserId" />
+                                    <button type="submit" class="secondary-button">Reset MFA</button>
+                                </form>
                             }
                             else
                             {
