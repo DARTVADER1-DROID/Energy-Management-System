@@ -90,7 +90,7 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
             .ToListAsync();
         Assert.Equal(10, storedCodes.Count);
         Assert.DoesNotContain(storedCodes, code => generated.Contains(code.CodeHash));
-        Assert.Single(storedCodes.Where(code => code.UsedAtUtc is not null));
+        Assert.Single(storedCodes, code => code.UsedAtUtc is not null);
     }
 
     [Fact]
