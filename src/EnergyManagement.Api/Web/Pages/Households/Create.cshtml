@@ -1,0 +1,34 @@
+@page
+@model EnergyManagement.Api.Web.Pages.Households.CreateModel
+@{
+    ViewData["Title"] = "Create household";
+}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+        <p class="eyebrow">Household administration</p>
+        <h2 class="page-heading">Create a household</h2>
+        <p class="mt-1 text-sm text-slate-500">Set up a separate home and assign yourself as its administrator.</p>
+    </div>
+    <a asp-page="/Settings/Index" class="secondary-button">Back to settings</a>
+</div>
+
+<section class="panel mt-7 max-w-2xl p-6">
+    <form method="post" class="space-y-5">
+        <div asp-validation-summary="ModelOnly" class="text-sm text-rose-600"></div>
+        <div>
+            <label asp-for="Input.Name" class="field-label">Household name</label>
+            <input asp-for="Input.Name" class="form-input mt-2" maxlength="120" placeholder="e.g. Main Residence" autocomplete="organization" />
+            <span asp-validation-for="Input.Name" class="mt-1 block text-xs text-rose-600"></span>
+            <p class="mt-2 text-xs leading-5 text-slate-500">A unique household code will be generated automatically. You will become its administrator and can invite other household users.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-5 dark:border-slate-800">
+            <button type="submit" class="primary-button">Create household</button>
+            <a asp-page="/Index" class="secondary-button">Cancel</a>
+        </div>
+    </form>
+</section>
+
+<section class="mt-5 max-w-2xl rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
+    <p class="text-sm font-semibold text-amber-900 dark:text-amber-200">Administrator confirmation required</p>
+    <p class="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-300">For security, creating a household requires a recent password or authenticator verification. Household access remains isolated from your other households.</p>
+</section>
