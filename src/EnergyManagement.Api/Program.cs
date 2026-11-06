@@ -31,6 +31,15 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+// Staging enables this explicitly so schema updates are applied before readiness checks.
+// Keep this disabled by default; production migrations should use a controlled release process.
+if (builder.Configuration.GetValue<bool>("Database:ApplyMigrationsOnStartup"))
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

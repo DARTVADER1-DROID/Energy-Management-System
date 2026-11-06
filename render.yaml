@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: energy-management-staging
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: deploy/render-staging
+    autoDeployTrigger: checksPass
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    numInstances: 1
+    healthCheckPath: /health/ready
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://0.0.0.0:10000
+      - key: Database__ApplyMigrationsOnStartup
+        value: "true"
+      - key: ConnectionStrings__EnergyManagement
+        fromDatabase:
+          name: energy-management-staging-db
+          property: connectionString
+
+databases:
+  - name: energy-management-staging-db
+    databaseName: energy_management_staging
+    plan: free
+    region: singapore
+    diskSizeGB: 1
+    postgresMajorVersion: "18"
