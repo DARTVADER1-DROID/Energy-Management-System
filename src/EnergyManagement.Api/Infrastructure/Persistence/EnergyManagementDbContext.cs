@@ -1,15 +1,11 @@
 using EnergyManagement.Api.Modules.Devices;
 using EnergyManagement.Api.Modules.Households;
-using EnergyManagement.Api.Modules.Identity;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace EnergyManagement.Api.Infrastructure.Persistence;
 
 public sealed class EnergyManagementDbContext(
-    DbContextOptions<EnergyManagementDbContext> options)
-    : IdentityDbContext<ApplicationUser, IdentityRole<int>, int>(options)
+    DbContextOptions<EnergyManagementDbContext> options) : DbContext(options)
 {
     public DbSet<Household> Households => Set<Household>();
 
@@ -17,21 +13,6 @@ public sealed class EnergyManagementDbContext(
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        base.OnModelCreating(modelBuilder);
-
-        modelBuilder.Entity<ApplicationUser>(entity =>
-        {
-            entity.ToTable("users");
-            entity.Property(user => user.CreatedAtUtc).IsRequired();
-        });
-
-        modelBuilder.Entity<IdentityRole<int>>().ToTable("roles");
-        modelBuilder.Entity<IdentityUserRole<int>>().ToTable("user_roles");
-        modelBuilder.Entity<IdentityUserClaim<int>>().ToTable("user_claims");
-        modelBuilder.Entity<IdentityUserLogin<int>>().ToTable("user_logins");
-        modelBuilder.Entity<IdentityRoleClaim<int>>().ToTable("role_claims");
-        modelBuilder.Entity<IdentityUserToken<int>>().ToTable("user_tokens");
-
         modelBuilder.Entity<Household>(entity =>
         {
             entity.ToTable("households");
