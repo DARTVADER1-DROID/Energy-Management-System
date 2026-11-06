@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using EnergyManagement.Api.Modules.Devices;
+using EnergyManagement.Api.Modules.Identity;
 using EnergyManagement.Api.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -17,7 +18,7 @@ public sealed class RegisterModel(
 
     public async Task<IActionResult> OnGetAsync(int? householdId, CancellationToken cancellationToken)
     {
-        Households = await dashboardReadService.GetHouseholdsAsync(cancellationToken);
+        Households = await dashboardReadService.GetAdministratorHouseholdsAsync(User.GetUserId(), cancellationToken);
         if (Households.Count == 0) return Page();
 
         Input.HouseholdId = Households.FirstOrDefault(item => item.Id == householdId)?.Id

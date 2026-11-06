@@ -1,4 +1,5 @@
 using EnergyManagement.Api.Web.Services;
+using EnergyManagement.Api.Modules.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -19,7 +20,7 @@ public sealed class IndexModel(DashboardReadService dashboardReadService) : Page
 
         Search = search;
         Inventory = await dashboardReadService.GetDevicesAsync(
-            householdId, search, page, 25, cancellationToken);
+            householdId, search, User.GetUserId(), page, 25, cancellationToken);
         return Page();
     }
 }

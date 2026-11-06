@@ -1,28 +1,53 @@
 using EnergyManagement.Api.Infrastructure.Persistence;
 using EnergyManagement.Api.Modules.Devices;
 using EnergyManagement.Api.Modules.Households;
+using EnergyManagement.Api.Modules.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace EnergyManagement.Api.Web.Services;
 
-public sealed class DashboardReadService(EnergyManagementDbContext dbContext)
+public sealed class DashboardReadService(
+    EnergyManagementDbContext dbContext,
+    HouseholdAccessService householdAccess)
 {
-    public async Task<IReadOnlyList<HouseholdOption>> GetHouseholdsAsync(CancellationToken cancellationToken) =>
-        await dbContext.Households
-            .AsNoTracking()
+    public async Task<IReadOnlyList<HouseholdOption>> GetHouseholdsAsync(
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        var accessibleIds = await householdAccess.GetHouseholdIdsAsync(userId, cancellationToken);
+        return await dbContext.Households.AsNoTracking()
+            .Where(item => accessibleIds.Contains(item.Id))
             .OrderBy(item => item.Name)
             .Select(item => new HouseholdOption(item.Id, item.HouseholdCode, item.Name))
             .ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<HouseholdOption>> GetAdministratorHouseholdsAsync(
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        var memberships = await dbContextIdentityMemberships(userId, cancellationToken);
+        return await dbContext.Households.AsNoTracking()
+            .Where(item => memberships.Contains(item.Id))
+            .OrderBy(item => item.Name)
+            .Select(item => new HouseholdOption(item.Id, item.HouseholdCode, item.Name))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    private Task<int[]> dbContextIdentityMemberships(int userId, CancellationToken cancellationToken) =>
+        householdAccess.GetAdministratorHouseholdIdsAsync(userId, cancellationToken);
 
     public async Task<DeviceDetails?> GetDeviceDetailsAsync(
         string deviceCode,
+        int userId,
         CancellationToken cancellationToken)
     {
         var device = await dbContext.Devices
             .AsNoTracking()
             .SingleOrDefaultAsync(item => item.DeviceCode == deviceCode, cancellationToken);
 
-        return device is null
+        return device is null || !await householdAccess.IsMemberAsync(
+                userId, device.HouseholdId, cancellationToken)
             ? null
             : new DeviceDetails(
                 device.Id,
@@ -48,16 +73,14 @@ public sealed class DashboardReadService(EnergyManagementDbContext dbContext)
 
     public async Task<DashboardSnapshot> GetDashboardAsync(
         int? householdId,
+        int userId,
         CancellationToken cancellationToken)
     {
-        var households = await dbContext.Households
-            .AsNoTracking()
-            .OrderBy(item => item.Name)
-            .Select(item => new HouseholdOption(item.Id, item.HouseholdCode, item.Name))
-            .ToArrayAsync(cancellationToken);
+        var households = await GetHouseholdsAsync(userId, cancellationToken);
 
-        var selected = households.FirstOrDefault(item => item.Id == householdId)
-            ?? households.FirstOrDefault();
+        var selected = householdId.HasValue
+            ? households.FirstOrDefault(item => item.Id == householdId.Value)
+            : households.FirstOrDefault();
 
         if (selected is null)
         {
@@ -81,17 +104,16 @@ public sealed class DashboardReadService(EnergyManagementDbContext dbContext)
     public async Task<DeviceInventoryPage> GetDevicesAsync(
         int? householdId,
         string? search,
+        int userId,
         int page,
         int pageSize,
         CancellationToken cancellationToken)
     {
-        var households = await dbContext.Households
-            .AsNoTracking()
-            .OrderBy(item => item.Name)
-            .Select(item => new HouseholdOption(item.Id, item.HouseholdCode, item.Name))
-            .ToArrayAsync(cancellationToken);
+        var households = await GetHouseholdsAsync(userId, cancellationToken);
+        var accessibleIds = households.Select(item => item.Id).ToArray();
 
-        var query = dbContext.Devices.AsNoTracking();
+        var query = dbContext.Devices.AsNoTracking()
+            .Where(item => accessibleIds.Contains(item.HouseholdId));
         if (householdId.HasValue)
         {
             query = query.Where(item => item.HouseholdId == householdId.Value);
@@ -126,8 +148,9 @@ public sealed class DashboardReadService(EnergyManagementDbContext dbContext)
                 item.LastSeenAtUtc))
             .ToArrayAsync(cancellationToken);
 
-        var selected = households.FirstOrDefault(item => item.Id == householdId)
-            ?? households.FirstOrDefault();
+        var selected = householdId.HasValue
+            ? households.FirstOrDefault(item => item.Id == householdId.Value)
+            : households.FirstOrDefault();
 
         return new DeviceInventoryPage(
             households,
