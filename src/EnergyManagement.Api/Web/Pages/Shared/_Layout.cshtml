@@ -54,6 +54,12 @@
                 <a asp-page="/Account/Profile" class="nav-link @(currentPath.StartsWith("/Account/Profile") ? "nav-link-active" : "")">
                     <span class="nav-icon">◉</span> Account security
                 </a>
+                @if (User.IsInRole("Administrator"))
+                {
+                    <a asp-page="/Households/Users" class="nav-link @(currentPath.StartsWith("/Households/Users") ? "nav-link-active" : "")">
+                        <span class="nav-icon">♙</span> Household users
+                    </a>
+                }
             </div>
         </nav>
         <div class="border-t border-slate-200 p-4 dark:border-slate-800">

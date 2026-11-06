@@ -1,4 +1,5 @@
 using EnergyManagement.Api.Infrastructure.Persistence;
+using EnergyManagement.Api.Modules.Identity;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -18,7 +19,8 @@ public sealed class EnergyManagementApiFactory(string connectionString)
         {
             configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:EnergyManagement"] = connectionString
+                ["ConnectionStrings:EnergyManagement"] = connectionString,
+                ["EMS_PUBLIC_BASE_URL"] = "https://ems.example.test"
             });
         });
 
@@ -32,6 +34,11 @@ public sealed class EnergyManagementApiFactory(string connectionString)
 
             services.AddDbContext<EnergyManagementDbContext>(options =>
                 options.UseNpgsql(connectionString));
+
+            services.RemoveAll<IEmailSender>();
+            services.AddSingleton<TestEmailSender>();
+            services.AddSingleton<IEmailSender>(provider =>
+                provider.GetRequiredService<TestEmailSender>());
 
             services.AddAuthentication(options =>
             {

@@ -26,10 +26,18 @@
     </div>
 </section>
 
-<section class="panel mt-5 p-6">
-    <h3 class="font-semibold">Household management</h3>
-    <p class="mt-1 text-sm text-slate-500">Household member invitations, role assignments and access revocation are not available yet. These controls will be enabled after the invitation workflow is implemented and validated.</p>
-</section>
+@if (Model.DefaultAdministratorHouseholdId.HasValue)
+{
+    <section class="panel mt-5 p-6">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+                <h3 class="font-semibold">Household management</h3>
+                <p class="mt-1 text-sm text-slate-500">Invite users, assign household roles and revoke outstanding invitations.</p>
+            </div>
+            <a asp-page="/Households/Users" asp-route-householdId="@Model.DefaultAdministratorHouseholdId" class="primary-button">Manage household users</a>
+        </div>
+    </section>
+}
 
 <section class="panel mt-5 p-6">
     <h3 class="font-semibold">Device and telemetry services</h3>

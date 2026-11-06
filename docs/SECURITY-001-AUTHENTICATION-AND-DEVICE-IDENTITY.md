@@ -20,8 +20,8 @@ Every household-scoped operation must derive and validate household membership f
 - Bootstrap requires the deployment secrets `EMS_BOOTSTRAP_ADMIN_EMAIL`, `EMS_BOOTSTRAP_ADMIN_PASSWORD`, and `EMS_BOOTSTRAP_HOUSEHOLD_NAME`. The first account is email-confirmed as part of this trusted operator-controlled bootstrap.
 - Bootstrap is disabled once any user exists unless the configured bootstrap account already exists; it is idempotent for that account and creates its initial household membership once.
 - Identity schema migrations run independently from the EMS domain migration history. The API applies both migration sets before serving requests.
-- Additional users join only through Administrator-issued email invitations. Invitation delivery and acceptance are still pending implementation; no self-registration endpoint is exposed.
-- Invitations are random, single-use, time-limited, revocable, and bound to one household and one assigned role.
+- Additional users join only through Administrator-issued email invitations. Invitation creation, email delivery, acceptance, revocation, and household role management are implemented.
+- Invitations use cryptographically random single-use tokens; only SHA-256 hashes are stored. They expire after 24 hours, are revocable, and are bound to one household and one assigned role. New accounts are created only through a valid invitation; existing users must sign in with the invited email address to accept.
 - Password recovery uses 30-minute, single-use Identity reset tokens delivered by email. Responses do not disclose whether an address exists. This flow is implemented.
 - SMTP delivery is provider-independent and configured through deployment secrets/environment variables. Credentials must never be committed. Password reset is implemented. Configure `EMS_SMTP_HOST`, `EMS_SMTP_PORT` (default 587), `EMS_SMTP_USERNAME`, `EMS_SMTP_PASSWORD`, `EMS_SMTP_FROM`, `EMS_SMTP_ENABLE_SSL` (default true), and HTTPS `EMS_PUBLIC_BASE_URL`.
 - MFA uses authenticator-app TOTP. Administrators must enroll before accessing protected operations; MFA is optional for Members and Viewers. Enrollment, authenticator challenge, and ten one-time recovery codes are implemented. Recovery codes are cryptographically random, stored only as SHA-256 hashes, and redeemed atomically once.
@@ -94,11 +94,13 @@ Implemented on `feat/household-device-security`:
 - Email/password sign-in and sign-out pages; public self-registration is not mapped.
 - Secure application cookies with a 15-minute inactivity timeout and an eight-hour absolute session limit.
 - Administrator bootstrap through deployment environment secrets.
-- Household membership persistence and role-aware access checks for household/device API operations and SSR device/dashboard queries.
-- Integration coverage for anonymous API rejection, administrator MFA enforcement, household role restrictions, and cross-household isolation.
+- Household membership persistence, administrator-issued invitations, single-use invitation acceptance, membership role changes, and last-administrator protection.
+- Account security profile, household user management, role-aware device registration UI, and clean anonymous account pages.
+- Integration coverage for invitation acceptance and authorization, anonymous API rejection, administrator MFA enforcement, household role restrictions, and cross-household isolation.
 
 Still pending:
-- Invitation creation, email delivery, invitation acceptance, and membership management UI/API.
+- Lost-authenticator and lost-recovery-code administrative recovery workflow.
+- Recent-authentication checks for sensitive operations.
 - Password-reset delivery and token redemption.
 - Lost-authenticator and lost-recovery-code administrative recovery workflow.
 - Recent-authentication checks for sensitive operations.
