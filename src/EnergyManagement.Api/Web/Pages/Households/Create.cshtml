@@ -17,7 +17,7 @@
         <div asp-validation-summary="ModelOnly" class="text-sm text-rose-600"></div>
         <div>
             <label asp-for="Input.Name" class="field-label">Household name</label>
-            <input asp-for="Input.Name" class="form-input mt-2" maxlength="120" placeholder="e.g. Main Residence" autocomplete="organization" />
+            <input asp-for="Input.Name" class="control-input mt-2" maxlength="120" placeholder="e.g. Main Residence" autocomplete="organization" />
             <span asp-validation-for="Input.Name" class="mt-1 block text-xs text-rose-600"></span>
             <p class="mt-2 text-xs leading-5 text-slate-500">A unique household code will be generated automatically. You will become its administrator and can invite other household users.</p>
         </div>
