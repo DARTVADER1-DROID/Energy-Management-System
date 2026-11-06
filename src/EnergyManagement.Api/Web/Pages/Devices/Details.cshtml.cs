@@ -43,7 +43,7 @@ public sealed class DetailsModel(
                 .OrderByDescending(item => item.CreatedAtUtc)
                 .Take(20)
                 .Select(item => new DeviceSecurityAuditSummary(
-                    item.EventType, item.Details, item.CreatedAtUtc))
+                    item.EventType, item.ActorUserId, item.Details, item.CreatedAtUtc))
                 .ToArrayAsync(cancellationToken);
         }
         return Page();
@@ -178,4 +178,4 @@ public sealed class DetailsModel(
 
 
 public sealed record DeviceSecurityAuditSummary(
-    string EventType, string Details, DateTimeOffset CreatedAtUtc);
+    string EventType, int? ActorUserId, string Details, DateTimeOffset CreatedAtUtc);
