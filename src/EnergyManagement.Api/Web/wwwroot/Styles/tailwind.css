@@ -5,6 +5,8 @@
 @source "../../Pages/**/*.cshtml.cs";
 
 @layer components {
+  .field-label { @apply block text-sm font-medium text-slate-700 dark:text-slate-300; }
+  .wizard-step-active { @apply border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-200; }
   .panel, .metric-card { @apply rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900; }
   .metric-card { @apply p-5; }
   .metric-label, .eyebrow, .nav-heading { @apply text-xs font-bold uppercase tracking-wider text-slate-500; }

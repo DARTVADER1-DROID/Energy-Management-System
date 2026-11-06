@@ -48,6 +48,17 @@
             const submit = wizard.querySelector("[data-wizard-submit]");
             if (next) next.hidden = activeStep === steps.length - 1;
             if (submit) submit.hidden = activeStep !== steps.length - 1;
+            if (activeStep === steps.length - 1) {
+                const value = id => document.getElementById(id)?.value || "—";
+                const text = (id, content) => {
+                    const target = document.getElementById(id);
+                    if (target) target.textContent = content;
+                };
+                text("review-name", value("Input_Name"));
+                text("review-hardware", value("Input_HardwareModel"));
+                text("review-location", value("Input_InstallationLocation"));
+                text("review-electrical", wizard.querySelector('input[name="Input.ElectricalConfiguration"]:checked')?.value || "—");
+            }
         };
         wizard.querySelector("[data-wizard-next]")?.addEventListener("click", () => {
             const invalid = [...steps[activeStep].querySelectorAll("input, select, textarea")]
