@@ -51,6 +51,10 @@
                     <p class="mt-2 text-xs text-slate-500">Each recovery code can be used once. Keep unused codes somewhere private and secure.</p>
                 }
             </div>
+            <form method="post" asp-page-handler="RegenerateRecoveryCodes" class="mt-4"
+                  onsubmit="return confirm('Regenerate all recovery codes? Previously issued codes will stop working.');">
+                <button type="submit" class="secondary-button">Regenerate recovery codes</button>
+            </form>
         }
         else
         {
@@ -64,6 +68,20 @@
         }
     </section>
 </div>
+
+@if (Model.GeneratedRecoveryCodes.Count > 0)
+{
+    <section class="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-6 dark:border-amber-900 dark:bg-amber-950/30">
+        <h3 class="font-semibold text-amber-950 dark:text-amber-100">Save your new recovery codes now</h3>
+        <p class="mt-2 text-sm leading-6 text-amber-900 dark:text-amber-200">These ten codes are shown only in this response. All previously issued recovery codes have been invalidated. Store these codes in a secure location.</p>
+        <div class="mt-4 grid gap-2 sm:grid-cols-2">
+            @foreach (var code in Model.GeneratedRecoveryCodes)
+            {
+                <code class="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-slate-900 dark:bg-slate-900 dark:text-slate-100">@code</code>
+            }
+        </div>
+    </section>
+}
 
 <section class="panel mt-5 p-6">
     <p class="eyebrow">Session protection</p>

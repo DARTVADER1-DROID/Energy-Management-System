@@ -112,6 +112,17 @@ public sealed class RecentAuthenticationTests(PostgreSqlFixture postgres) : IAsy
     }
 
     [Fact]
+    public async Task AccountSecurityPageOffersRecoveryCodeRegenerationWhenMfaIsEnabled()
+    {
+        var response = await _client.GetAsync("/Account/Profile");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Recovery codes remaining", html);
+        Assert.Contains("Regenerate recovery codes", html);
+    }
+
+    [Fact]
     public async Task ReauthenticationPagePromptsForPassword()
     {
         var response = await _client.GetAsync("/Account/Reauthenticate");

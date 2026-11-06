@@ -9,19 +9,42 @@ namespace EnergyManagement.Api.Web.Pages.Account;
 
 public sealed class ProfileModel(
     UserManager<ApplicationUser> userManager,
-    IdentityDbContext identityDb) : PageModel
+    IdentityDbContext identityDb,
+    MfaRecoveryCodeService recoveryCodeService) : PageModel
 {
     public string Email { get; private set; } = string.Empty;
     public bool EmailConfirmed { get; private set; }
     public bool TwoFactorEnabled { get; private set; }
     public bool IsAdministrator { get; private set; }
     public int RecoveryCodesRemaining { get; private set; }
+    public IReadOnlyList<string> GeneratedRecoveryCodes { get; private set; } = [];
 
-    public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
+    public Task<IActionResult> OnGetAsync(CancellationToken cancellationToken) =>
+        LoadAsync(cancellationToken);
+
+    public async Task<IActionResult> OnPostRegenerateRecoveryCodesAsync(
+        CancellationToken cancellationToken)
+    {
+        if (!User.HasRecentAuthentication())
+        {
+            var returnUrl = Url.Page("/Account/Profile");
+            return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
+        }
+
+        var user = await userManager.GetUserAsync(User);
+        if (user is null) return Challenge();
+        if (!user.TwoFactorEnabled) return Forbid();
+
+        GeneratedRecoveryCodes = await recoveryCodeService.GenerateAsync(user.Id, cancellationToken);
+        Response.Headers["Cache-Control"] = "no-store";
+        Response.Headers["Pragma"] = "no-cache";
+        return await LoadAsync(cancellationToken);
+    }
+
+    private async Task<IActionResult> LoadAsync(CancellationToken cancellationToken)
     {
         var user = await userManager.GetUserAsync(User);
-        if (user is null)
-            return Challenge();
+        if (user is null) return Challenge();
 
         Email = user.Email ?? string.Empty;
         EmailConfirmed = user.EmailConfirmed;
@@ -30,7 +53,6 @@ public sealed class ProfileModel(
         RecoveryCodesRemaining = await identityDb.MfaRecoveryCodes
             .AsNoTracking()
             .CountAsync(code => code.UserId == user.Id && code.UsedAtUtc == null, cancellationToken);
-
         return Page();
     }
 }
