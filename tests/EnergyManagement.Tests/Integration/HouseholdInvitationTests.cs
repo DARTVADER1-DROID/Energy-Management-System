@@ -217,6 +217,28 @@ public sealed class HouseholdInvitationTests(PostgreSqlFixture postgres) : IAsyn
         Assert.Contains("Add a household user", html);
     }
 
+    [Fact]
+    public async Task HouseholdAdministratorCanOpenHouseholdCreationPage()
+    {
+        var response = await _client.GetAsync("/Households/Create");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Create a household", html);
+        Assert.Contains("Household name", html);
+    }
+
+    [Fact]
+    public async Task HouseholdMemberCannotOpenHouseholdCreationPage()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/Households/Create");
+        request.Headers.Add("X-Test-Role", "Household Member");
+
+        using var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     public async Task DisposeAsync()
     {
         _client.Dispose();
