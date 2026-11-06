@@ -32,6 +32,13 @@ public sealed class DeviceAuthenticationService(
         if (!device.IsActive)
             throw new InvalidOperationException("A deactivated device cannot be provisioned.");
 
+        if (await securityDb.Credentials.AnyAsync(
+            item => item.DeviceId == device.Id && item.RevokedAtUtc == null, cancellationToken))
+            throw new InvalidOperationException("This device already has an active credential. Credential rotation is not yet available.");
+
+        var encryptionKey = GetEncryptionKey();
+        CryptographicOperations.ZeroMemory(encryptionKey);
+
         if (!await householdAccess.IsAdministratorAsync(
             administratorUserId, device.HouseholdId, cancellationToken))
             throw new UnauthorizedAccessException("Only a household administrator can provision this device.");
