@@ -434,6 +434,20 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
             service.RevokeCredentialsAsync(_deviceCode, 2, access));
     }
 
+    [Fact]
+    public async Task DeviceConsoleDisplaysAdministratorSecurityAuditHistory()
+    {
+        await ProvisionDeviceAsync();
+
+        using var response = await _client.GetAsync($"/Devices/{_deviceCode}");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Device security history", html);
+        Assert.Contains("ProvisioningCodeCreated", html);
+        Assert.Contains("DeviceProvisioned", html);
+    }
+
     private async Task<string> ProvisionDeviceAsync()
     {
         await using var scope = _factory.Services.CreateAsyncScope();
