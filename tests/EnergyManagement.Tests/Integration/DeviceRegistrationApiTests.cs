@@ -196,6 +196,34 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
     }
 
     [Fact]
+    public async Task HouseholdMemberCannotSeeDeviceSecurityAuditHistory()
+    {
+        var householdId = await CreateHouseholdAsync("Audit Visibility Home");
+        var registration = await _client.PostAsJsonAsync(
+            $"/api/devices/{householdId}", ValidRequest());
+        var device = await registration.Content.ReadFromJsonAsync<DeviceResponse>();
+        Assert.NotNull(device);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            identityDb.HouseholdMemberships.Add(new HouseholdMembership(
+                2, householdId, HouseholdRole.HouseholdMember));
+            await identityDb.SaveChangesAsync();
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/Devices/{device.DeviceCode}");
+        request.Headers.Add("X-Test-User-Id", "2");
+        request.Headers.Add("X-Test-Role", "Household Member");
+        using var response = await _client.SendAsync(request);
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Device console", html);
+        Assert.DoesNotContain("Security activity", html);
+    }
+
+    [Fact]
     public async Task CreateHousehold_ReturnsGeneratedHouseholdCode()
     {
         var response = await _client.PostAsJsonAsync(
