@@ -152,10 +152,15 @@ public sealed class RecentAuthenticationTests(PostgreSqlFixture postgres) : IAsy
     [Fact]
     public async Task MfaEnrollmentRequiresRecentAuthenticationAndDisablesCaching()
     {
+        using var noRedirectClient = _factory.CreateClient(
+            new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+            {
+                AllowAutoRedirect = false
+            });
         using var request = new HttpRequestMessage(HttpMethod.Get, "/Account/EnableMfa");
         request.Headers.Add("X-Test-No-Recent-Auth", "true");
 
-        using var response = await _client.SendAsync(request);
+        using var response = await noRedirectClient.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Contains("/Account/Reauthenticate", response.Headers.Location?.ToString());
