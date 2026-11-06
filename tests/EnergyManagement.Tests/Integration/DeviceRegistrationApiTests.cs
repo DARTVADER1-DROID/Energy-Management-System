@@ -388,8 +388,10 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
         await dbContext.Database.EnsureDeletedAsync();
 
         var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var deviceSecurityDb = scope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
         await dbContext.Database.MigrateAsync();
         await identityDb.Database.MigrateAsync();
+        await deviceSecurityDb.Database.MigrateAsync();
         identityDb.Users.AddRange(
             new ApplicationUser
             {
