@@ -174,6 +174,90 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
     }
 
     [Fact]
+    public async Task CredentialRotationKeepsOldKeyUntilNewKeyIsConfirmed()
+    {
+        var originalSecret = await ProvisionDeviceAsync();
+        var originalKey = WebEncoders.Base64UrlDecode(originalSecret);
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var service = scope.ServiceProvider.GetRequiredService<DeviceAuthenticationService>();
+        var access = scope.ServiceProvider.GetRequiredService<HouseholdAccessService>();
+        var rotation = await service.CreateCredentialRotationAsync(_deviceCode, 1, access);
+        var replacementKey = WebEncoders.Base64UrlDecode(rotation.NewDeviceSecret);
+
+        var originalTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var originalNonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+        using var originalResponse = await SendHeartbeatAsync(
+            originalTimestamp, originalNonce,
+            SignHeartbeat(originalKey, originalTimestamp, originalNonce));
+        Assert.Equal(HttpStatusCode.OK, originalResponse.StatusCode);
+
+        var securityDb = scope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
+        var duringRotation = await securityDb.Credentials.AsNoTracking()
+            .Where(item => item.DeviceId > 0 && item.RevokedAtUtc == null)
+            .ToArrayAsync();
+        Assert.Equal(2, duringRotation.Length);
+        Assert.Single(duringRotation, item => item.IsPendingRotation);
+
+        var replacementTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var replacementNonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+        using var replacementResponse = await SendHeartbeatAsync(
+            replacementTimestamp, replacementNonce,
+            SignHeartbeat(replacementKey, replacementTimestamp, replacementNonce));
+        Assert.Equal(HttpStatusCode.OK, replacementResponse.StatusCode);
+
+        var afterConfirmation = await securityDb.Credentials.AsNoTracking()
+            .Where(item => item.DeviceId > 0)
+            .ToArrayAsync();
+        Assert.Single(afterConfirmation, item => item.RevokedAtUtc == null);
+        Assert.False(Assert.Single(afterConfirmation, item => item.RevokedAtUtc == null).IsPendingRotation);
+        Assert.Contains(afterConfirmation, item => item.RevokedAtUtc != null && !item.IsPendingRotation);
+
+        var oldTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var oldNonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+        using var oldKeyResponse = await SendHeartbeatAsync(
+            oldTimestamp, oldNonce, SignHeartbeat(originalKey, oldTimestamp, oldNonce));
+        Assert.Equal(HttpStatusCode.Unauthorized, oldKeyResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task ExpiredCredentialRotationLeavesOriginalKeyUsable()
+    {
+        var originalSecret = await ProvisionDeviceAsync();
+        var originalKey = WebEncoders.Base64UrlDecode(originalSecret);
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var service = scope.ServiceProvider.GetRequiredService<DeviceAuthenticationService>();
+        var access = scope.ServiceProvider.GetRequiredService<HouseholdAccessService>();
+        var rotation = await service.CreateCredentialRotationAsync(_deviceCode, 1, access);
+        var replacementKey = WebEncoders.Base64UrlDecode(rotation.NewDeviceSecret);
+
+        var securityDb = scope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
+        await securityDb.Credentials
+            .Where(item => item.DeviceId > 0 && item.IsPendingRotation)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(
+                item => item.RotationExpiresAtUtc, DateTimeOffset.UtcNow.AddMinutes(-1)));
+
+        var expiredTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var expiredNonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+        using var expiredResponse = await SendHeartbeatAsync(
+            expiredTimestamp, expiredNonce,
+            SignHeartbeat(replacementKey, expiredTimestamp, expiredNonce));
+        Assert.Equal(HttpStatusCode.Unauthorized, expiredResponse.StatusCode);
+
+        var originalTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var originalNonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+        using var originalResponse = await SendHeartbeatAsync(
+            originalTimestamp, originalNonce,
+            SignHeartbeat(originalKey, originalTimestamp, originalNonce));
+        Assert.Equal(HttpStatusCode.OK, originalResponse.StatusCode);
+
+        var activeOriginal = await securityDb.Credentials.AsNoTracking()
+            .SingleAsync(item => item.DeviceId > 0 && !item.IsPendingRotation && item.RevokedAtUtc == null);
+        Assert.False(activeOriginal.IsPendingRotation);
+    }
+
+    [Fact]
     public async Task HeartbeatRequestsAreRateLimitedPerDeviceAndIp()
     {
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
