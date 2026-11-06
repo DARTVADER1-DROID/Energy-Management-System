@@ -51,6 +51,9 @@
                 <a asp-page="/Settings/Index" class="nav-link @(currentPath.StartsWith("/Settings") ? "nav-link-active" : "")">
                     <span class="nav-icon">⚙</span> Settings
                 </a>
+                <a asp-page="/Account/Profile" class="nav-link @(currentPath.StartsWith("/Account/Profile") ? "nav-link-active" : "")">
+                    <span class="nav-icon">◉</span> Account security
+                </a>
             </div>
         </nav>
         <div class="border-t border-slate-200 p-4 dark:border-slate-800">
