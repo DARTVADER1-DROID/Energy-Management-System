@@ -1,12 +1,15 @@
 using System.ComponentModel.DataAnnotations;
 using EnergyManagement.Api.Modules.Identity;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace EnergyManagement.Api.Web.Pages.Account;
 
-public sealed class LoginModel(SignInManager<ApplicationUser> signInManager) : PageModel
+public sealed class LoginModel(
+    SignInManager<ApplicationUser> signInManager,
+    UserManager<ApplicationUser> userManager) : PageModel
 {
     [BindProperty]
     public LoginInput Input { get; set; } = new();
@@ -29,13 +32,19 @@ public sealed class LoginModel(SignInManager<ApplicationUser> signInManager) : P
             isPersistent: false,
             lockoutOnFailure: true);
 
-        if (result.Succeeded) return LocalRedirect(ReturnUrl);
-        if (result.RequiresTwoFactor)
+        if (result.Succeeded)
         {
-            ModelState.AddModelError(string.Empty,
-                "This account requires authenticator verification. Complete MFA setup or use the authenticator challenge.");
-            return Page();
+            var user = await userManager.FindByEmailAsync(Input.Email.Trim());
+            if (user is not null &&
+                await userManager.IsInRoleAsync(user, "Administrator") &&
+                !user.TwoFactorEnabled)
+                return RedirectToPage("/Account/EnableMfa");
+
+            return LocalRedirect(ReturnUrl);
         }
+
+        if (result.RequiresTwoFactor)
+            return RedirectToPage("/Account/TwoFactorLogin", new { returnUrl = ReturnUrl });
 
         ModelState.AddModelError(string.Empty, "The email or password is incorrect, or the account is not yet eligible to sign in.");
         return Page();

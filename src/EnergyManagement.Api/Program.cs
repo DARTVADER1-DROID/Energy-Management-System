@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Authorization;
 using EnergyManagement.Api.Endpoints;
 using EnergyManagement.Api.Infrastructure.Persistence;
 using EnergyManagement.Api.Infrastructure.IdentityPersistence;
@@ -107,12 +109,43 @@ builder.Services.ConfigureApplicationCookie(options =>
     };
 });
 
+builder.Services.AddScoped<IAuthorizationHandler, AdministratorMfaAuthorizationHandler>();
 builder.Services.AddAuthorization(options =>
 {
+    var authenticatedWithAdministratorMfa = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .AddRequirements(new AdministratorMfaRequirement())
+        .Build();
+
+    options.DefaultPolicy = authenticatedWithAdministratorMfa;
+    options.FallbackPolicy = authenticatedWithAdministratorMfa;
+
     options.AddPolicy("HouseholdAdministrator", policy =>
         policy.RequireAuthenticatedUser().RequireRole("Administrator"));
     options.AddPolicy("HouseholdOperator", policy =>
         policy.RequireAuthenticatedUser().RequireRole("Administrator", "Household Member"));
+});
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+    {
+        var path = context.Request.Path.Value ?? "/";
+        if (!path.StartsWith("/Account/", StringComparison.OrdinalIgnoreCase))
+            return RateLimitPartition.GetNoLimiter("non-account");
+
+        var client = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            $"{client}:{path}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
 });
 
 builder.Services.AddScoped<DeviceRegistrationService>();
@@ -127,6 +160,8 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AllowAnonymousToPage("/Account/AccessDenied");
     options.Conventions.AllowAnonymousToPage("/Account/ForgotPassword");
     options.Conventions.AllowAnonymousToPage("/Account/ResetPassword");
+    options.Conventions.AllowAnonymousToPage("/Account/EnableMfa");
+    options.Conventions.AllowAnonymousToPage("/Account/TwoFactorLogin");
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -168,6 +203,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapHealthEndpoints();
