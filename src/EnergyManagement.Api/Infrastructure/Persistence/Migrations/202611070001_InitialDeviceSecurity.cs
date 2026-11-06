@@ -36,6 +36,9 @@ public sealed class InitialDeviceSecurity : Migration
                 SecretHash = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                 ProtectedSigningKey = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
                 CreatedAtUtc = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                IsPendingRotation = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                RotationExpiresAtUtc = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                ConfirmedAtUtc = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                 RevokedAtUtc = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
             },
             constraints: table => table.PrimaryKey("PK_device_credentials", x => x.Id));
@@ -60,12 +63,13 @@ public sealed class InitialDeviceSecurity : Migration
             unique: true,
             filter: "\"UsedAtUtc\" IS NULL AND \"RevokedAtUtc\" IS NULL");
         migrationBuilder.CreateIndex("IX_device_provisioning_codes_DeviceId_ExpiresAtUtc", "device_provisioning_codes", new[] { "DeviceId", "ExpiresAtUtc" });
+        migrationBuilder.CreateIndex("IX_device_credentials_DeviceId_RevokedAtUtc", "device_credentials", new[] { "DeviceId", "RevokedAtUtc" });
         migrationBuilder.CreateIndex(
             name: "IX_device_credentials_DeviceId",
             table: "device_credentials",
             column: "DeviceId",
             unique: true,
-            filter: "\"RevokedAtUtc\" IS NULL");
+            filter: "\"IsPendingRotation\" = TRUE AND \"RevokedAtUtc\" IS NULL");
         migrationBuilder.CreateIndex("IX_device_request_nonces_DeviceId_Nonce", "device_request_nonces", new[] { "DeviceId", "Nonce" }, unique: true);
         migrationBuilder.CreateIndex("IX_device_request_nonces_CreatedAtUtc", "device_request_nonces", "CreatedAtUtc");
     }
