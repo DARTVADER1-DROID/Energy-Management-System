@@ -162,8 +162,8 @@ public sealed class RecentAuthenticationTests(PostgreSqlFixture postgres) : IAsy
 
         using var response = await noRedirectClient.SendAsync(request);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("/Account/Reauthenticate", response.RequestMessage?.RequestUri?.AbsolutePath);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains("/Account/Reauthenticate", response.Headers.Location?.ToString());
         Assert.Contains("no-store", response.Headers.CacheControl?.ToString());
     }
 
