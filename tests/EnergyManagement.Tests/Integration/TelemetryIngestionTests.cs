@@ -104,6 +104,25 @@ public sealed class TelemetryIngestionTests(PostgreSqlFixture postgres) : IAsync
     }
 
     [Fact]
+    public async Task HouseholdMemberCanQueryTelemetryHistoryForTheirDevice()
+    {
+        var secret = await ProvisionDeviceAsync();
+        var envelope = CreateEnvelope();
+        using var ingestResponse = await SendTelemetryAsync(secret, envelope);
+        Assert.Equal(HttpStatusCode.Accepted, ingestResponse.StatusCode);
+
+        var fromUtc = DateTimeOffset.UtcNow.AddHours(-1).ToString("O");
+        var toUtc = DateTimeOffset.UtcNow.AddHours(1).ToString("O");
+        var url = $"/api/devices/{_deviceCode}/telemetry?fromUtc={Uri.EscapeDataString(fromUtc)}&toUtc={Uri.EscapeDataString(toUtc)}&limit=10";
+        using var historyResponse = await _client.GetAsync(url);
+        var body = await historyResponse.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, historyResponse.StatusCode);
+        Assert.Contains(envelope.SampleId.ToString(), body);
+        Assert.Contains("231.4", body);
+    }
+
+    [Fact]
     public async Task DashboardDisplaysPersistedTelemetryInsteadOfPlaceholderValues()
     {
         var secret = await ProvisionDeviceAsync();
