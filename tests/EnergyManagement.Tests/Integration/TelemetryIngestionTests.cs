@@ -133,7 +133,7 @@ public sealed class TelemetryIngestionTests(PostgreSqlFixture postgres) : IAsync
         var html = await dashboardResponse.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, dashboardResponse.StatusCode);
-        Assert.Contains("Telemetry reporting", html);
+        Assert.Contains("Telemetry data available", html);
         Assert.Contains("0.92", html);
         Assert.Contains("231.4", html);
         Assert.Contains("12.54", html);
