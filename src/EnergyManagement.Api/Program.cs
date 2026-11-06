@@ -113,6 +113,8 @@ builder.Services.AddAuthorization(options =>
 
 builder.Services.AddScoped<DeviceRegistrationService>();
 builder.Services.AddScoped<DashboardReadService>();
+builder.Services.AddScoped<HouseholdAccessService>();
+builder.Services.AddScoped<InitialAdminBootstrapper>();
 builder.Services.AddRazorPages(options =>
 {
     options.RootDirectory = "/Web/Pages";
@@ -140,6 +142,9 @@ await using (var scope = app.Services.CreateAsyncScope())
 {
     var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
     await identityDb.Database.MigrateAsync();
+
+    var bootstrapper = scope.ServiceProvider.GetRequiredService<InitialAdminBootstrapper>();
+    await bootstrapper.InitializeAsync();
 }
 
 if (app.Environment.IsDevelopment())

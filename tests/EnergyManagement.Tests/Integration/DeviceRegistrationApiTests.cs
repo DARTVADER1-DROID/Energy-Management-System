@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using EnergyManagement.Api.Infrastructure.Persistence;
+using EnergyManagement.Api.Infrastructure.IdentityPersistence;
+using EnergyManagement.Api.Modules.Identity;
 using EnergyManagement.Api.Modules.Devices;
 using EnergyManagement.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -266,6 +268,18 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
         await using var scope = _factory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
         await dbContext.Database.EnsureDeletedAsync();
+
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        await identityDb.Database.MigrateAsync();
+        identityDb.Users.Add(new ApplicationUser
+        {
+            Id = 1,
+            UserName = "integration-test@example.test",
+            Email = "integration-test@example.test",
+            EmailConfirmed = true
+        });
+        await identityDb.SaveChangesAsync();
+
         await dbContext.Database.MigrateAsync();
     }
 

@@ -1,5 +1,7 @@
 using EnergyManagement.Api.Infrastructure.Persistence;
 using EnergyManagement.Api.Modules.Households;
+using EnergyManagement.Api.Modules.Identity;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 
@@ -38,6 +40,8 @@ public static class DeviceEndpoints
     private static async Task<Results<Created<HouseholdResponse>, ValidationProblem>> CreateHouseholdAsync(
         CreateHouseholdRequest request,
         DeviceRegistrationService service,
+        HouseholdAccessService householdAccess,
+        ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 120)
@@ -49,6 +53,8 @@ public static class DeviceEndpoints
         }
 
         var household = await service.CreateHouseholdAsync(request.Name, cancellationToken);
+        await householdAccess.AddMembershipAsync(
+            GetUserId(user), household.Id, HouseholdRole.Administrator, cancellationToken);
         return TypedResults.Created(
             $"/api/households/{household.Id}",
             new HouseholdResponse(household.Id, household.HouseholdCode, household.Name));
@@ -56,10 +62,14 @@ public static class DeviceEndpoints
 
     private static async Task<Ok<IReadOnlyList<HouseholdResponse>>> ListHouseholdsAsync(
         EnergyManagementDbContext dbContext,
+        HouseholdAccessService householdAccess,
+        ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
+        var householdIds = await householdAccess.GetHouseholdIdsAsync(GetUserId(user), cancellationToken);
         var households = await dbContext.Households
             .AsNoTracking()
+            .Where(item => householdIds.Contains(item.Id))
             .OrderBy(item => item.Id)
             .ToListAsync(cancellationToken);
 
@@ -71,8 +81,13 @@ public static class DeviceEndpoints
     private static async Task<Results<Ok<HouseholdResponse>, NotFound>> GetHouseholdAsync(
         int householdId,
         EnergyManagementDbContext dbContext,
+        HouseholdAccessService householdAccess,
+        ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
+        if (!await householdAccess.IsMemberAsync(GetUserId(user), householdId, cancellationToken))
+            return TypedResults.NotFound();
+
         var household = await dbContext.Households
             .AsNoTracking()
             .SingleOrDefaultAsync(item => item.Id == householdId, cancellationToken);
@@ -83,12 +98,17 @@ public static class DeviceEndpoints
                 household.Id, household.HouseholdCode, household.Name));
     }
 
-    private static async Task<Results<Created<DeviceResponse>, NotFound<string>, ValidationProblem>> RegisterDeviceAsync(
+    private static async Task<Results<Created<DeviceResponse>, NotFound<string>, ValidationProblem, ForbidHttpResult>> RegisterDeviceAsync(
         int householdId,
         RegisterDeviceRequest request,
         DeviceRegistrationService service,
+        HouseholdAccessService householdAccess,
+        ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
+        if (!await householdAccess.IsAdministratorAsync(GetUserId(user), householdId, cancellationToken))
+            return TypedResults.Forbid();
+
         var errors = Validate(request);
         if (errors.Count > 0) return TypedResults.ValidationProblem(errors);
 
@@ -110,9 +130,11 @@ public static class DeviceEndpoints
         }
     }
 
-    private static async Task<Results<Ok<IReadOnlyList<DeviceResponse>>, ValidationProblem>> ListDevicesAsync(
+    private static async Task<IResult> ListDevicesAsync(
         int? householdId,
         EnergyManagementDbContext dbContext,
+        HouseholdAccessService householdAccess,
+        ClaimsPrincipal user,
         HttpContext httpContext,
         CancellationToken cancellationToken,
         int page = 1,
@@ -145,26 +167,37 @@ public static class DeviceEndpoints
             devices.Select(DeviceResponse.From).ToArray());
     }
 
-    private static async Task<Results<Ok<DeviceResponse>, NotFound>> GetDeviceAsync(
+    private static async Task<IResult> GetDeviceAsync(
         string deviceCode,
         EnergyManagementDbContext dbContext,
+        HouseholdAccessService householdAccess,
+        ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
         var device = await dbContext.Devices.AsNoTracking()
             .SingleOrDefaultAsync(item => item.DeviceCode == deviceCode, cancellationToken);
 
-        return device is null ? TypedResults.NotFound() : TypedResults.Ok(DeviceResponse.From(device));
+        if (device is null || !await householdAccess.IsMemberAsync(
+                GetUserId(user), device.HouseholdId, cancellationToken))
+            return TypedResults.NotFound();
+
+        return TypedResults.Ok(DeviceResponse.From(device));
     }
 
-    private static async Task<Results<NoContent, NotFound>> DeactivateDeviceAsync(
+    private static async Task<IResult> DeactivateDeviceAsync(
         string deviceCode,
         EnergyManagementDbContext dbContext,
+        HouseholdAccessService householdAccess,
+        ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
         var device = await dbContext.Devices
             .SingleOrDefaultAsync(item => item.DeviceCode == deviceCode, cancellationToken);
 
         if (device is null) return TypedResults.NotFound();
+        if (!await householdAccess.IsAdministratorAsync(
+                GetUserId(user), device.HouseholdId, cancellationToken))
+            return TypedResults.Forbid();
 
         device.Deactivate();
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -185,6 +218,14 @@ public static class DeviceEndpoints
             errors["description"] = ["Description must not exceed 1000 characters."];
 
         return errors;
+    }
+
+    private static int GetUserId(ClaimsPrincipal user)
+    {
+        var identifier = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(identifier, out var userId)
+            ? userId
+            : throw new InvalidOperationException("The authenticated principal has no valid user identifier.");
     }
 
     private static void AddRequired(
