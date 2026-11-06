@@ -59,7 +59,19 @@ public sealed class DeviceAuthenticationService(
             device.Id, codeHash, administratorUserId, now.Add(ProvisioningLifetime));
 
         securityDb.ProvisioningCodes.Add(entity);
-        await securityDb.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await securityDb.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception) when (
+            exception.GetBaseException() is PostgresException postgres &&
+            postgres.SqlState == PostgresErrorCodes.UniqueViolation)
+        {
+            securityDb.Entry(entity).State = EntityState.Detached;
+            throw new InvalidOperationException(
+                "A provisioning code was generated concurrently. Refresh the page and try again.");
+        }
+
         return new ProvisioningCodeResult(device.DeviceCode, rawCode, entity.ExpiresAtUtc);
     }
 
