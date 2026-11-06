@@ -46,6 +46,29 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+
+    [Fact]
+    public async Task UserCannotReadAnotherHouseholdsResources()
+    {
+        var householdId = await CreateHouseholdAsync("Private Home");
+        await _client.PostAsJsonAsync($"/api/devices/{householdId}", ValidRequest());
+
+        using var householdRequest = new HttpRequestMessage(
+            HttpMethod.Get, $"/api/households/{householdId}");
+        householdRequest.Headers.Add("X-Test-User-Id", "2");
+        var householdResponse = await _client.SendAsync(householdRequest);
+
+        using var devicesRequest = new HttpRequestMessage(HttpMethod.Get, "/api/devices");
+        devicesRequest.Headers.Add("X-Test-User-Id", "2");
+        var devicesResponse = await _client.SendAsync(devicesRequest);
+        var devices = await devicesResponse.Content.ReadFromJsonAsync<DeviceResponse[]>();
+
+        Assert.Equal(HttpStatusCode.NotFound, householdResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, devicesResponse.StatusCode);
+        Assert.NotNull(devices);
+        Assert.Empty(devices);
+    }
+
     [Fact]
     public async Task DeviceRegistrationPage_RendersWizardForExistingHousehold()
     {
@@ -271,13 +294,21 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
 
         var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
         await identityDb.Database.MigrateAsync();
-        identityDb.Users.Add(new ApplicationUser
-        {
-            Id = 1,
-            UserName = "integration-test@example.test",
-            Email = "integration-test@example.test",
-            EmailConfirmed = true
-        });
+        identityDb.Users.AddRange(
+            new ApplicationUser
+            {
+                Id = 1,
+                UserName = "integration-test-admin@example.test",
+                Email = "integration-test-admin@example.test",
+                EmailConfirmed = true
+            },
+            new ApplicationUser
+            {
+                Id = 2,
+                UserName = "integration-test-other@example.test",
+                Email = "integration-test-other@example.test",
+                EmailConfirmed = true
+            });
         await identityDb.SaveChangesAsync();
 
         await dbContext.Database.MigrateAsync();
