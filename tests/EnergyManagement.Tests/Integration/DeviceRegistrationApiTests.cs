@@ -84,6 +84,32 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
     }
 
     [Fact]
+    public async Task ListDevices_AppliesPaginationAndReportsPageMetadata()
+    {
+        var householdId = await CreateHouseholdAsync("Pagination Home");
+        await _client.PostAsJsonAsync($"/api/devices/{householdId}", ValidRequest());
+        await _client.PostAsJsonAsync($"/api/devices/{householdId}", ValidRequest());
+
+        var response = await _client.GetAsync("/api/devices?page=2&pageSize=1");
+        var devices = await response.Content.ReadFromJsonAsync<DeviceResponse[]>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(devices);
+        Assert.Single(devices);
+        Assert.Equal("2", response.Headers.GetValues("X-Total-Count").Single());
+        Assert.Equal("2", response.Headers.GetValues("X-Page").Single());
+        Assert.Equal("1", response.Headers.GetValues("X-Page-Size").Single());
+        Assert.Equal("2", response.Headers.GetValues("X-Total-Pages").Single());
+    }
+
+    [Fact]
+    public async Task ListDevices_RejectsPageSizeAboveMaximum()
+    {
+        var response = await _client.GetAsync("/api/devices?pageSize=101");
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task RegisterDevice_UnknownHouseholdReturnsNotFound()
     {
         var response = await _client.PostAsJsonAsync("/api/devices/9999", ValidRequest());

@@ -7,6 +7,8 @@ namespace EnergyManagement.Api.Modules.Devices;
 
 public static class DeviceEndpoints
 {
+    private const int DefaultPageSize = 50;
+    private const int MaximumPageSize = 100;
     public static IEndpointRouteBuilder MapDeviceEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var households = endpoints.MapGroup("/api/households").WithTags("Households");
@@ -102,18 +104,50 @@ public static class DeviceEndpoints
         }
     }
 
-    private static async Task<Ok<IReadOnlyList<DeviceResponse>>> ListDevicesAsync(
+    private static async Task<Results<Ok<IReadOnlyList<DeviceResponse>>, ValidationProblem>> ListDevicesAsync(
         int? householdId,
         EnergyManagementDbContext dbContext,
-        CancellationToken cancellationToken)
+        HttpContext httpContext,
+        CancellationToken cancellationToken,
+        int page = 1,
+        int pageSize = DefaultPageSize)
     {
+        var errors = new Dictionary<string, string[]>();
+
+        if (page < 1 || page > int.MaxValue / Math.Max(pageSize, 1))
+        {
+            errors["page"] = ["Page must be a positive value within the supported range."];
+        }
+
+        if (pageSize is < 1 or > MaximumPageSize)
+        {
+            errors["pageSize"] = [$"Page size must be between 1 and {MaximumPageSize}."];
+        }
+
+        if (errors.Count > 0)
+        {
+            return TypedResults.ValidationProblem(errors);
+        }
+
         var query = dbContext.Devices.AsNoTracking();
         if (householdId.HasValue)
         {
             query = query.Where(device => device.HouseholdId == householdId.Value);
         }
 
-        var devices = await query.OrderBy(device => device.DeviceCode).ToListAsync(cancellationToken);
+        var totalCount = await query.CountAsync(cancellationToken);
+        var devices = await query
+            .OrderBy(device => device.DeviceCode)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        httpContext.Response.Headers["X-Total-Count"] = totalCount.ToString();
+        httpContext.Response.Headers["X-Page"] = page.ToString();
+        httpContext.Response.Headers["X-Page-Size"] = pageSize.ToString();
+        httpContext.Response.Headers["X-Total-Pages"] =
+            Math.Ceiling(totalCount / (double)pageSize).ToString("0");
+
         return TypedResults.Ok<IReadOnlyList<DeviceResponse>>(
             devices.Select(DeviceResponse.From).ToArray());
     }
