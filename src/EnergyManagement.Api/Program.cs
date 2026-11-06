@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.WebHost.UseWebRoot("Web/wwwroot");
 
 var connectionString = builder.Configuration.GetConnectionString("EnergyManagement")
     ?? Environment.GetEnvironmentVariable("EMS_TEST_CONNECTION_STRING")
