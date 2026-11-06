@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using EnergyManagement.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using EnergyManagement.Api.Modules.Identity;
 using Microsoft.AspNetCore.WebUtilities;
 using Npgsql;
 
@@ -202,7 +203,7 @@ public sealed class DeviceAuthenticationService(
             return null;
 
         await securityDb.RequestNonces
-            .Where(item => item.CreatedAtUtc < now.Subtract(NonceRetention))
+            .Where(item => item.DeviceId == device.Id && item.CreatedAtUtc < now.Subtract(NonceRetention))
             .ExecuteDeleteAsync(cancellationToken);
 
         securityDb.RequestNonces.Add(new DeviceRequestNonce(device.Id, nonce, now));
