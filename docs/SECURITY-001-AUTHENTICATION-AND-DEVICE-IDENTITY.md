@@ -20,7 +20,7 @@ Every household-scoped operation must derive and validate household membership f
 - Bootstrap requires the deployment secrets `EMS_BOOTSTRAP_ADMIN_EMAIL`, `EMS_BOOTSTRAP_ADMIN_PASSWORD`, and `EMS_BOOTSTRAP_HOUSEHOLD_NAME`. The first account is email-confirmed as part of this trusted operator-controlled bootstrap.
 - Bootstrap is disabled once any user exists unless the configured bootstrap account already exists; it is idempotent for that account and creates its initial household membership once.
 - Identity schema migrations run independently from the EMS domain migration history. The API applies both migration sets before serving requests.
-- Additional users join only through Administrator-issued email invitations. Invitation creation, email delivery, acceptance, revocation, and household role management are implemented.
+- Additional users join only through Administrator-issued email invitations. Invitation creation, email delivery, acceptance, revocation, household role management, member removal, and household-scoped security audit history are implemented.
 - Invitations use cryptographically random single-use tokens; only SHA-256 hashes are stored. They expire after 24 hours, are revocable, and are bound to one household and one assigned role. New accounts are created only through a valid invitation; existing users must sign in with the invited email address to accept.
 - Password recovery uses 30-minute, single-use Identity reset tokens delivered by email. Responses do not disclose whether an address exists. This flow is implemented.
 - SMTP delivery is provider-independent and configured through deployment secrets/environment variables. Credentials must never be committed. Password reset is implemented. Configure `EMS_SMTP_HOST`, `EMS_SMTP_PORT` (default 587), `EMS_SMTP_USERNAME`, `EMS_SMTP_PASSWORD`, `EMS_SMTP_FROM`, `EMS_SMTP_ENABLE_SSL` (default true), and HTTPS `EMS_PUBLIC_BASE_URL`.
@@ -97,12 +97,12 @@ Implemented on `feat/household-device-security`:
 - Secure application cookies with a 15-minute inactivity timeout and an eight-hour absolute session limit.
 - Administrator bootstrap through deployment environment secrets.
 - Household membership persistence, administrator-issued invitations, single-use invitation acceptance, membership role changes, and last-administrator protection.
-- Account security profile, household user management, administrator-assisted MFA recovery with audit events, role-aware device registration UI, clean anonymous account pages, and five-minute recent-authentication checks for household/device administration.
+- Account security profile, household user management, administrator-assisted MFA recovery, member removal, household-scoped audit history, role-aware device registration UI, clean anonymous account pages, and five-minute recent-authentication checks for household/device administration.
 - Integration coverage for invitation acceptance and authorization, anonymous API rejection, administrator MFA enforcement, household role restrictions, and cross-household isolation.
 
 Still pending:
 - Full ESP32 provisioning, HMAC authentication, replay protection, and credential rotation.
-- Reviewable security audit-event viewer and administrative member removal workflow.
+
 
 ## 9. Production and staging release gates
 

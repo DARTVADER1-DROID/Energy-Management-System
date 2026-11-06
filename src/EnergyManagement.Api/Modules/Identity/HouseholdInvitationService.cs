@@ -94,6 +94,15 @@ public sealed class HouseholdInvitationService(
             throw new InvalidOperationException("This account is already a member of the selected household.");
 
         var now = DateTimeOffset.UtcNow;
+        await identityDb.HouseholdInvitations
+            .Where(invitation => invitation.HouseholdId == householdId &&
+                invitation.NormalizedEmail == normalizedEmail &&
+                invitation.AcceptedAtUtc == null && invitation.RevokedAtUtc == null &&
+                invitation.ExpiresAtUtc <= now)
+            .ExecuteUpdateAsync(setters =>
+                setters.SetProperty(invitation => invitation.RevokedAtUtc, now),
+                cancellationToken);
+
         if (await identityDb.HouseholdInvitations.AnyAsync(invitation =>
             invitation.HouseholdId == householdId &&
             invitation.NormalizedEmail == normalizedEmail &&
@@ -114,7 +123,18 @@ public sealed class HouseholdInvitationService(
             throw new InvalidOperationException("The selected household no longer exists.");
 
         identityDb.HouseholdInvitations.Add(invitation);
-        await identityDb.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await identityDb.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception) when (
+            exception.GetBaseException() is PostgresException postgresException &&
+            postgresException.SqlState == PostgresErrorCodes.UniqueViolation)
+        {
+            identityDb.Entry(invitation).State = EntityState.Detached;
+            throw new InvalidOperationException(
+                "A pending invitation already exists for this email address.");
+        }
 
         var invitationUrl = $"{publicBaseUrl!.TrimEnd('/')}/Account/AcceptInvitation?token={Uri.EscapeDataString(token)}";
         var body = $"""

@@ -63,7 +63,9 @@ public sealed class IdentityDbContext(
             entity.ToTable("household_invitations");
             entity.HasKey(invitation => invitation.Id);
             entity.HasIndex(invitation => invitation.TokenHash).IsUnique();
-            entity.HasIndex(invitation => new { invitation.HouseholdId, invitation.NormalizedEmail });
+            entity.HasIndex(invitation => new { invitation.HouseholdId, invitation.NormalizedEmail })
+                .IsUnique()
+                .HasFilter("\"AcceptedAtUtc\" IS NULL AND \"RevokedAtUtc\" IS NULL");
             entity.Property(invitation => invitation.Email).HasMaxLength(256).IsRequired();
             entity.Property(invitation => invitation.NormalizedEmail).HasMaxLength(256).IsRequired();
             entity.Property(invitation => invitation.Role).HasMaxLength(32).IsRequired();

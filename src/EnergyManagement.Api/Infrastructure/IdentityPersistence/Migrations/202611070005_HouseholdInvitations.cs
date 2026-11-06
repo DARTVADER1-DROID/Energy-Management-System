@@ -26,8 +26,9 @@ public sealed class HouseholdInvitations : Migration
             );
             CREATE UNIQUE INDEX "IX_household_invitations_TokenHash"
                 ON household_invitations ("TokenHash");
-            CREATE INDEX "IX_household_invitations_HouseholdId_NormalizedEmail"
-                ON household_invitations ("HouseholdId", "NormalizedEmail");
+            CREATE UNIQUE INDEX "IX_household_invitations_HouseholdId_NormalizedEmail"
+                ON household_invitations ("HouseholdId", "NormalizedEmail")
+                WHERE "AcceptedAtUtc" IS NULL AND "RevokedAtUtc" IS NULL;
             CREATE INDEX "IX_household_invitations_CreatedByUserId"
                 ON household_invitations ("CreatedByUserId");
             """);

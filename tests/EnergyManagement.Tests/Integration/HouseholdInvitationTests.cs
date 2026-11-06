@@ -103,6 +103,48 @@ public sealed class HouseholdInvitationTests(PostgreSqlFixture postgres) : IAsyn
     }
 
     [Fact]
+    public async Task AdministratorCannotCreateDuplicatePendingInvitation()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var service = scope.ServiceProvider.GetRequiredService<HouseholdInvitationService>();
+        var emailSender = scope.ServiceProvider.GetRequiredService<TestEmailSender>();
+
+        await service.CreateAsync(
+            _householdId, 1, "duplicate@example.test", HouseholdRole.HouseholdMember);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CreateAsync(
+                _householdId, 1, "DUPLICATE@example.test", HouseholdRole.ReadOnlyViewer));
+        Assert.Single(emailSender.Messages);
+    }
+
+    [Fact]
+    public async Task ExpiredInvitationCanBeReissuedForSameEmail()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var service = scope.ServiceProvider.GetRequiredService<HouseholdInvitationService>();
+        var emailSender = scope.ServiceProvider.GetRequiredService<TestEmailSender>();
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+
+        await service.CreateAsync(
+            _householdId, 1, "reissue@example.test", HouseholdRole.HouseholdMember);
+        await identityDb.HouseholdInvitations
+            .Where(invitation => invitation.HouseholdId == _householdId)
+            .ExecuteUpdateAsync(setters =>
+                setters.SetProperty(invitation => invitation.ExpiresAtUtc,
+                    DateTimeOffset.UtcNow.AddMinutes(-1)));
+
+        await service.CreateAsync(
+            _householdId, 1, "reissue@example.test", HouseholdRole.ReadOnlyViewer);
+
+        Assert.Equal(2, emailSender.Messages.Count);
+        Assert.Equal(2, await identityDb.HouseholdInvitations.CountAsync(
+            invitation => invitation.HouseholdId == _householdId));
+        Assert.Equal(1, await identityDb.HouseholdInvitations.CountAsync(invitation =>
+            invitation.HouseholdId == _householdId && invitation.RevokedAtUtc != null));
+    }
+
+    [Fact]
     public async Task NonAdministratorCannotCreateHouseholdInvitation()
     {
         await using var scope = _factory.Services.CreateAsyncScope();
