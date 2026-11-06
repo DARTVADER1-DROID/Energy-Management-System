@@ -27,6 +27,10 @@ builder.Services.AddDbContext<IdentityDbContext>(options =>
     options.UseNpgsql(connectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__IdentityMigrationsHistory")));
 
+builder.Services.AddDbContext<DeviceSecurityDbContext>(options =>
+    options.UseNpgsql(connectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__DeviceSecurityMigrationsHistory")));
+
 builder.Services
     .AddIdentityCore<ApplicationUser>(options =>
     {
@@ -229,6 +233,9 @@ await using (var scope = app.Services.CreateAsyncScope())
 
     var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
     await identityDb.Database.MigrateAsync();
+
+    var deviceSecurityDb = scope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
+    await deviceSecurityDb.Database.MigrateAsync();
 
     var bootstrapper = scope.ServiceProvider.GetRequiredService<InitialAdminBootstrapper>();
     await bootstrapper.InitializeAsync();
