@@ -2,7 +2,7 @@ name: .NET tests
 
 on:
   push:
-    branches: [main, "feat/**", "build/**"]
+    branches: [main, "feat/**", "build/**", "deploy/**"]
   pull_request:
     branches: [main]
 
@@ -39,3 +39,5 @@ jobs:
           dotnet-version: 10.0.x
       - name: Run tests
         run: dotnet test tests/EnergyManagement.Tests/EnergyManagement.Tests.csproj --configuration Release
+      - name: Build production Docker image
+        run: docker build --pull --tag energy-management-ems:ci .
