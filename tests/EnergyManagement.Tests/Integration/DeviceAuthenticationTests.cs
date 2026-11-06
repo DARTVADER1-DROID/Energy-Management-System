@@ -96,6 +96,13 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
         Assert.NotEqual(result.DeviceSecret, credential.SecretHash);
         Assert.NotEqual(result.DeviceSecret, credential.ProtectedSigningKey);
         Assert.Equal(64, credential.SecretHash.Length);
+        var initialAuditEvents = await securityDb.AuditEvents
+            .OrderBy(item => item.CreatedAtUtc)
+            .Select(item => item.EventType)
+            .ToArrayAsync();
+        Assert.Equal(
+            new[] { "ProvisioningCodeCreated", "DeviceProvisioned" },
+            initialAuditEvents);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.ExchangeProvisioningCodeAsync(_deviceCode, code.Code));
@@ -328,6 +335,12 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
         Assert.NotNull(credentials[0].RevokedAtUtc);
         Assert.False(credentials[1].IsPendingRotation);
         Assert.NotNull(credentials[1].ConfirmedAtUtc);
+        var rotationEvents = await securityDb.AuditEvents
+            .OrderBy(item => item.CreatedAtUtc)
+            .Select(item => item.EventType)
+            .ToArrayAsync();
+        Assert.Contains("CredentialRotationStarted", rotationEvents);
+        Assert.Contains("CredentialRotationConfirmed", rotationEvents);
 
         var oldKeyAfterConfirmationTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
         var oldKeyAfterConfirmationNonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
@@ -405,6 +418,8 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
         var securityDb = verifyScope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
         Assert.All(await securityDb.Credentials.ToArrayAsync(),
             credential => Assert.NotNull(credential.RevokedAtUtc));
+        Assert.Contains("CredentialsRevoked",
+            await securityDb.AuditEvents.Select(item => item.EventType).ToArrayAsync());
     }
 
     [Fact]
