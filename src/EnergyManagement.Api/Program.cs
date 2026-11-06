@@ -177,10 +177,31 @@ builder.Services.AddRateLimiter(options =>
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
     {
         var path = context.Request.Path.Value ?? "/";
+        var client = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+        if (path.StartsWith("/api/device-auth/", StringComparison.OrdinalIgnoreCase))
+        {
+            var isHeartbeat = path.Equals(
+                "/api/device-auth/heartbeat", StringComparison.OrdinalIgnoreCase);
+            var deviceCode = context.Request.Headers["X-EMS-Device"].ToString();
+            var partition = isHeartbeat && !string.IsNullOrWhiteSpace(deviceCode)
+                ? $"{client}:device:{deviceCode}"
+                : $"{client}:{path}";
+
+            return RateLimitPartition.GetFixedWindowLimiter(
+                partition,
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = isHeartbeat ? 60 : 5,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                    AutoReplenishment = true
+                });
+        }
+
         if (!path.StartsWith("/Account/", StringComparison.OrdinalIgnoreCase))
             return RateLimitPartition.GetNoLimiter("non-account");
 
-        var client = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         return RateLimitPartition.GetFixedWindowLimiter(
             $"{client}:{path}",
             _ => new FixedWindowRateLimiterOptions
