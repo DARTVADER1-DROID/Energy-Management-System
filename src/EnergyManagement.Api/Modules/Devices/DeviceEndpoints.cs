@@ -102,10 +102,15 @@ public static class DeviceEndpoints
         int householdId,
         RegisterDeviceRequest request,
         DeviceRegistrationService service,
+        EnergyManagementDbContext dbContext,
         HouseholdAccessService householdAccess,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
+        if (!await dbContext.Households.AsNoTracking()
+                .AnyAsync(household => household.Id == householdId, cancellationToken))
+            return TypedResults.NotFound("Household was not found.");
+
         if (!await householdAccess.IsAdministratorAsync(GetUserId(user), householdId, cancellationToken))
             return TypedResults.Forbid();
 
@@ -149,9 +154,6 @@ public static class DeviceEndpoints
 
         var accessibleHouseholds = await householdAccess.GetHouseholdIdsAsync(
             GetUserId(user), cancellationToken);
-        if (householdId.HasValue && !accessibleHouseholds.Contains(householdId.Value))
-            return TypedResults.NotFound();
-
         var query = dbContext.Devices.AsNoTracking()
             .Where(device => accessibleHouseholds.Contains(device.HouseholdId));
         if (householdId.HasValue)
