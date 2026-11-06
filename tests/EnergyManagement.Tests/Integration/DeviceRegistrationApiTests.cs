@@ -27,6 +27,31 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
 
 
     [Fact]
+    public async Task AdministratorWithoutMfa_CannotAccessProtectedApi()
+    {
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            var administrator = await identityDb.Users.SingleAsync(user => user.Id == 1);
+            administrator.TwoFactorEnabled = false;
+            await identityDb.SaveChangesAsync();
+        }
+
+        var response = await _client.GetAsync("/api/devices");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task HealthReadiness_RemainsAnonymous()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/health/ready");
+        request.Headers.Add("X-Test-Anonymous", "true");
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task AnonymousClient_CannotReadDeviceApi()
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/devices");
