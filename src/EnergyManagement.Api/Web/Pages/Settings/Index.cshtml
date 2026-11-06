@@ -26,15 +26,21 @@
     </div>
 </section>
 
-@if (Model.DefaultAdministratorHouseholdId.HasValue)
+@if (User.IsInRole("Administrator"))
 {
     <section class="panel mt-5 p-6">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
                 <h3 class="font-semibold">Household management</h3>
-                <p class="mt-1 text-sm text-slate-500">Invite users, assign household roles and revoke outstanding invitations.</p>
+                <p class="mt-1 text-sm text-slate-500">Create households, invite users, assign roles and revoke outstanding invitations.</p>
             </div>
-            <a asp-page="/Households/Users" asp-route-householdId="@Model.DefaultAdministratorHouseholdId" class="primary-button">Manage household users</a>
+            <div class="flex flex-wrap gap-2">
+                <a asp-page="/Households/Create" class="secondary-button">Create household</a>
+                @if (Model.DefaultAdministratorHouseholdId.HasValue)
+                {
+                    <a asp-page="/Households/Users" asp-route-householdId="@Model.DefaultAdministratorHouseholdId" class="primary-button">Manage household users</a>
+                }
+            </div>
         </div>
     </section>
 }
