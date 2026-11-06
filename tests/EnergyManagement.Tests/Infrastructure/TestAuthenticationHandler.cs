@@ -30,7 +30,7 @@ public sealed class TestAuthenticationHandler(
             new Claim(ClaimTypes.Name, "integration-test-user"),
             new Claim(ClaimTypes.Role, role)
         };
-        var ticket = new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity(claims, Scheme.Name)), Scheme.Name);
+        var ticket = new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity(claims, Scheme.Name, ClaimTypes.Name, ClaimTypes.Role)), Scheme.Name);
         return Task.FromResult(AuthenticateResult.Success(ticket));
     }
 }
