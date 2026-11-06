@@ -69,6 +69,45 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
         Assert.Empty(devices);
     }
 
+
+    [Fact]
+    public async Task HouseholdMember_CanReadButCannotRegisterDevices()
+    {
+        var householdId = await CreateHouseholdAsync("Shared Home");
+        var registration = await _client.PostAsJsonAsync(
+            $"/api/devices/{householdId}", ValidRequest());
+        var registered = await registration.Content.ReadFromJsonAsync<DeviceResponse>();
+        Assert.NotNull(registered);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            identityDb.HouseholdMemberships.Add(new HouseholdMembership(
+                2, householdId, HouseholdRole.HouseholdMember));
+            await identityDb.SaveChangesAsync();
+        }
+
+        using var listRequest = new HttpRequestMessage(HttpMethod.Get, "/api/devices");
+        listRequest.Headers.Add("X-Test-User-Id", "2");
+        listRequest.Headers.Add("X-Test-Role", "Household Member");
+        var listResponse = await _client.SendAsync(listRequest);
+        var visibleDevices = await listResponse.Content.ReadFromJsonAsync<DeviceResponse[]>();
+
+        using var registerRequest = new HttpRequestMessage(
+            HttpMethod.Post, $"/api/devices/{householdId}")
+        {
+            Content = JsonContent.Create(ValidRequest())
+        };
+        registerRequest.Headers.Add("X-Test-User-Id", "2");
+        registerRequest.Headers.Add("X-Test-Role", "Household Member");
+        var registerResponse = await _client.SendAsync(registerRequest);
+
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        Assert.NotNull(visibleDevices);
+        Assert.Single(visibleDevices);
+        Assert.Equal(HttpStatusCode.Forbidden, registerResponse.StatusCode);
+    }
+
     [Fact]
     public async Task DeviceRegistrationPage_RendersWizardForExistingHousehold()
     {
@@ -293,6 +332,7 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
         await dbContext.Database.EnsureDeletedAsync();
 
         var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        await dbContext.Database.MigrateAsync();
         await identityDb.Database.MigrateAsync();
         identityDb.Users.AddRange(
             new ApplicationUser
@@ -310,8 +350,6 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
                 EmailConfirmed = true
             });
         await identityDb.SaveChangesAsync();
-
-        await dbContext.Database.MigrateAsync();
     }
 
     private static RegisterDeviceRequest ValidRequest() => new(
