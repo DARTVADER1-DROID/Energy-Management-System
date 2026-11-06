@@ -147,7 +147,13 @@ public static class DeviceEndpoints
             errors["pageSize"] = [$"Page size must be between 1 and {MaximumPageSize}."];
         if (errors.Count > 0) return TypedResults.ValidationProblem(errors);
 
-        var query = dbContext.Devices.AsNoTracking();
+        var accessibleHouseholds = await householdAccess.GetHouseholdIdsAsync(
+            GetUserId(user), cancellationToken);
+        if (householdId.HasValue && !accessibleHouseholds.Contains(householdId.Value))
+            return TypedResults.NotFound();
+
+        var query = dbContext.Devices.AsNoTracking()
+            .Where(device => accessibleHouseholds.Contains(device.HouseholdId));
         if (householdId.HasValue)
             query = query.Where(device => device.HouseholdId == householdId.Value);
 
