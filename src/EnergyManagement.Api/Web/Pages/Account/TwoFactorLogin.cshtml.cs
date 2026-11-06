@@ -53,7 +53,7 @@ public sealed class TwoFactorLoginModel(
         [StringLength(10)]
         public string Code { get; set; } = string.Empty;
 
-        [StringLength(32)]
+        [StringLength(40)]
         public string RecoveryCode { get; set; } = string.Empty;
     }
 }
