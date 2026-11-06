@@ -25,7 +25,7 @@
         <span class="status-pill @(Model.Device.IsActive ? "status-neutral" : "status-muted")">@(Model.Device.IsActive ? "Active registration" : "Deactivated")</span>
     </div>
 </div>
-@if (Model.CanManageDevice && Model.Device.IsActive)
+@if (Model.CanManageDevice && Model.Device.IsActive && !Model.CanRotateDeviceCredential)
 {
     <section class="panel mt-6 p-6">
         <div class="flex flex-wrap items-start justify-between gap-4">
