@@ -86,6 +86,7 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
         Assert.False(await recoveryCodes.RedeemAsync(2, generated[0]));
 
         var storedCodes = await identityDb.MfaRecoveryCodes
+            .AsNoTracking()
             .Where(code => code.UserId == 2)
             .ToListAsync();
         Assert.Equal(10, storedCodes.Count);
@@ -106,6 +107,7 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
 
         using var devicesRequest = new HttpRequestMessage(HttpMethod.Get, "/api/devices");
         devicesRequest.Headers.Add("X-Test-User-Id", "2");
+        devicesRequest.Headers.Add("X-Test-Role", "Household Member");
         var devicesResponse = await _client.SendAsync(devicesRequest);
         var devices = await devicesResponse.Content.ReadFromJsonAsync<DeviceResponse[]>();
 
