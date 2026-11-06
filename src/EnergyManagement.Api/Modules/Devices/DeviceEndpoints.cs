@@ -31,6 +31,14 @@ public static class DeviceEndpoints
         devices.MapGet("/", ListDevicesAsync);
         devices.MapGet("/{deviceCode}", GetDeviceAsync);
         devices.MapPatch("/{deviceCode}/deactivate", DeactivateDeviceAsync);
+        devices.MapPost("/{deviceCode}/provisioning-codes", CreateProvisioningCodeAsync);
+
+        var deviceAuthentication = endpoints.MapGroup("/api/device-auth")
+            .WithTags("Device authentication");
+        deviceAuthentication.MapPost("/provision", ExchangeProvisioningCodeAsync)
+            .AllowAnonymous();
+        deviceAuthentication.MapPost("/heartbeat", HeartbeatAsync)
+            .AllowAnonymous();
 
         return endpoints;
     }
@@ -222,6 +230,72 @@ public static class DeviceEndpoints
         return TypedResults.NoContent();
     }
 
+    private static async Task<IResult> CreateProvisioningCodeAsync(
+        string deviceCode,
+        DeviceAuthenticationService authenticationService,
+        HouseholdAccessService householdAccess,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken)
+    {
+        if (!user.HasRecentAuthentication())
+            return TypedResults.Problem(statusCode: 428, title: "Recent authentication required",
+                detail: "Reauthenticate before provisioning a device.");
+
+        try
+        {
+            var result = await authenticationService.CreateProvisioningCodeAsync(
+                deviceCode, GetUserId(user), householdAccess, cancellationToken);
+            return TypedResults.Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return TypedResults.NotFound("Device was not found.");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return TypedResults.Forbid();
+        }
+        catch (InvalidOperationException exception)
+        {
+            return TypedResults.Conflict(exception.Message);
+        }
+    }
+
+    private static async Task<IResult> ExchangeProvisioningCodeAsync(
+        ProvisionDeviceRequest request,
+        DeviceAuthenticationService authenticationService,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.DeviceCode) ||
+            string.IsNullOrWhiteSpace(request.ProvisioningCode))
+            return TypedResults.BadRequest("Device code and provisioning code are required.");
+
+        try
+        {
+            var result = await authenticationService.ExchangeProvisioningCodeAsync(
+                request.DeviceCode, request.ProvisioningCode, cancellationToken);
+            return TypedResults.Ok(result);
+        }
+        catch (InvalidOperationException)
+        {
+            return TypedResults.Unauthorized();
+        }
+    }
+
+    private static async Task<IResult> HeartbeatAsync(
+        DeviceAuthenticationService authenticationService,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        var device = await authenticationService.AuthenticateRequestAsync(
+            httpContext, cancellationToken);
+        if (device is null)
+            return TypedResults.Unauthorized();
+
+        return TypedResults.Ok(new DeviceHeartbeatResponse(
+            device.DeviceCode, DateTimeOffset.UtcNow));
+    }
+
     private static Dictionary<string, string[]> Validate(RegisterDeviceRequest request)
     {
         var errors = new Dictionary<string, string[]>();
@@ -296,3 +370,8 @@ public sealed record DeviceResponse(
         device.RegisteredAtUtc,
         device.LastSeenAtUtc);
 }
+
+public sealed record ProvisionDeviceRequest(string DeviceCode, string ProvisioningCode);
+
+public sealed record DeviceHeartbeatResponse(
+    string DeviceCode, DateTimeOffset ServerReceivedAtUtc);
