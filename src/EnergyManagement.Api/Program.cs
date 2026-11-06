@@ -194,6 +194,7 @@ builder.Services.AddRateLimiter(options =>
 });
 
 builder.Services.AddScoped<DeviceRegistrationService>();
+builder.Services.AddScoped<DeviceAuthenticationService>();
 builder.Services.AddScoped<DashboardReadService>();
 builder.Services.AddScoped<HouseholdAccessService>();
 builder.Services.AddScoped<InitialAdminBootstrapper>();
