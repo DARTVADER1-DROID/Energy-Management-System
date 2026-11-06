@@ -1,5 +1,6 @@
 using EnergyManagement.Api.Endpoints;
 using EnergyManagement.Api.Infrastructure.Persistence;
+using EnergyManagement.Api.Infrastructure.IdentityPersistence;
 using EnergyManagement.Api.Modules.Devices;
 using EnergyManagement.Api.Modules.Identity;
 using EnergyManagement.Api.Web.Services;
@@ -17,6 +18,9 @@ var connectionString = builder.Configuration.GetConnectionString("EnergyManageme
 builder.Services.AddDbContext<EnergyManagementDbContext>(options =>
     options.UseNpgsql(connectionString));
 
+builder.Services.AddDbContext<IdentityDbContext>(options =>
+    options.UseNpgsql(connectionString));
+
 builder.Services
     .AddIdentityCore<ApplicationUser>(options =>
     {
@@ -32,7 +36,7 @@ builder.Services
         options.Lockout.AllowedForNewUsers = true;
     })
     .AddRoles<IdentityRole<int>>()
-    .AddEntityFrameworkStores<EnergyManagementDbContext>()
+    .AddEntityFrameworkStores<IdentityDbContext>()
     .AddDefaultTokenProviders();
 
 builder.Services.ConfigureApplicationCookie(options =>
