@@ -150,6 +150,25 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
         Assert.Equal(HttpStatusCode.Unauthorized, invalidResponse.StatusCode);
     }
 
+    [Fact]
+    public async Task HeartbeatRequestsAreRateLimitedPerDeviceAndIp()
+    {
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var responses = new List<HttpStatusCode>();
+
+        for (var index = 0; index < 61; index++)
+        {
+            var nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+            var response = await SendHeartbeatAsync(
+                timestamp, nonce, new string('0', 64));
+            responses.Add(response.StatusCode);
+            response.Dispose();
+        }
+
+        Assert.Equal(60, responses.Count(status => status == HttpStatusCode.Unauthorized));
+        Assert.Equal(HttpStatusCode.TooManyRequests, responses[^1]);
+    }
+
     private async Task<string> ProvisionDeviceAsync()
     {
         await using var scope = _factory.Services.CreateAsyncScope();
