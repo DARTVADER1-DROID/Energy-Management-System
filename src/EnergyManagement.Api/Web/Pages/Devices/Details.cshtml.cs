@@ -1,4 +1,5 @@
 using EnergyManagement.Api.Infrastructure.Persistence;
+using EnergyManagement.Api.Modules.Devices;
 using EnergyManagement.Api.Modules.Identity;
 using EnergyManagement.Api.Web.Services;
 using Microsoft.AspNetCore.Mvc;
