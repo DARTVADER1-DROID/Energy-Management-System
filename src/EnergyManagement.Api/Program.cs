@@ -1,9 +1,11 @@
+using System.Security.Claims;
 using EnergyManagement.Api.Endpoints;
 using EnergyManagement.Api.Infrastructure.Persistence;
 using EnergyManagement.Api.Infrastructure.IdentityPersistence;
 using EnergyManagement.Api.Modules.Devices;
 using EnergyManagement.Api.Modules.Identity;
 using EnergyManagement.Api.Web.Services;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
@@ -19,7 +21,8 @@ builder.Services.AddDbContext<EnergyManagementDbContext>(options =>
     options.UseNpgsql(connectionString));
 
 builder.Services.AddDbContext<IdentityDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseNpgsql(connectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__IdentityMigrationsHistory")));
 
 builder.Services
     .AddIdentityCore<ApplicationUser>(options =>
@@ -37,7 +40,12 @@ builder.Services
     })
     .AddRoles<IdentityRole<int>>()
     .AddEntityFrameworkStores<IdentityDbContext>()
-    .AddDefaultTokenProviders();
+    .AddDefaultTokenProviders()
+    .AddSignInManager();
+
+builder.Services
+    .AddAuthentication(IdentityConstants.ApplicationScheme)
+    .AddIdentityCookies();
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
@@ -46,15 +54,53 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     options.Cookie.SameSite = SameSiteMode.Strict;
     options.Cookie.Path = "/";
-    options.SlidingExpiration = false;
-    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+    options.SlidingExpiration = true;
+    options.ExpireTimeSpan = TimeSpan.FromMinutes(15);
     options.LoginPath = "/Account/Login";
     options.AccessDeniedPath = "/Account/AccessDenied";
+
+    options.Events.OnSigningIn = context =>
+    {
+        var identity = context.Principal?.Identity as ClaimsIdentity;
+        if (identity is not null && !identity.HasClaim(claim => claim.Type == "ems_session_started"))
+        {
+            identity.AddClaim(new Claim("ems_session_started", DateTimeOffset.UtcNow.ToString("O")));
+        }
+
+        return Task.CompletedTask;
+    };
+
+    options.Events.OnValidatePrincipal = context =>
+    {
+        var startedClaim = context.Principal?.FindFirst("ems_session_started")?.Value;
+        if (!DateTimeOffset.TryParse(startedClaim, out var startedAt)
+            || DateTimeOffset.UtcNow - startedAt > TimeSpan.FromHours(8))
+        {
+            context.RejectPrincipal();
+            return context.HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
+        }
+
+        return Task.CompletedTask;
+    };
+});
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("HouseholdAdministrator", policy =>
+        policy.RequireAuthenticatedUser().RequireRole("Administrator"));
+    options.AddPolicy("HouseholdOperator", policy =>
+        policy.RequireAuthenticatedUser().RequireRole("Administrator", "Household Member"));
 });
 
 builder.Services.AddScoped<DeviceRegistrationService>();
 builder.Services.AddScoped<DashboardReadService>();
-builder.Services.AddRazorPages(options => options.RootDirectory = "/Web/Pages");
+builder.Services.AddRazorPages(options =>
+{
+    options.RootDirectory = "/Web/Pages";
+    options.Conventions.AuthorizeFolder("/");
+    options.Conventions.AllowAnonymousToPage("/Account/Login");
+    options.Conventions.AllowAnonymousToPage("/Account/AccessDenied");
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -68,6 +114,14 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+
+// Identity uses its own migration history so its schema can evolve independently
+// from the existing EMS domain schema.
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+    await identityDb.Database.MigrateAsync();
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -89,7 +143,7 @@ app.MapRazorPages();
 
 app.Run();
 
-// Exposed for future integration tests using WebApplicationFactory.
+// Exposed for integration tests using WebApplicationFactory.
 public partial class Program
 {
 }

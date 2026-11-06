@@ -9,18 +9,28 @@ public static class DeviceEndpoints
 {
     private const int DefaultPageSize = 50;
     private const int MaximumPageSize = 100;
+
     public static IEndpointRouteBuilder MapDeviceEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var households = endpoints.MapGroup("/api/households").WithTags("Households");
-        households.MapPost("/", CreateHouseholdAsync);
+        var households = endpoints.MapGroup("/api/households")
+            .WithTags("Households")
+            .RequireAuthorization();
+
+        households.MapPost("/", CreateHouseholdAsync)
+            .RequireAuthorization("HouseholdAdministrator");
         households.MapGet("/", ListHouseholdsAsync);
         households.MapGet("/{householdId:int}", GetHouseholdAsync);
 
-        var devices = endpoints.MapGroup("/api/devices").WithTags("Devices");
-        devices.MapPost("/{householdId:int}", RegisterDeviceAsync);
+        var devices = endpoints.MapGroup("/api/devices")
+            .WithTags("Devices")
+            .RequireAuthorization();
+
+        devices.MapPost("/{householdId:int}", RegisterDeviceAsync)
+            .RequireAuthorization("HouseholdAdministrator");
         devices.MapGet("/", ListDevicesAsync);
         devices.MapGet("/{deviceCode}", GetDeviceAsync);
-        devices.MapPatch("/{deviceCode}/deactivate", DeactivateDeviceAsync);
+        devices.MapPatch("/{deviceCode}/deactivate", DeactivateDeviceAsync)
+            .RequireAuthorization("HouseholdAdministrator");
 
         return endpoints;
     }
@@ -58,7 +68,6 @@ public static class DeviceEndpoints
                 item.Id, item.HouseholdCode, item.Name)).ToArray());
     }
 
-
     private static async Task<Results<Ok<HouseholdResponse>, NotFound>> GetHouseholdAsync(
         int householdId,
         EnergyManagementDbContext dbContext,
@@ -81,10 +90,7 @@ public static class DeviceEndpoints
         CancellationToken cancellationToken)
     {
         var errors = Validate(request);
-        if (errors.Count > 0)
-        {
-            return TypedResults.ValidationProblem(errors);
-        }
+        if (errors.Count > 0) return TypedResults.ValidationProblem(errors);
 
         try
         {
@@ -113,31 +119,18 @@ public static class DeviceEndpoints
         int pageSize = DefaultPageSize)
     {
         var errors = new Dictionary<string, string[]>();
-
         if (page < 1 || page > int.MaxValue / Math.Max(pageSize, 1))
-        {
             errors["page"] = ["Page must be a positive value within the supported range."];
-        }
-
         if (pageSize is < 1 or > MaximumPageSize)
-        {
             errors["pageSize"] = [$"Page size must be between 1 and {MaximumPageSize}."];
-        }
-
-        if (errors.Count > 0)
-        {
-            return TypedResults.ValidationProblem(errors);
-        }
+        if (errors.Count > 0) return TypedResults.ValidationProblem(errors);
 
         var query = dbContext.Devices.AsNoTracking();
         if (householdId.HasValue)
-        {
             query = query.Where(device => device.HouseholdId == householdId.Value);
-        }
 
         var totalCount = await query.CountAsync(cancellationToken);
-        var devices = await query
-            .OrderBy(device => device.DeviceCode)
+        var devices = await query.OrderBy(device => device.DeviceCode)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
@@ -157,13 +150,10 @@ public static class DeviceEndpoints
         EnergyManagementDbContext dbContext,
         CancellationToken cancellationToken)
     {
-        var device = await dbContext.Devices
-            .AsNoTracking()
+        var device = await dbContext.Devices.AsNoTracking()
             .SingleOrDefaultAsync(item => item.DeviceCode == deviceCode, cancellationToken);
 
-        return device is null
-            ? TypedResults.NotFound()
-            : TypedResults.Ok(DeviceResponse.From(device));
+        return device is null ? TypedResults.NotFound() : TypedResults.Ok(DeviceResponse.From(device));
     }
 
     private static async Task<Results<NoContent, NotFound>> DeactivateDeviceAsync(
@@ -174,10 +164,7 @@ public static class DeviceEndpoints
         var device = await dbContext.Devices
             .SingleOrDefaultAsync(item => item.DeviceCode == deviceCode, cancellationToken);
 
-        if (device is null)
-        {
-            return TypedResults.NotFound();
-        }
+        if (device is null) return TypedResults.NotFound();
 
         device.Deactivate();
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -187,21 +174,15 @@ public static class DeviceEndpoints
     private static Dictionary<string, string[]> Validate(RegisterDeviceRequest request)
     {
         var errors = new Dictionary<string, string[]>();
-
         AddRequired(errors, "name", request.Name, 120);
         AddRequired(errors, "hardwareModel", request.HardwareModel, 80);
         AddRequired(errors, "firmwareVersion", request.FirmwareVersion, 80);
         AddRequired(errors, "installationLocation", request.InstallationLocation, 160);
 
         if (!Enum.IsDefined(request.ElectricalConfiguration))
-        {
             errors["electricalConfiguration"] = ["A supported electrical configuration is required."];
-        }
-
         if (request.Description?.Trim().Length > 1000)
-        {
             errors["description"] = ["Description must not exceed 1000 characters."];
-        }
 
         return errors;
     }
@@ -213,11 +194,8 @@ public static class DeviceEndpoints
         int maximumLength)
     {
         if (string.IsNullOrWhiteSpace(value) || value.Trim().Length > maximumLength)
-        {
             errors[field] = [$"A value is required and must not exceed {maximumLength} characters."];
-        }
     }
-
 }
 
 public sealed record HouseholdResponse(int Id, string HouseholdCode, string Name);
