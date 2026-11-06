@@ -40,7 +40,8 @@ public static class DeviceEndpoints
             .AllowAnonymous()
             .RequireRateLimiting("device-provisioning");
         deviceAuthentication.MapPost("/heartbeat", HeartbeatAsync)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("device-hmac");
 
         return endpoints;
     }
