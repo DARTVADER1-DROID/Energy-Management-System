@@ -140,6 +140,9 @@ var app = builder.Build();
 // from the existing EMS domain schema.
 await using (var scope = app.Services.CreateAsyncScope())
 {
+    var energyDb = scope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
+    await energyDb.Database.MigrateAsync();
+
     var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
     await identityDb.Database.MigrateAsync();
 
