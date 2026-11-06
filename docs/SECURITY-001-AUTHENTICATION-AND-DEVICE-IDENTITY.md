@@ -22,9 +22,9 @@ Every household-scoped operation must derive and validate household membership f
 - Identity schema migrations run independently from the EMS domain migration history. The API applies both migration sets before serving requests.
 - Additional users join only through Administrator-issued email invitations. Invitation delivery and acceptance are still pending implementation; no self-registration endpoint is exposed.
 - Invitations are random, single-use, time-limited, revocable, and bound to one household and one assigned role.
-- Password recovery uses time-limited, single-use Identity reset tokens delivered by email. Responses must not disclose whether an address exists.
-- SMTP is provider-independent and configured through deployment secrets/environment variables. Credentials must never be committed. SMTP delivery and password-reset flows are still pending implementation.
-- MFA uses authenticator-app TOTP. Administrators must enroll before accessing protected household operations; MFA is optional for Members and Viewers. MFA enrollment, challenge, and recovery-code workflows are still pending implementation.
+- Password recovery uses 30-minute, single-use Identity reset tokens delivered by email. Responses do not disclose whether an address exists. This flow is implemented.
+- SMTP delivery is provider-independent and configured through deployment secrets/environment variables. Credentials must never be committed. Password reset is implemented. Configure `EMS_SMTP_HOST`, `EMS_SMTP_PORT` (default 587), `EMS_SMTP_USERNAME`, `EMS_SMTP_PASSWORD`, `EMS_SMTP_FROM`, `EMS_SMTP_ENABLE_SSL` (default true), and HTTPS `EMS_PUBLIC_BASE_URL`.
+- MFA uses authenticator-app TOTP. Administrators must enroll before accessing protected operations; MFA is optional for Members and Viewers. Enrollment, authenticator challenge, and ten one-time recovery codes are implemented. Recovery codes are cryptographically random, stored only as SHA-256 hashes, and redeemed atomically once.
 - Generate ten one-time recovery codes at MFA enrollment. Show them once and persist only hashes. There is no email-only MFA bypass.
 - Login sessions are non-persistent, limited to eight hours maximum, and expire after fifteen minutes of inactivity. Cookies are HTTP-only, Secure, and SameSite protected. Sensitive actions require recent authentication.
 - Rate-limit login, invitation acceptance, password reset, MFA verification, and setup attempts. Emit security audit events without recording secrets or raw tokens.
@@ -95,12 +95,12 @@ Implemented on `feat/household-device-security`:
 - Secure application cookies with a 15-minute inactivity timeout and an eight-hour absolute session limit.
 - Administrator bootstrap through deployment environment secrets.
 - Household membership persistence and role-aware access checks for household/device API operations and SSR device/dashboard queries.
-- Integration coverage for anonymous API rejection, household role restrictions, and cross-household isolation.
+- Integration coverage for anonymous API rejection, administrator MFA enforcement, household role restrictions, and cross-household isolation.
 
 Still pending:
 - Invitation creation, email delivery, invitation acceptance, and membership management UI/API.
 - Password-reset delivery and token redemption.
-- TOTP enrollment/challenge and ten single-use recovery codes.
+- Lost-authenticator and lost-recovery-code administrative recovery workflow.
 - Recent-authentication checks for sensitive operations.
 - Full ESP32 provisioning, HMAC authentication, replay protection, and credential rotation.
 
