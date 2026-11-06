@@ -80,7 +80,7 @@ public sealed class DeviceRegistrationService(EnergyManagementDbContext dbContex
             request.InstallationLocation,
             request.ElectricalConfiguration,
             request.Description,
-            request.Thresholds?.ToDomain(),
+            request.Thresholds,
             allocatedNumber.Value);
 
         dbContext.Devices.Add(device);

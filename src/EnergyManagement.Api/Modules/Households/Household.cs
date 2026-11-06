@@ -18,6 +18,18 @@ public sealed class Household
 
     public int Id { get; private set; }
 
+    internal static Household Rehydrate(int id, string name)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);
+
+        var household = new Household(name)
+        {
+            Id = id
+        };
+
+        return household;
+    }
+
     public string Name { get; private set; } = string.Empty;
 
     public int NextDeviceNumber { get; private set; } = 1;

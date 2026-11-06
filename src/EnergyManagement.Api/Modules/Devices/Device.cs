@@ -20,6 +20,7 @@ public sealed class Device
         int deviceNumber)
     {
         ArgumentNullException.ThrowIfNull(household);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(household.Id);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(deviceNumber);
 
         Name = Required(name, nameof(name));

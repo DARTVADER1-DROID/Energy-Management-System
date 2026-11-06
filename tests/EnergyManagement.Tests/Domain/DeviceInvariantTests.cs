@@ -14,7 +14,7 @@ public sealed class DeviceInvariantTests
         var after = DateTimeOffset.UtcNow;
 
         Assert.Equal(1, device.DeviceNumber);
-        Assert.Equal("H000-DEV001", device.DeviceCode);
+        Assert.Equal("H001-DEV001", device.DeviceCode);
         Assert.True(device.IsActive);
         Assert.InRange(device.RegisteredAtUtc, before, after);
         Assert.Null(device.LastSeenAtUtc);
@@ -64,6 +64,14 @@ public sealed class DeviceInvariantTests
             null!, "Monitor", "ESP32", "1.0", "Main DB",
             ElectricalConfiguration.SinglePhase, null, null, 1));
 
+    [Fact]
+    public void Constructor_RejectsUnsavedHousehold()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new Device(
+            new Household("Not persisted"), "Monitor", "ESP32", "1.0", "Main DB",
+            ElectricalConfiguration.SinglePhase, null, null, 1));
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
@@ -79,7 +87,7 @@ public sealed class DeviceInvariantTests
         device.Deactivate();
 
         Assert.False(device.IsActive);
-        Assert.Equal("H000-DEV001", device.DeviceCode);
+        Assert.Equal("H001-DEV001", device.DeviceCode);
     }
 
     [Fact]
@@ -169,7 +177,7 @@ public sealed class DeviceInvariantTests
         int number = 1,
         DeviceThresholds? thresholds = null) =>
         new(
-            new Household("Test Home"),
+            Household.Rehydrate(1, "Test Home"),
             name,
             hardwareModel,
             firmwareVersion,

@@ -7,6 +7,6 @@ public sealed record RegisterDeviceRequest(
     string InstallationLocation,
     ElectricalConfiguration ElectricalConfiguration,
     string? Description,
-    DeviceThresholdsRequest? Thresholds);
+    DeviceThresholds? Thresholds);
 
 public sealed record CreateHouseholdRequest(string Name);

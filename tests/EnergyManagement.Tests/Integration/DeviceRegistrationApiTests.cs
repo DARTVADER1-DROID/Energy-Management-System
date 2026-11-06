@@ -197,5 +197,5 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
         "Main Distribution Board",
         ElectricalConfiguration.SinglePhase,
         null,
-        new DeviceThresholdsRequest());
+        new DeviceThresholds());
 }
