@@ -68,7 +68,9 @@ builder.Services.ConfigureApplicationCookie(options =>
             if (!identity.HasClaim(claim => claim.Type == "ems_session_started"))
                 identity.AddClaim(new Claim("ems_session_started", now));
 
-            identity.RemoveClaim(identity.FindFirst("ems_last_activity"));
+            var previousActivity = identity.FindFirst("ems_last_activity");
+            if (previousActivity is not null)
+                identity.RemoveClaim(previousActivity);
             identity.AddClaim(new Claim("ems_last_activity", now));
         }
 
