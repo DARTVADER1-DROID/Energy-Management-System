@@ -43,7 +43,7 @@ public sealed class DeviceAuthenticationService(
 
         if (await securityDb.Credentials.AnyAsync(
             item => item.DeviceId == device.Id && item.RevokedAtUtc == null, cancellationToken))
-            throw new InvalidOperationException("This device already has an active credential. Credential rotation is not yet available.");
+            throw new InvalidOperationException("This device already has an active credential. Use the credential rotation workflow instead.");
 
         var encryptionKey = GetEncryptionKey();
         CryptographicOperations.ZeroMemory(encryptionKey);
@@ -62,6 +62,9 @@ public sealed class DeviceAuthenticationService(
             device.Id, codeHash, administratorUserId, now.Add(ProvisioningLifetime));
 
         securityDb.ProvisioningCodes.Add(entity);
+        securityDb.AuditEvents.Add(new DeviceSecurityAuditEvent(
+            device.Id, administratorUserId, "ProvisioningCodeCreated",
+            $"Single-use provisioning code issued; expires at {entity.ExpiresAtUtc:O}."));
         try
         {
             await securityDb.SaveChangesAsync(cancellationToken);
@@ -149,6 +152,9 @@ public sealed class DeviceAuthenticationService(
         }
 
         securityDb.Credentials.Add(new DeviceCredential(device.Id, secretHash, protectedSecret));
+        securityDb.AuditEvents.Add(new DeviceSecurityAuditEvent(
+            device.Id, null, "DeviceProvisioned",
+            "Device exchanged a single-use provisioning code for its initial credential."));
         await securityDb.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
@@ -189,6 +195,10 @@ public sealed class DeviceAuthenticationService(
             .ExecuteUpdateAsync(setters =>
                 setters.SetProperty(item => item.RevokedAtUtc, now), cancellationToken);
 
+        securityDb.AuditEvents.Add(new DeviceSecurityAuditEvent(
+            device.Id, administratorUserId, "CredentialsRevoked",
+            $"{revokedCount} active credential(s) and unused provisioning codes revoked."));
+        await securityDb.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         logger.LogWarning(
             "Administrator {AdministratorUserId} revoked {CredentialCount} credential(s) for device {DeviceCode}.",
@@ -262,6 +272,9 @@ public sealed class DeviceAuthenticationService(
             device.Id, secretHash, protectedSecret,
             isPendingRotation: true, rotationExpiresAtUtc: expiresAtUtc);
         securityDb.Credentials.Add(pendingCredential);
+        securityDb.AuditEvents.Add(new DeviceSecurityAuditEvent(
+            device.Id, administratorUserId, "CredentialRotationStarted",
+            $"Replacement credential created; expires at {expiresAtUtc:O}."));
         try
         {
             await securityDb.SaveChangesAsync(cancellationToken);
@@ -494,6 +507,11 @@ public sealed class DeviceAuthenticationService(
                 securityDb.ChangeTracker.Clear();
                 return null;
             }
+
+            securityDb.AuditEvents.Add(new DeviceSecurityAuditEvent(
+                device.Id, null, "CredentialRotationConfirmed",
+                "Replacement credential confirmed; previous credentials were revoked."));
+            await securityDb.SaveChangesAsync(cancellationToken);
 
             logger.LogInformation(
                 "Device {DeviceCode} confirmed its rotated credential; previous credentials were revoked.",
