@@ -124,6 +124,25 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
     }
 
     [Fact]
+    public async Task DatabasePreventsMultipleCurrentCredentialsForOneDevice()
+    {
+        await ProvisionDeviceAsync();
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var domainDb = scope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
+        var device = await domainDb.Devices.SingleAsync(item => item.DeviceCode == _deviceCode);
+        var securityDb = scope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
+        securityDb.Credentials.Add(new DeviceCredential(
+            device.Id, new string('A', 64), Convert.ToBase64String(RandomNumberGenerator.GetBytes(60))));
+
+        var exception = await Assert.ThrowsAsync<DbUpdateException>(
+            () => securityDb.SaveChangesAsync());
+        Assert.Equal("23505", exception.GetBaseException() is Npgsql.PostgresException postgres
+            ? postgres.SqlState
+            : null);
+    }
+
+    [Fact]
     public async Task NonAdministratorCannotCreateDeviceProvisioningCode()
     {
         await using var scope = _factory.Services.CreateAsyncScope();
