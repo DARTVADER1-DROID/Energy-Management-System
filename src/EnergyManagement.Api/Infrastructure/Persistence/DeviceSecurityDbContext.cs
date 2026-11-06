@@ -38,6 +38,7 @@ public sealed class DeviceSecurityDbContext(
                 .HasFilter("\"RevokedAtUtc\" IS NULL");
             entity.Property(credential => credential.SecretHash).HasMaxLength(64).IsRequired();
             entity.Property(credential => credential.ProtectedSigningKey).HasMaxLength(256).IsRequired();
+            entity.Property(credential => credential.IsPendingRotation).HasDefaultValue(false);
         });
 
         modelBuilder.Entity<DeviceRequestNonce>(entity =>
