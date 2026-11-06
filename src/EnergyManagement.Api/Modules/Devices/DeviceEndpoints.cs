@@ -1,3 +1,4 @@
+using EnergyManagement.Api.Infrastructure.Persistence;
 using EnergyManagement.Api.Modules.Households;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
