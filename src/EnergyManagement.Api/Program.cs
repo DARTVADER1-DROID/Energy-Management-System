@@ -62,9 +62,14 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Events.OnSigningIn = context =>
     {
         var identity = context.Principal?.Identity as ClaimsIdentity;
-        if (identity is not null && !identity.HasClaim(claim => claim.Type == "ems_session_started"))
+        if (identity is not null)
         {
-            identity.AddClaim(new Claim("ems_session_started", DateTimeOffset.UtcNow.ToString("O")));
+            var now = DateTimeOffset.UtcNow.ToString("O");
+            if (!identity.HasClaim(claim => claim.Type == "ems_session_started"))
+                identity.AddClaim(new Claim("ems_session_started", now));
+
+            identity.RemoveClaim(identity.FindFirst("ems_last_activity"));
+            identity.AddClaim(new Claim("ems_last_activity", now));
         }
 
         return Task.CompletedTask;
@@ -72,12 +77,24 @@ builder.Services.ConfigureApplicationCookie(options =>
 
     options.Events.OnValidatePrincipal = context =>
     {
+        var now = DateTimeOffset.UtcNow;
         var startedClaim = context.Principal?.FindFirst("ems_session_started")?.Value;
+        var activityClaim = context.Principal?.FindFirst("ems_last_activity")?.Value;
+
         if (!DateTimeOffset.TryParse(startedClaim, out var startedAt)
-            || DateTimeOffset.UtcNow - startedAt > TimeSpan.FromHours(8))
+            || !DateTimeOffset.TryParse(activityClaim, out var lastActivityAt)
+            || now - startedAt > TimeSpan.FromHours(8)
+            || now - lastActivityAt > TimeSpan.FromMinutes(15))
         {
             context.RejectPrincipal();
             return context.HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
+        }
+
+        if (context.Principal?.Identity is ClaimsIdentity validatedIdentity)
+        {
+            validatedIdentity.RemoveClaim(validatedIdentity.FindFirst("ems_last_activity"));
+            validatedIdentity.AddClaim(new Claim("ems_last_activity", now.ToString("O")));
+            context.ShouldRenew = true;
         }
 
         return Task.CompletedTask;
