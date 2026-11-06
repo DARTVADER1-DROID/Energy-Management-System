@@ -65,6 +65,7 @@ public sealed class DeviceAuthenticationService(
         try
         {
             await securityDb.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
         }
         catch (DbUpdateException exception) when (
             exception.GetBaseException() is PostgresException postgres &&
@@ -90,7 +91,6 @@ public sealed class DeviceAuthenticationService(
                 "Provisioning changed concurrently. Refresh the page and try again.");
         }
 
-        await transaction.CommitAsync(cancellationToken);
         return new ProvisioningCodeResult(device.DeviceCode, rawCode, entity.ExpiresAtUtc);
     }
 
@@ -225,6 +225,7 @@ public sealed class DeviceAuthenticationService(
         try
         {
             await securityDb.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
         }
         catch (DbUpdateException exception) when (
             exception.GetBaseException() is PostgresException postgres &&
@@ -250,7 +251,6 @@ public sealed class DeviceAuthenticationService(
                 "Credential rotation changed concurrently. Refresh the page and try again.");
         }
 
-        await transaction.CommitAsync(cancellationToken);
         logger.LogInformation(
             "Credential rotation was initiated for device {DeviceCode}.", deviceCode);
         return new DeviceCredentialRotationResult(
