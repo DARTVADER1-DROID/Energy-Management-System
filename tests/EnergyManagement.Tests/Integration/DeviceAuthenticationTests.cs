@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using EnergyManagement.Api.Infrastructure.Persistence;
@@ -98,6 +99,28 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.ExchangeProvisioningCodeAsync(_deviceCode, code.Code));
+    }
+
+    [Fact]
+    public async Task ProvisioningEndpointsDoNotCacheOneTimeSecrets()
+    {
+        using var codeResponse = await _client.PostAsync(
+            $"/api/devices/{_deviceCode}/provisioning-codes", content: null);
+
+        Assert.Equal(HttpStatusCode.OK, codeResponse.StatusCode);
+        Assert.True(codeResponse.Headers.CacheControl?.NoStore);
+        var code = await codeResponse.Content.ReadFromJsonAsync<ProvisioningCodeResult>();
+        Assert.NotNull(code);
+
+        using var exchangeResponse = await _client.PostAsJsonAsync(
+            "/api/device-auth/provision",
+            new ProvisionDeviceRequest(_deviceCode, code.Code));
+
+        Assert.Equal(HttpStatusCode.OK, exchangeResponse.StatusCode);
+        Assert.True(exchangeResponse.Headers.CacheControl?.NoStore);
+        var credentials = await exchangeResponse.Content.ReadFromJsonAsync<DeviceProvisioningResult>();
+        Assert.NotNull(credentials);
+        Assert.False(string.IsNullOrWhiteSpace(credentials.DeviceSecret));
     }
 
     [Fact]
