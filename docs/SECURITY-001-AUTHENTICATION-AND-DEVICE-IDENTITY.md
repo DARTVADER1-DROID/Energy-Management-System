@@ -100,8 +100,8 @@ Implemented on `feat/household-device-security`:
 - Secure application cookies with a 15-minute inactivity timeout and an eight-hour absolute session limit.
 - Administrator bootstrap through deployment environment secrets.
 - Household membership persistence, administrator-issued invitations, single-use invitation acceptance, membership role changes, and last-administrator protection.
-- Account security profile, password change with recent authentication, recovery-code regeneration, household user management, administrator-assisted MFA recovery, member removal, and household-scoped audit history.
-- Role-aware device registration/deactivation UI, account security pages, device provisioning UI, and five-minute recent-authentication checks for sensitive household/device operations.
+- Account security profile, password change with recent authentication, recovery-code regeneration, household user management, administrator-assisted MFA recovery, member removal, household creation UI, and household-scoped audit history.
+- Role-aware device registration/deactivation UI, account security pages, device provisioning and dual-key rotation UI, emergency credential revocation, and five-minute recent-authentication checks for sensitive household/device operations.
 - Backend device provisioning-code issuance and exchange: administrator-scoped, single-use codes expire after ten minutes and only their hashes are stored.
 - Device credentials are returned once; the backend stores a SHA-256 verifier and AES-GCM-protected secret, not plaintext.
 - HMAC-SHA-256 device request authentication, timestamp freshness, body hashing, constant-time signature verification, per-device nonce replay protection, heartbeat endpoint, and device/IP rate limiting.
@@ -112,7 +112,7 @@ Implemented on `feat/household-device-security`:
 Still pending:
 - ESP32 firmware implementation for serial provisioning, temporary local Wi-Fi portal, NTP/SNTP gating, NVS credential storage, and HMAC request signing.
 - Device telemetry ingestion, diagnostics, command polling, acknowledgements, and execution-result reporting.
-- A full administrator credential-revocation workflow and richer device credential audit UI.
+- Device telemetry ingestion, diagnostics, command polling, acknowledgements, and execution-result reporting.
 - Production HTTPS/proxy validation and end-to-end tests with a physical ESP32.
 
 
