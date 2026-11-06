@@ -1,8 +1,0 @@
-dotnet new console -n RetailInventory
-cd RetailInventory
-dotnet add package Microsoft.EntityFrameworkCore.SqlServer
-dotnet add package Microsoft.EntityFrameworkCore.Design
-dotnet tool install --global dotnet-ef
-dotnet ef migrations add InitialCreate
-dotnet ef database update
-dotnet run
