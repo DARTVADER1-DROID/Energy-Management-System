@@ -33,6 +33,8 @@ public static class DeviceEndpoints
         devices.MapPatch("/{deviceCode}/deactivate", DeactivateDeviceAsync);
         devices.MapPost("/{deviceCode}/provisioning-codes", CreateProvisioningCodeAsync)
             .RequireRateLimiting("device-provisioning");
+        devices.MapPost("/{deviceCode}/credential-rotations", CreateCredentialRotationAsync)
+            .RequireRateLimiting("device-provisioning");
 
         var deviceAuthentication = endpoints.MapGroup("/api/device-auth")
             .WithTags("Device authentication");
@@ -248,6 +250,40 @@ public static class DeviceEndpoints
         try
         {
             var result = await authenticationService.CreateProvisioningCodeAsync(
+                deviceCode, GetUserId(user), householdAccess, cancellationToken);
+            httpContext.Response.Headers.CacheControl = "no-store";
+            httpContext.Response.Headers.Pragma = "no-cache";
+            return TypedResults.Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return TypedResults.NotFound("Device was not found.");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return TypedResults.Forbid();
+        }
+        catch (InvalidOperationException exception)
+        {
+            return TypedResults.Conflict(exception.Message);
+        }
+    }
+
+    private static async Task<IResult> CreateCredentialRotationAsync(
+        string deviceCode,
+        DeviceAuthenticationService authenticationService,
+        HouseholdAccessService householdAccess,
+        ClaimsPrincipal user,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (!user.HasRecentAuthentication())
+            return TypedResults.Problem(statusCode: 428, title: "Recent authentication required",
+                detail: "Reauthenticate before rotating a device credential.");
+
+        try
+        {
+            var result = await authenticationService.CreateCredentialRotationAsync(
                 deviceCode, GetUserId(user), householdAccess, cancellationToken);
             httpContext.Response.Headers.CacheControl = "no-store";
             httpContext.Response.Headers.Pragma = "no-cache";
