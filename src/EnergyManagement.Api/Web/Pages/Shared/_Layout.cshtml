@@ -102,9 +102,8 @@
                     </form>
                 }
                 <button id="theme-toggle" class="icon-button" type="button" aria-label="Toggle colour theme" title="Toggle theme">◐</button>
-                <a asp-page="/Alerts/Index" class="icon-button relative" aria-label="Notifications" title="Notifications">
+                <a asp-page="/Alerts/Index" class="icon-button" aria-label="Notifications" title="Notifications">
                     ♧
-                    <span class="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-amber-500"></span>
                 </a>
                 <span class="hidden max-w-40 truncate text-xs text-slate-500 md:block">@User.Identity?.Name</span>
                 <form method="post" asp-page="/Account/Logout">
