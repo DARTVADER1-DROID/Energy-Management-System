@@ -63,6 +63,18 @@ The limits are ingestion sanity checks, not electrical protection thresholds. Fi
 - Authenticated household members can query their own device history; another household's device is returned as not found.
 - History queries are bounded to 31 days and 500 rows.
 
+## Dashboard read model
+
+The household dashboard now reads the latest persisted sample for each device and displays:
+
+- Sum of latest instantaneous active-power readings (kW).
+- Average of available per-device voltage readings (V).
+- Average of available per-device current readings (A).
+- Sum of latest cumulative meter-energy counters (kWh).
+- Number of devices with at least one stored telemetry sample and the latest server receipt time.
+
+If a root aggregate value is missing, phase values are used where a meaningful aggregation is defined. Missing metrics remain unavailable rather than being rendered as zero. The cumulative energy card is not a daily-energy calculation. The dashboard's telemetry-history count is not an online/connectivity indicator.
+
 ## API
 
 ### Publish
