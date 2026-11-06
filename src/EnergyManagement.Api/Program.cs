@@ -73,6 +73,8 @@ builder.Services.ConfigureApplicationCookie(options =>
             var now = DateTimeOffset.UtcNow.ToString("O");
             if (!identity.HasClaim(claim => claim.Type == "ems_session_started"))
                 identity.AddClaim(new Claim("ems_session_started", now));
+            if (!identity.HasClaim(claim => claim.Type == "ems_recent_auth"))
+                identity.AddClaim(new Claim("ems_recent_auth", now));
 
             var previousActivity = identity.FindFirst("ems_last_activity");
             if (previousActivity is not null)

@@ -24,12 +24,14 @@ public sealed class TestAuthenticationHandler(
         var userId = Request.Headers.TryGetValue("X-Test-User-Id", out var requestedUserId)
             ? requestedUserId.ToString()
             : "1";
-        var claims = new[]
+        var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.NameIdentifier, userId),
-            new Claim(ClaimTypes.Name, "integration-test-user"),
-            new Claim(ClaimTypes.Role, role)
+            new(ClaimTypes.NameIdentifier, userId),
+            new(ClaimTypes.Name, "integration-test-user"),
+            new(ClaimTypes.Role, role)
         };
+        if (!Request.Headers.ContainsKey("X-Test-No-Recent-Auth"))
+            claims.Add(new Claim("ems_recent_auth", DateTimeOffset.UtcNow.ToString("O")));
         var ticket = new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity(claims, Scheme.Name, ClaimTypes.Name, ClaimTypes.Role)), Scheme.Name);
         return Task.FromResult(AuthenticateResult.Success(ticket));
     }

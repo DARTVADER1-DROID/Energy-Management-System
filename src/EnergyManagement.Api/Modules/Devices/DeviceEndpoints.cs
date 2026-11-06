@@ -35,13 +35,17 @@ public static class DeviceEndpoints
         return endpoints;
     }
 
-    private static async Task<Results<Created<HouseholdResponse>, ValidationProblem>> CreateHouseholdAsync(
+    private static async Task<Results<Created<HouseholdResponse>, ValidationProblem, ProblemHttpResult>> CreateHouseholdAsync(
         CreateHouseholdRequest request,
         DeviceRegistrationService service,
         HouseholdAccessService householdAccess,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
+        if (!user.HasRecentAuthentication())
+            return TypedResults.Problem(statusCode: 428, title: "Recent authentication required",
+                detail: "Reauthenticate before creating a household.");
+
         if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 120)
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
@@ -96,7 +100,7 @@ public static class DeviceEndpoints
                 household.Id, household.HouseholdCode, household.Name));
     }
 
-    private static async Task<Results<Created<DeviceResponse>, NotFound<string>, ValidationProblem, ForbidHttpResult>> RegisterDeviceAsync(
+    private static async Task<Results<Created<DeviceResponse>, NotFound<string>, ValidationProblem, ForbidHttpResult, ProblemHttpResult>> RegisterDeviceAsync(
         int householdId,
         RegisterDeviceRequest request,
         DeviceRegistrationService service,
@@ -111,6 +115,10 @@ public static class DeviceEndpoints
 
         if (!await householdAccess.IsAdministratorAsync(GetUserId(user), householdId, cancellationToken))
             return TypedResults.Forbid();
+
+        if (!user.HasRecentAuthentication())
+            return TypedResults.Problem(statusCode: 428, title: "Recent authentication required",
+                detail: "Reauthenticate before registering a device.");
 
         var errors = Validate(request);
         if (errors.Count > 0) return TypedResults.ValidationProblem(errors);
@@ -204,6 +212,10 @@ public static class DeviceEndpoints
         if (!await householdAccess.IsAdministratorAsync(
                 GetUserId(user), device.HouseholdId, cancellationToken))
             return TypedResults.Forbid();
+
+        if (!user.HasRecentAuthentication())
+            return TypedResults.Problem(statusCode: 428, title: "Recent authentication required",
+                detail: "Reauthenticate before deactivating a device.");
 
         device.Deactivate();
         await dbContext.SaveChangesAsync(cancellationToken);

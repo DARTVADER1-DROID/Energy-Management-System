@@ -34,6 +34,12 @@ public sealed class RegisterModel(
             return Forbid();
         if (!ModelState.IsValid) return Page();
 
+        if (!User.HasRecentAuthentication())
+        {
+            var returnUrl = Url.Page("/Devices/Register", new { householdId = Input.HouseholdId });
+            return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
+        }
+
         var thresholds = new DeviceThresholdsRequest
         {
             MinimumVoltage = Input.MinimumVoltage,

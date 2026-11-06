@@ -31,6 +31,11 @@ public sealed class UsersModel(
         var result = await LoadAsync(HouseholdId, cancellationToken);
         if (result is not null) return result;
         if (!ModelState.IsValid) return Page();
+        if (!User.HasRecentAuthentication())
+        {
+            var returnUrl = Url.Page("/Households/Users", new { householdId = HouseholdId });
+            return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
+        }
 
         try
         {
@@ -50,6 +55,12 @@ public sealed class UsersModel(
     public async Task<IActionResult> OnPostRevokeAsync(
         int householdId, int invitationId, CancellationToken cancellationToken)
     {
+        if (!User.HasRecentAuthentication())
+        {
+            var returnUrl = Url.Page("/Households/Users", new { householdId });
+            return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
+        }
+
         try
         {
             await invitationService.RevokeAsync(
@@ -67,6 +78,12 @@ public sealed class UsersModel(
     public async Task<IActionResult> OnPostChangeRoleAsync(
         int householdId, int userId, HouseholdRole role, CancellationToken cancellationToken)
     {
+        if (!User.HasRecentAuthentication())
+        {
+            var returnUrl = Url.Page("/Households/Users", new { householdId });
+            return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
+        }
+
         try
         {
             await invitationService.ChangeRoleAsync(

@@ -26,7 +26,7 @@ Every household-scoped operation must derive and validate household membership f
 - SMTP delivery is provider-independent and configured through deployment secrets/environment variables. Credentials must never be committed. Password reset is implemented. Configure `EMS_SMTP_HOST`, `EMS_SMTP_PORT` (default 587), `EMS_SMTP_USERNAME`, `EMS_SMTP_PASSWORD`, `EMS_SMTP_FROM`, `EMS_SMTP_ENABLE_SSL` (default true), and HTTPS `EMS_PUBLIC_BASE_URL`.
 - MFA uses authenticator-app TOTP. Administrators must enroll before accessing protected operations; MFA is optional for Members and Viewers. Enrollment, authenticator challenge, and ten one-time recovery codes are implemented. Recovery codes are cryptographically random, stored only as SHA-256 hashes, and redeemed atomically once.
 - Generate ten one-time recovery codes at MFA enrollment. Show them once and persist only hashes. There is no email-only MFA bypass.
-- Login sessions are non-persistent, limited to eight hours maximum, and expire after fifteen minutes of inactivity. Cookies are HTTP-only, Secure, and SameSite protected. Sensitive actions require recent authentication.
+- Login sessions are non-persistent, limited to eight hours maximum, and expire after fifteen minutes of inactivity. Cookies are HTTP-only, Secure, and SameSite protected. Sensitive actions require password reauthentication and administrator MFA where enabled; the fresh-authentication window is five minutes.
 - Rate-limit login, invitation acceptance, password reset, MFA verification, and setup attempts. Emit security audit events without recording secrets or raw tokens.
 
 ## 3. Household roles
@@ -95,15 +95,13 @@ Implemented on `feat/household-device-security`:
 - Secure application cookies with a 15-minute inactivity timeout and an eight-hour absolute session limit.
 - Administrator bootstrap through deployment environment secrets.
 - Household membership persistence, administrator-issued invitations, single-use invitation acceptance, membership role changes, and last-administrator protection.
-- Account security profile, household user management, role-aware device registration UI, and clean anonymous account pages.
+- Account security profile, household user management, role-aware device registration UI, clean anonymous account pages, and five-minute recent-authentication checks for household/device administration.
 - Integration coverage for invitation acceptance and authorization, anonymous API rejection, administrator MFA enforcement, household role restrictions, and cross-household isolation.
 
 Still pending:
 - Lost-authenticator and lost-recovery-code administrative recovery workflow.
-- Recent-authentication checks for sensitive operations.
-- Password-reset delivery and token redemption.
 - Lost-authenticator and lost-recovery-code administrative recovery workflow.
-- Recent-authentication checks for sensitive operations.
+- Full ESP32 provisioning, HMAC authentication, replay protection, and credential rotation.
 - Full ESP32 provisioning, HMAC authentication, replay protection, and credential rotation.
 
 ## 9. Production and staging release gates
