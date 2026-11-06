@@ -17,6 +17,9 @@ public sealed class DeviceSecurityDbContext(
             entity.ToTable("device_provisioning_codes");
             entity.HasKey(code => code.Id);
             entity.HasIndex(code => code.CodeHash).IsUnique();
+            entity.HasIndex(code => code.DeviceId)
+                .IsUnique()
+                .HasFilter("\"UsedAtUtc\" IS NULL AND \"RevokedAtUtc\" IS NULL");
             entity.HasIndex(code => new { code.DeviceId, code.ExpiresAtUtc });
             entity.Property(code => code.CodeHash).HasMaxLength(64).IsRequired();
         });
