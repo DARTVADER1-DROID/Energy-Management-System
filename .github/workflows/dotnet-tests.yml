@@ -9,6 +9,22 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: energy_management_tests
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test_user -d energy_management_tests"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      EMS_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=energy_management_tests;Username=test_user;Password=test_password
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4

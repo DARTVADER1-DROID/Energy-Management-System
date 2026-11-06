@@ -1,22 +1,10 @@
-using Testcontainers.PostgreSql;
-using Xunit;
-
 namespace EnergyManagement.Tests.Infrastructure;
 
-public sealed class PostgreSqlFixture : IAsyncLifetime
+public sealed class PostgreSqlFixture
 {
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder()
-        .WithImage("postgres:17-alpine")
-        .WithDatabase("energy_management_tests")
-        .WithUsername("test_user")
-        .WithPassword("test_password")
-        .Build();
-
-    public string ConnectionString => _container.GetConnectionString();
-
-    public Task InitializeAsync() => _container.StartAsync();
-
-    public Task DisposeAsync() => _container.DisposeAsync().AsTask();
+    public string ConnectionString =>
+        Environment.GetEnvironmentVariable("EMS_TEST_CONNECTION_STRING")
+        ?? "Host=localhost;Port=5432;Database=energy_management_tests;Username=test_user;Password=test_password";
 }
 
 [CollectionDefinition(Name)]

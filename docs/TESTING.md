@@ -6,8 +6,15 @@ PostgreSQL persistence, and concurrent device-number allocation.
 ## Prerequisites
 
 - .NET 10 SDK
-- Docker Engine / Docker Desktop running (the PostgreSQL integration fixture starts
-  an isolated `postgres:17-alpine` container through Testcontainers)
+- PostgreSQL 17 running locally
+- A test database with these credentials, or a custom connection string supplied through
+  the `EMS_TEST_CONNECTION_STRING` environment variable
+
+Default local test connection:
+
+```
+Host=localhost;Port=5432;Database=energy_management_tests;Username=test_user;Password=test_password
+```
 
 ## Run all tests
 
@@ -17,8 +24,9 @@ From the repository root:
 dotnet test tests/EnergyManagement.Tests/EnergyManagement.Tests.csproj
 ```
 
-The fixture creates an isolated test database container. Tests apply the real EF Core
-migration; they do not use EF Core's in-memory provider as a substitute for PostgreSQL.
+The tests apply the real EF Core migration against PostgreSQL; they do not use EF Core's
+in-memory provider as a substitute for PostgreSQL. GitHub Actions provisions an isolated
+PostgreSQL 17 service container for every workflow run.
 
 ## Test coverage
 
