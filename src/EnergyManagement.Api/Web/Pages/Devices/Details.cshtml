@@ -122,12 +122,13 @@
     {
         <div class="overflow-x-auto">
             <table class="w-full min-w-[640px] text-left text-sm">
-                <thead class="table-head"><tr><th>Event</th><th>Details</th><th>Time</th></tr></thead>
+                <thead class="table-head"><tr><th>Event</th><th>Actor</th><th>Details</th><th>Time</th></tr></thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                 @foreach (var securityEvent in Model.SecurityEvents)
                 {
                     <tr class="table-row">
                         <td class="font-semibold">@securityEvent.EventType</td>
+                        <td class="text-slate-500">@(securityEvent.ActorUserId.HasValue ? $"User #{securityEvent.ActorUserId.Value}" : "Device")</td>
                         <td class="text-slate-500">@securityEvent.Details</td>
                         <td class="whitespace-nowrap text-slate-500">@securityEvent.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy, HH:mm:ss")</td>
                     </tr>
