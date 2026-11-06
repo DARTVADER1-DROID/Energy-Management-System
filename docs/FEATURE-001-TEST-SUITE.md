@@ -11,7 +11,7 @@ This test suite protects the first functional increment of the Energy Management
 
 The suite is intentionally layered. Domain tests verify business invariants without HTTP or database dependencies. API integration tests exercise the public HTTP boundary using the application test host. PostgreSQL-backed tests verify real persistence and concurrent identifier allocation.
 
-The suite grew from the original 38-test baseline to 97 passing test cases. The additional boundary and invariant tests are regression protection, not a change to the production feature's behaviour.
+The suite grew from the original 38-test baseline to 102 passing test cases. The additional boundary and invariant tests are regression protection, not a change to the production feature's behaviour.
 
 ## 2. Test organisation
 
@@ -115,20 +115,20 @@ See [TESTING.md](TESTING.md) for the complete local and CI workflow.
 
 ## 6. Latest recorded validation
 
-The expanded suite was run by GitHub Actions on 6 November 2026:
+The expanded suite was run by GitHub Actions on 6 November 2026 after the review fixes:
 
 | Result | Value |
 |---|---:|
-| Total | 97 |
-| Passed | 97 |
+| Total | 102 |
+| Passed | 102 |
 | Failed | 0 |
 | Skipped | 0 |
-| Test execution duration | 9 seconds |
+| Test execution duration | 10 seconds |
 | Target framework | .NET 10 |
 | Database | PostgreSQL 17 |
 
-- Workflow run: [42248843753](https://github.com/DARTVADER1-DROID/Energy-Management-System/actions/runs/42248843753)
-- Test-suite expansion commit: [41257f6541a4d2972bdf7c80a286d90fc2910ebb](https://github.com/DARTVADER1-DROID/Energy-Management-System/commit/41257f6541a4d2972bdf7c80a286d90fc2910ebb)
+- Workflow run: [42253634106](https://github.com/DARTVADER1-DROID/Energy-Management-System/actions/runs/42248843753)
+- Test-suite expansion commit: [24f776f91d94aa0376fefbf1d17b6a12c8b30bf1](https://github.com/DARTVADER1-DROID/Energy-Management-System/commit/41257f6541a4d2972bdf7c80a286d90fc2910ebb)
 
 These figures describe that specific CI run; rerun the workflow after subsequent changes rather than treating this result as a guarantee for future commits.
 

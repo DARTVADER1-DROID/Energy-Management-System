@@ -40,7 +40,7 @@ The API currently has no authentication or role enforcement because authenticati
 
 ## Verification
 
-The Feature 001 test suite currently contains 97 test cases. The latest recorded CI run passed all 97 with no failures or skips against PostgreSQL 17.
+The Feature 001 test suite currently contains 102 test cases. The latest recorded CI run passed all 102 with no failures or skips against PostgreSQL 17.
 
 See [Feature 001 — Comprehensive Regression Test Suite](FEATURE-001-TEST-SUITE.md)
 for test organisation, coverage, execution instructions, validation evidence and explicit exclusions.
