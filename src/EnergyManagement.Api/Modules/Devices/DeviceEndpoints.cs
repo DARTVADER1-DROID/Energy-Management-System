@@ -27,12 +27,10 @@ public static class DeviceEndpoints
             .WithTags("Devices")
             .RequireAuthorization();
 
-        devices.MapPost("/{householdId:int}", RegisterDeviceAsync)
-            .RequireAuthorization("HouseholdAdministrator");
+        devices.MapPost("/{householdId:int}", RegisterDeviceAsync);
         devices.MapGet("/", ListDevicesAsync);
         devices.MapGet("/{deviceCode}", GetDeviceAsync);
-        devices.MapPatch("/{deviceCode}/deactivate", DeactivateDeviceAsync)
-            .RequireAuthorization("HouseholdAdministrator");
+        devices.MapPatch("/{deviceCode}/deactivate", DeactivateDeviceAsync);
 
         return endpoints;
     }
