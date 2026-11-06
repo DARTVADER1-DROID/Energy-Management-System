@@ -125,7 +125,7 @@ public sealed class DeviceRegistrationBoundaryApiTests(PostgreSqlFixture postgre
         var request = new RegisterDeviceRequest(
             new string('N', 120), new string('M', 80), new string('F', 80),
             new string('L', 160), ElectricalConfiguration.SinglePhase,
-            new string('D', 1000), new DeviceThresholds());
+            new string('D', 1000), new DeviceThresholdsRequest());
 
         var response = await _client.PostAsJsonAsync($"/api/devices/{householdId}", request);
 
@@ -165,7 +165,7 @@ public sealed class DeviceRegistrationBoundaryApiTests(PostgreSqlFixture postgre
         var householdId = await CreateHouseholdAsync("Threshold Home");
         var request = ValidRequest() with
         {
-            Thresholds = new DeviceThresholds { MaximumCurrent = -0.01m, WarningPersistenceSeconds = 1 }
+            Thresholds = new DeviceThresholdsRequest { MaximumCurrent = -0.01m, WarningPersistenceSeconds = 1 }
         };
 
         var response = await _client.PostAsJsonAsync($"/api/devices/{householdId}", request);
@@ -180,7 +180,7 @@ public sealed class DeviceRegistrationBoundaryApiTests(PostgreSqlFixture postgre
         var householdId = await CreateHouseholdAsync("Voltage Home");
         var request = ValidRequest() with
         {
-            Thresholds = new DeviceThresholds
+            Thresholds = new DeviceThresholdsRequest
             {
                 MinimumVoltage = minimum,
                 MaximumVoltage = maximum,
@@ -201,7 +201,7 @@ public sealed class DeviceRegistrationBoundaryApiTests(PostgreSqlFixture postgre
         var householdId = await CreateHouseholdAsync("Duration Home");
         var request = ValidRequest() with
         {
-            Thresholds = new DeviceThresholds
+            Thresholds = new DeviceThresholdsRequest
             {
                 MaximumCurrent = 10,
                 WarningPersistenceSeconds = duration
@@ -218,11 +218,11 @@ public sealed class DeviceRegistrationBoundaryApiTests(PostgreSqlFixture postgre
         var householdId = await CreateHouseholdAsync("Duration Bounds Home");
         var low = ValidRequest() with
         {
-            Thresholds = new DeviceThresholds { MaximumCurrent = 10, WarningPersistenceSeconds = 1 }
+            Thresholds = new DeviceThresholdsRequest { MaximumCurrent = 10, WarningPersistenceSeconds = 1 }
         };
         var high = ValidRequest() with
         {
-            Thresholds = new DeviceThresholds { MaximumCurrent = 10, WarningPersistenceSeconds = 86400 }
+            Thresholds = new DeviceThresholdsRequest { MaximumCurrent = 10, WarningPersistenceSeconds = 86400 }
         };
 
         Assert.Equal(HttpStatusCode.Created,
@@ -237,7 +237,7 @@ public sealed class DeviceRegistrationBoundaryApiTests(PostgreSqlFixture postgre
         var householdId = await CreateHouseholdAsync("Optional Temperature Home");
         var request = ValidRequest() with
         {
-            Thresholds = new DeviceThresholds
+            Thresholds = new DeviceThresholdsRequest
             {
                 MinimumVoltage = 180,
                 MaximumVoltage = 260,
@@ -362,5 +362,5 @@ public sealed class DeviceRegistrationBoundaryApiTests(PostgreSqlFixture postgre
 
     private static RegisterDeviceRequest ValidRequest() => new(
         "Main Energy Monitor", "ESP32", "1.0.0", "Main Distribution Board",
-        ElectricalConfiguration.SinglePhase, null, new DeviceThresholds());
+        ElectricalConfiguration.SinglePhase, null, new DeviceThresholdsRequest());
 }
