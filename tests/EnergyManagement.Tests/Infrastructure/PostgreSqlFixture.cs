@@ -1,3 +1,5 @@
+using Xunit;
+
 namespace EnergyManagement.Tests.Infrastructure;
 
 public sealed class PostgreSqlFixture
