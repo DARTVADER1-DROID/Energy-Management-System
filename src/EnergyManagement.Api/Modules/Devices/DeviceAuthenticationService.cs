@@ -429,7 +429,29 @@ public sealed class DeviceAuthenticationService(
             return null;
 
         await using var transaction = await securityDb.Database.BeginTransactionAsync(
-            IsolationLevel.Serializable, cancellationToken);
+            IsolationLevel.ReadCommitted, cancellationToken);
+
+        // The signature was checked against a snapshot read above. Lock the active
+        // credential rows and revalidate before accepting the nonce so a concurrent
+        // administrator revocation or completed key rotation cannot authorize a
+        // request with a credential that has since become inactive.
+        var activeCredentials = await securityDb.Credentials
+            .FromSqlInterpolated($"""
+                SELECT * FROM device_credentials
+                WHERE "DeviceId" = {device.Id} AND "RevokedAtUtc" IS NULL
+                FOR UPDATE
+                """)
+            .AsNoTracking()
+            .ToArrayAsync(cancellationToken);
+        var lockedCredential = activeCredentials.SingleOrDefault(item =>
+            item.Id == matchedCredential.Id &&
+            (!item.IsPendingRotation || item.RotationExpiresAtUtc > now));
+        if (lockedCredential is null)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return null;
+        }
+
         await securityDb.RequestNonces
             .Where(item => item.DeviceId == device.Id && item.CreatedAtUtc < now.Subtract(NonceRetention))
             .ExecuteDeleteAsync(cancellationToken);
@@ -448,7 +470,7 @@ public sealed class DeviceAuthenticationService(
             return null;
         }
 
-        if (matchedCredential.IsPendingRotation)
+        if (lockedCredential.IsPendingRotation)
         {
             // Revoke the old current key before promoting the pending key so the
             // unique current-credential index remains valid throughout the transaction.
