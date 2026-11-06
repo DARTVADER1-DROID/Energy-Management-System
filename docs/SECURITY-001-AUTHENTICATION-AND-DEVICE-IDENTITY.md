@@ -90,7 +90,8 @@ Command delivery initially uses HTTPS polling at a fixed five-second interval. F
 - Both credentials are temporarily accepted during rotation.
 - A valid device request signed with the replacement credential confirms adoption. The backend then revokes the previous credential within the same database transaction that accepts the nonce.
 - If confirmation does not arrive before expiry, the pending credential is ignored and the existing credential remains usable.
-- A new rotation attempt invalidates any previous pending replacement. Emergency revocation and a complete credential lifecycle UI remain follow-up work.
+- A new rotation attempt invalidates any previous pending replacement.
+- Administrators can revoke all current and pending credentials, and unused provisioning codes, after recent authentication. Revocation is logged without recording secret material.
 
 ## 8. Current implementation status
 
@@ -111,7 +112,6 @@ Implemented on `feat/household-device-security`:
 
 Still pending:
 - ESP32 firmware implementation for serial provisioning, temporary local Wi-Fi portal, NTP/SNTP gating, NVS credential storage, and HMAC request signing.
-- Device telemetry ingestion, diagnostics, command polling, acknowledgements, and execution-result reporting.
 - Device telemetry ingestion, diagnostics, command polling, acknowledgements, and execution-result reporting.
 - Production HTTPS/proxy validation and end-to-end tests with a physical ESP32.
 
