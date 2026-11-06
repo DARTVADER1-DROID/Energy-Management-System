@@ -127,8 +127,8 @@ The expanded suite was run by GitHub Actions on 6 November 2026 after the review
 | Target framework | .NET 10 |
 | Database | PostgreSQL 17 |
 
-- Workflow run: [42253634106](https://github.com/DARTVADER1-DROID/Energy-Management-System/actions/runs/42248843753)
-- Test-suite expansion commit: [24f776f91d94aa0376fefbf1d17b6a12c8b30bf1](https://github.com/DARTVADER1-DROID/Energy-Management-System/commit/41257f6541a4d2972bdf7c80a286d90fc2910ebb)
+- Workflow run: [42253875877](https://github.com/DARTVADER1-DROID/Energy-Management-System/actions/runs/42253875877)
+- Test-suite expansion commit: [41257f6541a4d2972bdf7c80a286d90fc2910ebb](https://github.com/DARTVADER1-DROID/Energy-Management-System/commit/41257f6541a4d2972bdf7c80a286d90fc2910ebb)
 
 These figures describe that specific CI run; rerun the workflow after subsequent changes rather than treating this result as a guarantee for future commits.
 
