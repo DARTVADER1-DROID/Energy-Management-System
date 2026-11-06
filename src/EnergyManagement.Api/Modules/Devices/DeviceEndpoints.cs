@@ -31,12 +31,14 @@ public static class DeviceEndpoints
         devices.MapGet("/", ListDevicesAsync);
         devices.MapGet("/{deviceCode}", GetDeviceAsync);
         devices.MapPatch("/{deviceCode}/deactivate", DeactivateDeviceAsync);
-        devices.MapPost("/{deviceCode}/provisioning-codes", CreateProvisioningCodeAsync);
+        devices.MapPost("/{deviceCode}/provisioning-codes", CreateProvisioningCodeAsync)
+            .RequireRateLimiting("device-provisioning");
 
         var deviceAuthentication = endpoints.MapGroup("/api/device-auth")
             .WithTags("Device authentication");
         deviceAuthentication.MapPost("/provision", ExchangeProvisioningCodeAsync)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("device-provisioning");
         deviceAuthentication.MapPost("/heartbeat", HeartbeatAsync)
             .AllowAnonymous();
 
