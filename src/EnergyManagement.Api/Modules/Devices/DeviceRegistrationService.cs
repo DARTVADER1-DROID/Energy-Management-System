@@ -2,11 +2,14 @@ using System.Data;
 using EnergyManagement.Api.Infrastructure.Persistence;
 using EnergyManagement.Api.Modules.Households;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace EnergyManagement.Api.Modules.Devices;
 
 public sealed class DeviceRegistrationService(EnergyManagementDbContext dbContext)
 {
+    private const int MaximumAllocationAttempts = 4;
+
     public async Task<Household> CreateHouseholdAsync(string name, CancellationToken cancellationToken)
     {
         var household = new Household(name);
@@ -20,8 +23,37 @@ public sealed class DeviceRegistrationService(EnergyManagementDbContext dbContex
         RegisterDeviceRequest request,
         CancellationToken cancellationToken)
     {
-        // Serializable isolation and a concurrency token protect sequential
-        // number allocation when multiple registrations target one household.
+        for (var attempt = 1; attempt <= MaximumAllocationAttempts; attempt++)
+        {
+            try
+            {
+                return await RegisterOnceAsync(householdId, request, cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException) when (attempt < MaximumAllocationAttempts)
+            {
+                dbContext.ChangeTracker.Clear();
+            }
+            catch (DbUpdateException exception)
+                when (IsSerializationFailure(exception) && attempt < MaximumAllocationAttempts)
+            {
+                dbContext.ChangeTracker.Clear();
+            }
+            catch (PostgresException exception)
+                when (exception.SqlState == PostgresErrorCodes.SerializationFailure &&
+                      attempt < MaximumAllocationAttempts)
+            {
+                dbContext.ChangeTracker.Clear();
+            }
+        }
+
+        throw new InvalidOperationException("Device registration retry limit was exceeded.");
+    }
+
+    private async Task<Device> RegisterOnceAsync(
+        int householdId,
+        RegisterDeviceRequest request,
+        CancellationToken cancellationToken)
+    {
         await using var transaction = await dbContext.Database.BeginTransactionAsync(
             IsolationLevel.Serializable,
             cancellationToken);
@@ -48,6 +80,12 @@ public sealed class DeviceRegistrationService(EnergyManagementDbContext dbContex
 
         return device;
     }
+
+    private static bool IsSerializationFailure(DbUpdateException exception) =>
+        exception.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.SerializationFailure
+        };
 }
 
 public sealed class HouseholdNotFoundException(int householdId)

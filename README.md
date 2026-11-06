@@ -1,68 +1,20 @@
 # Energy Management System
 
-A residential energy management platform built incrementally with a .NET backend and ESP32-based edge firmware.
+A residential energy monitoring and management platform, developed incrementally.
 
-## Project goals
+## Current development
 
-- Monitor household voltage, current, instantaneous power and accumulated energy.
-- Keep electrical monitoring and protective logic local to the microcontroller.
-- Provide a responsive web application with server-side rendering (SSR).
-- Support remote access, analytics, basic bill estimation and controllable loads.
-- Keep the codebase modular, readable, testable and suitable for incremental development.
+- Feature 001: household and device registration / identity management
+- Backend: .NET 10 modular monolith
+- Persistence: PostgreSQL with EF Core
 
-## Repository layout
+## Test suite
 
-```text
-docs/                         Architecture and engineering documentation
-firmware/                     ESP32 firmware (introduced in a later milestone)
-src/
-  EnergyManagement.Api/       ASP.NET Core application host and business modules
-tests/                        Automated tests (introduced with the first testable module)
-REQUIREMENTS.md               Confirmed product requirements and open decisions
-```
+See [Feature 001 test instructions](docs/TESTING.md) for prerequisites, coverage, and
+the command to run the unit and PostgreSQL integration tests.
 
-The backend is being developed as a **modular monolith**: one deployable application with clearly separated business modules. Microservices are not part of the initial plan.
+## Safety and deployment note
 
-## Current development status
-
-**Milestone 0 — Foundation**
-
-- [x] Capture confirmed requirements.
-- [x] Document architecture direction.
-- [x] Create the ASP.NET Core API host.
-- [x] Add a lightweight liveness endpoint.
-
-**Feature 001 — Device Registration and Identity Management**
-
-- [x] Add household and device domain models.
-- [x] Add generated household/device identifiers.
-- [x] Add PostgreSQL EF Core persistence mapping.
-- [x] Add initial household/device API endpoints.
-- [x] Record feature decisions and limitations.
-- [ ] Add database migration and automated tests.
-- [ ] Verify build and concurrent identifier allocation.
-- [ ] Add authentication and administrator authorization before production use.
-
-## Getting started
-
-Prerequisite: .NET 10 SDK and PostgreSQL.
-
-Configure the connection string using the `ConnectionStrings__EnergyManagement` environment variable, then run:
-
-```bash
-dotnet run --project src/EnergyManagement.Api
-```
-
-Check liveness at:
-
-```text
-GET /health/live
-```
-
-See [Feature 001 design and API notes](docs/FEATURE-001-DEVICE-REGISTRATION.md).
-
-## Important safety and security notice
-
-This repository is an early software foundation, not a certified electrical protection system. Do not connect it to mains switching hardware or rely on it for electrical protection. Any eventual hardware implementation must use appropriately rated protection devices, validated sensing and switching circuits, fail-safe design, and qualified electrical review.
-
-Device authentication is intentionally deferred by the current product requirements. The current device-management endpoints are unauthenticated and must not be exposed to the public internet or used in production. Production deployment is blocked until authentication, authorization and a complete security design are implemented.
+Authentication and role-based authorization are intentionally deferred in this early
+development stage. Do not expose the API to the public internet or use it in production.
+Dashboard warning thresholds are not electrical protection settings.
