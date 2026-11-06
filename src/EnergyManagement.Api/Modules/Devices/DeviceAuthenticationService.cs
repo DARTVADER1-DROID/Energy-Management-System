@@ -466,3 +466,9 @@ public sealed record DeviceProvisioningResult(
     string TimestampHeader,
     string NonceHeader,
     string SignatureHeader);
+
+public sealed record DeviceCredentialRotationResult(
+    string DeviceCode,
+    string NewDeviceSecret,
+    string SignatureAlgorithm,
+    DateTimeOffset ExpiresAtUtc);
