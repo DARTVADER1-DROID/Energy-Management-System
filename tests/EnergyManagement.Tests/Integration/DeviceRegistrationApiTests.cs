@@ -220,7 +220,7 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Device console", html);
-        Assert.DoesNotContain("Security activity", html);
+        Assert.DoesNotContain("Device security history", html);
     }
 
     [Fact]
