@@ -6,9 +6,22 @@ A residential energy monitoring and management platform, developed incrementally
 
 ## Current development
 
-- Feature 001: household and device registration / identity management
-- Backend: .NET 10 modular monolith
-- Persistence: PostgreSQL with EF Core
+- Backend: .NET 10 modular monolith with ASP.NET Core Minimal APIs and server-rendered Razor Pages.
+- Persistence: PostgreSQL with EF Core and module-owned migrations.
+- Identity and access: account authentication, MFA, household membership/roles, invitations, administrator controls and recent-authentication gates.
+- Device security: single-use provisioning codes, per-device HMAC-SHA-256 credentials, timestamp/nonce replay protection, credential rotation/revocation and security audit history.
+- Telemetry: versioned flexible envelope, signed ingestion, JSONB persistence, per-device sample deduplication and household-scoped history queries.
+- Dashboard: latest persisted household measurements for power, voltage, current and cumulative energy.
+
+The telemetry contract supports root measurements now and optional L1/L2/L3 phase measurements as hardware evolves. See [telemetry ingestion](docs/TELEMETRY-001-INGESTION.md), [security implementation](docs/SECURITY-001-AUTHENTICATION-AND-DEVICE-IDENTITY.md), and [architecture](docs/ARCHITECTURE.md).
+
+## Not yet implemented
+
+- ESP32 firmware, USB serial / temporary Wi-Fi provisioning client, NTP synchronization and secure local credential storage.
+- Physical metering sensor integration and hardware-specific acquisition drivers.
+- Local safety state machine, relay/contactor control and physical feedback integration.
+- Offline telemetry queue, command polling, alert evaluation/notifications and historical charts.
+- Production HTTPS/proxy and physical-device end-to-end validation.
 
 ## Run the API and Swagger UI locally
 
@@ -61,6 +74,14 @@ See [test coverage and details](docs/TESTING.md),
 
 ## Safety and deployment note
 
-Authentication and role-based authorization are intentionally deferred in this early
-development stage. Do not expose the API to the public internet or use it in production.
-Dashboard warning thresholds are not electrical protection settings.
+Authentication, MFA and household role-based authorization are implemented, but this
+project is still under active development and is not production-ready. Do not connect
+unvalidated hardware or rely on the cloud service for immediate electrical protection.
+All time-critical sensing, fault handling and protective shutdown must execute locally
+on the firmware; backend telemetry and warning thresholds are advisory only. Use
+properly rated breakers, fuses and RCDs independently of this software.
+
+Do not expose a deployment publicly until production HTTPS/proxy behavior, secrets,
+database operations, firmware security and end-to-end hardware behavior have been
+validated. A successful automated test run is not a substitute for electrical safety
+certification or physical-device testing.

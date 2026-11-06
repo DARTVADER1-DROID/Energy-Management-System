@@ -1,4 +1,6 @@
 using EnergyManagement.Api.Infrastructure.Persistence;
+using EnergyManagement.Api.Modules.Identity;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -17,7 +19,10 @@ public sealed class EnergyManagementApiFactory(string connectionString)
         {
             configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:EnergyManagement"] = connectionString
+                ["ConnectionStrings:EnergyManagement"] = connectionString,
+                ["Database:ApplyMigrationsOnStartup"] = "true",
+                ["EMS_PUBLIC_BASE_URL"] = "https://ems.example.test",
+                ["EMS_DEVICE_CREDENTIAL_ENCRYPTION_KEY"] = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
             });
         });
 
@@ -31,6 +36,19 @@ public sealed class EnergyManagementApiFactory(string connectionString)
 
             services.AddDbContext<EnergyManagementDbContext>(options =>
                 options.UseNpgsql(connectionString));
+
+            services.RemoveAll<IEmailSender>();
+            services.AddSingleton<TestEmailSender>();
+            services.AddSingleton<IEmailSender>(provider =>
+                provider.GetRequiredService<TestEmailSender>());
+
+            services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = "IntegrationTest";
+                options.DefaultChallengeScheme = "IntegrationTest";
+                options.DefaultForbidScheme = "IntegrationTest";
+            }).AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(
+                "IntegrationTest", _ => { });
         });
     }
 }

@@ -40,7 +40,7 @@ These are planned boundaries, not all implemented modules:
 
 - **Households and Access:** installations, users, roles and permissions.
 - **Devices:** registration, device metadata, connectivity state and configuration.
-- **Telemetry:** measurement contracts, validation, ingestion and querying.
+- **Telemetry:** versioned measurement contracts, HMAC-authenticated ingestion, JSONB persistence and household-scoped history queries are implemented in the initial server-side slice. Dashboard read models, alert evaluation and firmware publishing remain planned.
 - **Protection and Events:** received fault events and audit history. The actual time-critical protection logic remains in firmware.
 - **Load Control:** commands, command outcomes and observed load state.
 - **Automation:** schedules and rule evaluation.
@@ -88,6 +88,8 @@ The first backend increment is intentionally small:
 - ASP.NET Core host.
 - Liveness endpoint at `GET /health/live`.
 - Readiness endpoint at `GET /health/ready`, which checks PostgreSQL connectivity.
-- No database, authentication, telemetry ingestion or hardware-control endpoints yet.
+- PostgreSQL-backed household/device persistence and device identity are implemented.
+- HMAC-authenticated telemetry ingestion and bounded history queries are implemented; see [TELEMETRY-001](TELEMETRY-001-INGESTION.md).
+- Hardware-control endpoints and firmware integration remain planned.
 
 The liveness endpoint only reports that the API process is responding. It is not a readiness or end-to-end health check.

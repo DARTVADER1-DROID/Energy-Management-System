@@ -1,19 +1,197 @@
+using EnergyManagement.Api.Infrastructure.IdentityPersistence;
+using EnergyManagement.Api.Infrastructure.Persistence;
+using EnergyManagement.Api.Modules.Devices;
+using EnergyManagement.Api.Modules.Identity;
 using EnergyManagement.Api.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 
 namespace EnergyManagement.Api.Web.Pages.Devices;
 
-public sealed class DetailsModel(DashboardReadService dashboardReadService) : PageModel
+public sealed class DetailsModel(
+    DashboardReadService dashboardReadService,
+    EnergyManagementDbContext energyDb,
+    DeviceSecurityDbContext deviceSecurityDb,
+    IdentityDbContext identityDb,
+    HouseholdAccessService householdAccess,
+    DeviceAuthenticationService deviceAuthenticationService) : PageModel
 {
     public DeviceDetails Device { get; private set; } = null!;
+    public bool CanManageDevice { get; private set; }
+    public string? ProvisioningCode { get; private set; }
+    public DateTimeOffset? ProvisioningCodeExpiresAtUtc { get; private set; }
+    public bool CanRotateDeviceCredential { get; private set; }
+    public string? RotatedDeviceSecret { get; private set; }
+    public DateTimeOffset? RotationExpiresAtUtc { get; private set; }
+    public IReadOnlyList<DeviceSecurityAuditSummary> SecurityEvents { get; private set; } = [];
 
     public async Task<IActionResult> OnGetAsync(string deviceCode, CancellationToken cancellationToken)
     {
-        var device = await dashboardReadService.GetDeviceDetailsAsync(deviceCode, cancellationToken);
+        var userId = User.GetUserId();
+        var device = await dashboardReadService.GetDeviceDetailsAsync(
+            deviceCode, userId, cancellationToken);
         if (device is null) return NotFound();
 
         Device = device;
+        CanManageDevice = await householdAccess.IsAdministratorAsync(
+            userId, device.HouseholdId, cancellationToken);
+        CanRotateDeviceCredential = CanManageDevice &&
+            await deviceAuthenticationService.HasActiveCredentialAsync(device.Id, cancellationToken);
+        if (CanManageDevice)
+        {
+            var auditEvents = await deviceSecurityDb.AuditEvents.AsNoTracking()
+                .Where(item => item.DeviceId == device.Id)
+                .OrderByDescending(item => item.CreatedAtUtc)
+                .Take(20)
+                .ToArrayAsync(cancellationToken);
+            var actorIds = auditEvents
+                .Where(item => item.ActorUserId.HasValue)
+                .Select(item => item.ActorUserId!.Value)
+                .Distinct()
+                .ToArray();
+            var actorEmails = await identityDb.Users.AsNoTracking()
+                .Where(user => actorIds.Contains(user.Id))
+                .ToDictionaryAsync(user => user.Id, user => user.Email ?? "Unknown account",
+                    cancellationToken);
+            SecurityEvents = auditEvents.Select(item => new DeviceSecurityAuditSummary(
+                item.EventType,
+                item.ActorUserId.HasValue && actorEmails.TryGetValue(item.ActorUserId.Value, out var email)
+                    ? email
+                    : item.ActorUserId.HasValue ? "Former account" : "Device",
+                item.Details,
+                item.CreatedAtUtc)).ToArray();
+        }
         return Page();
     }
+
+    public async Task<IActionResult> OnPostProvisionAsync(
+        string deviceCode, CancellationToken cancellationToken)
+    {
+        if (!User.HasRecentAuthentication())
+        {
+            var returnUrl = Url.Page("/Devices/Details", new { deviceCode });
+            return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
+        }
+
+        try
+        {
+            var result = await deviceAuthenticationService.CreateProvisioningCodeAsync(
+                deviceCode, User.GetUserId(), householdAccess, cancellationToken);
+            ProvisioningCode = result.Code;
+            ProvisioningCodeExpiresAtUtc = result.ExpiresAtUtc;
+            Response.Headers["Cache-Control"] = "no-store";
+            Response.Headers["Pragma"] = "no-cache";
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException exception)
+        {
+            TempData["ErrorMessage"] = exception.Message;
+        }
+
+        return await OnGetAsync(deviceCode, cancellationToken);
+    }
+
+    public async Task<IActionResult> OnPostRotateCredentialAsync(
+        string deviceCode, CancellationToken cancellationToken)
+    {
+        if (!User.HasRecentAuthentication())
+        {
+            var returnUrl = Url.Page("/Devices/Details", new { deviceCode });
+            return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
+        }
+
+        try
+        {
+            var result = await deviceAuthenticationService.CreateCredentialRotationAsync(
+                deviceCode, User.GetUserId(), householdAccess, cancellationToken);
+            RotatedDeviceSecret = result.NewDeviceSecret;
+            RotationExpiresAtUtc = result.ExpiresAtUtc;
+            Response.Headers["Cache-Control"] = "no-store";
+            Response.Headers["Pragma"] = "no-cache";
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException exception)
+        {
+            TempData["ErrorMessage"] = exception.Message;
+        }
+
+        return await OnGetAsync(deviceCode, cancellationToken);
+    }
+
+    public async Task<IActionResult> OnPostRevokeCredentialsAsync(
+        string deviceCode, CancellationToken cancellationToken)
+    {
+        if (!User.HasRecentAuthentication())
+        {
+            var returnUrl = Url.Page("/Devices/Details", new { deviceCode });
+            return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
+        }
+
+        try
+        {
+            var count = await deviceAuthenticationService.RevokeCredentialsAsync(
+                deviceCode, User.GetUserId(), householdAccess, cancellationToken);
+            TempData["StatusMessage"] = count > 0
+                ? $"Revoked {count} device credential(s). The device must be provisioned again before it can authenticate."
+                : "There were no active device credentials to revoke.";
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        return RedirectToPage(new { deviceCode });
+    }
+
+    public async Task<IActionResult> OnPostDeactivateAsync(
+        string deviceCode, CancellationToken cancellationToken)
+    {
+        var device = await energyDb.Devices.SingleOrDefaultAsync(
+            item => item.DeviceCode == deviceCode, cancellationToken);
+        if (device is null) return NotFound();
+
+        var userId = User.GetUserId();
+        if (!await householdAccess.IsMemberAsync(userId, device.HouseholdId, cancellationToken))
+            return NotFound();
+        if (!await householdAccess.IsAdministratorAsync(userId, device.HouseholdId, cancellationToken))
+            return Forbid();
+
+        if (!User.HasRecentAuthentication())
+        {
+            var returnUrl = Url.Page("/Devices/Details", new { deviceCode });
+            return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
+        }
+
+        if (device.IsActive)
+        {
+            device.Deactivate();
+            await energyDb.SaveChangesAsync(cancellationToken);
+            TempData["StatusMessage"] = "Device registration deactivated.";
+        }
+
+        return RedirectToPage(new { deviceCode });
+    }
 }
+
+
+public sealed record DeviceSecurityAuditSummary(
+    string EventType, string Actor, string Details, DateTimeOffset CreatedAtUtc);

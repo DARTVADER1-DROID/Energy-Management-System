@@ -15,11 +15,13 @@ public static class HealthEndpoints
                 TimestampUtc = DateTimeOffset.UtcNow
             }))
             .WithName("GetLiveness")
-            .WithTags("Health");
+            .WithTags("Health")
+            .AllowAnonymous();
 
         endpoints.MapGet("/health/ready", GetReadinessAsync)
             .WithName("GetReadiness")
-            .WithTags("Health");
+            .WithTags("Health")
+            .AllowAnonymous();
 
         return endpoints;
     }

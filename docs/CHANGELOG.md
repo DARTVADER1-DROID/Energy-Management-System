@@ -35,3 +35,19 @@ The pull-request CI workflow completed successfully before merge:
 - [GitHub Actions run](https://github.com/DARTVADER1-DROID/Energy-Management-System/actions/runs/42249562360).
 
 The source branches were retained after merging. Authentication and role-based authorization remain deferred; the API must not be exposed to the public internet or used in production until the security requirements documented for Feature 001 are implemented.
+
+
+## 2026-11-07 — Household/device security and telemetry ingestion
+
+### Included changes
+
+- Household identity, membership administration, invitations, role management, MFA recovery controls and security activity.
+- Device provisioning with single-use codes, HMAC-SHA-256 request authentication, timestamp/nonce replay protection, credential rotation and emergency revocation.
+- Persistent device security audit history with administrator-only visibility.
+- Versioned flexible telemetry envelope with root measurements, optional L1/L2/L3 phase readings and bounded additional sensor values.
+- Signed telemetry ingestion endpoint, JSONB persistence, per-device sample deduplication and household-scoped history API.
+- PostgreSQL migration and integration coverage for valid ingestion, duplicate samples and invalid measurement rejection.
+
+### Validation status
+
+The telemetry implementation commit `339d0c8` passed the full GitHub Actions .NET test workflow with PostgreSQL 17 (run [#267](https://github.com/DARTVADER1-DROID/Energy-Management-System/actions/runs/42283344008)). The subsequent architecture/documentation commit `65cec3c` also passed CI (run [#269](https://github.com/DARTVADER1-DROID/Energy-Management-System/actions/runs/42283400780)). The dashboard latest-reading aggregation and server-rendered metrics integration also passed CI (run [#277](https://github.com/DARTVADER1-DROID/Energy-Management-System/actions/runs/42283808112)). The full suite subsequently passed with **153 tests, 0 failures and 0 skips** after the telemetry-history and dashboard-label regression coverage was added (run [#281](https://github.com/DARTVADER1-DROID/Energy-Management-System/actions/runs/42283966686)). Firmware publishing, dashboard measurement cards, threshold alert evaluation and physical-device validation remain outstanding.
