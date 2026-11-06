@@ -11,6 +11,7 @@ public sealed class IdentityDbContext(
 {
     public DbSet<HouseholdMembership> HouseholdMemberships => Set<HouseholdMembership>();
     public DbSet<MfaRecoveryCode> MfaRecoveryCodes => Set<MfaRecoveryCode>();
+    public DbSet<HouseholdInvitation> HouseholdInvitations => Set<HouseholdInvitation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -54,6 +55,22 @@ public sealed class IdentityDbContext(
                 .WithMany()
                 .HasForeignKey(code => code.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<HouseholdInvitation>(entity =>
+        {
+            entity.ToTable("household_invitations");
+            entity.HasKey(invitation => invitation.Id);
+            entity.HasIndex(invitation => invitation.TokenHash).IsUnique();
+            entity.HasIndex(invitation => new { invitation.HouseholdId, invitation.NormalizedEmail });
+            entity.Property(invitation => invitation.Email).HasMaxLength(256).IsRequired();
+            entity.Property(invitation => invitation.NormalizedEmail).HasMaxLength(256).IsRequired();
+            entity.Property(invitation => invitation.Role).HasMaxLength(32).IsRequired();
+            entity.Property(invitation => invitation.TokenHash).HasMaxLength(64).IsRequired();
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(invitation => invitation.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

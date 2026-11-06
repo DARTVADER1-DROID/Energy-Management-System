@@ -153,6 +153,7 @@ builder.Services.AddScoped<DashboardReadService>();
 builder.Services.AddScoped<HouseholdAccessService>();
 builder.Services.AddScoped<InitialAdminBootstrapper>();
 builder.Services.AddScoped<MfaRecoveryCodeService>();
+builder.Services.AddScoped<HouseholdInvitationService>();
 builder.Services.AddRazorPages(options =>
 {
     options.RootDirectory = "/Web/Pages";
@@ -163,6 +164,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AllowAnonymousToPage("/Account/ResetPassword");
     options.Conventions.AllowAnonymousToPage("/Account/EnableMfa");
     options.Conventions.AllowAnonymousToPage("/Account/TwoFactorLogin");
+    options.Conventions.AllowAnonymousToPage("/Account/AcceptInvitation");
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -178,8 +180,6 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// Identity uses its own migration history so its schema can evolve independently
-// from the existing EMS domain schema.
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var energyDb = scope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
@@ -213,7 +213,6 @@ app.MapRazorPages();
 
 app.Run();
 
-// Exposed for integration tests using WebApplicationFactory.
 public partial class Program
 {
 }
