@@ -128,7 +128,7 @@
                 {
                     <tr class="table-row">
                         <td class="font-semibold">@securityEvent.EventType</td>
-                        <td class="text-slate-500">@(securityEvent.ActorUserId.HasValue ? $"User #{securityEvent.ActorUserId.Value}" : "Device")</td>
+                        <td class="text-slate-500">@securityEvent.Actor</td>
                         <td class="text-slate-500">@securityEvent.Details</td>
                         <td class="whitespace-nowrap text-slate-500">@securityEvent.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy, HH:mm:ss")</td>
                     </tr>
