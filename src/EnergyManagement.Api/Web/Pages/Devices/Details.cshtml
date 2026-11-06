@@ -1,0 +1,42 @@
+@page "/Devices/{deviceCode}"
+@model DetailsModel
+@{
+    ViewData["Title"] = "Device console";
+}
+<div class="flex flex-wrap items-start justify-between gap-4">
+    <div><p class="eyebrow">Device console · @Model.Device.DeviceCode</p><h2 class="page-heading">@Model.Device.Name</h2><p class="mt-1 text-sm text-slate-500">@Model.Device.HardwareModel · Firmware @Model.Device.FirmwareVersion</p></div>
+    <div class="flex gap-2"><a asp-page="/Devices/Index" asp-route-householdId="@Model.Device.HouseholdId" class="secondary-button">← Inventory</a><span class="status-pill @(Model.Device.IsActive ? "status-neutral" : "status-muted")">@(Model.Device.IsActive ? "Active registration" : "Deactivated")</span></div>
+</div>
+<div class="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <article class="metric-card"><p class="metric-label">Connectivity</p><p class="mt-3 text-lg font-semibold">@(Model.Device.LastSeenAtUtc is null ? "No check-in yet" : "Last seen recorded")</p><p class="metric-foot">Current online state unavailable</p></article>
+    <article class="metric-card"><p class="metric-label">Electrical setup</p><p class="mt-3 text-lg font-semibold">@Model.Device.ElectricalConfiguration</p><p class="metric-foot">Configured supply type</p></article>
+    <article class="metric-card"><p class="metric-label">Installation</p><p class="mt-3 text-lg font-semibold">@Model.Device.InstallationLocation</p><p class="metric-foot">Household H@Model.Device.HouseholdId.ToString("000")</p></article>
+    <article class="metric-card"><p class="metric-label">Registered</p><p class="mt-3 text-lg font-semibold">@Model.Device.RegisteredAtUtc.ToLocalTime().ToString("dd MMM yyyy")</p><p class="metric-foot">@Model.Device.RegisteredAtUtc.ToLocalTime().ToString("HH:mm") local time</p></article>
+</div>
+<div class="mt-6 grid gap-5 xl:grid-cols-2">
+    <section class="panel p-6">
+        <p class="eyebrow">Telemetry</p><h3 class="mt-1 text-lg font-semibold">Live measurements</h3>
+        <div class="mt-5 grid grid-cols-2 gap-3">
+            @foreach (var measurement in new[] { ("Voltage", "V"), ("Current", "A"), ("Power", "W"), ("Energy today", "kWh") })
+            {
+                <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800"><p class="text-sm text-slate-500">@measurement.Item1</p><p class="mt-3 text-2xl font-semibold text-slate-400">— <span class="text-xs">@measurement.Item2</span></p><p class="mt-1 text-xs text-slate-400">Awaiting telemetry</p></div>
+            }
+        </div>
+        <p class="mt-4 text-xs text-slate-500">The current firmware/telemetry contract is not yet connected to the web console.</p>
+    </section>
+    <section class="panel p-6">
+        <p class="eyebrow">Configuration</p><h3 class="mt-1 text-lg font-semibold">Warning thresholds</h3>
+        <div class="mt-5 divide-y divide-slate-100 text-sm dark:divide-slate-800">
+            @foreach (var item in new[] { ("Minimum voltage", Model.Device.MinimumVoltage, "V"), ("Maximum voltage", Model.Device.MaximumVoltage, "V"), ("Maximum current", Model.Device.MaximumCurrent, "A"), ("Maximum instantaneous power", Model.Device.MaximumInstantaneousPower, "W"), ("Maximum daily energy", Model.Device.MaximumDailyEnergy, "kWh"), ("Maximum temperature", Model.Device.MaximumTemperature, "°C") })
+            {
+                <div class="flex items-center justify-between gap-4 py-3"><span class="text-slate-500">@item.Item1</span><strong>@(item.Item2.HasValue ? $"{item.Item2:0.##} {item.Item3}" : "Not configured")</strong></div>
+            }
+            <div class="flex items-center justify-between gap-4 py-3"><span class="text-slate-500">Warning persistence</span><strong>@(Model.Device.WarningPersistenceSeconds.HasValue ? $"{Model.Device.WarningPersistenceSeconds} sec" : "Not configured")</strong></div>
+        </div>
+        <p class="mt-4 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">Dashboard warning thresholds are not protection settings. Local firmware safety remains authoritative.</p>
+    </section>
+</div>
+<section class="panel mt-6 p-6">
+    <p class="eyebrow">Activity</p><h3 class="mt-1 text-lg font-semibold">Event history</h3>
+    <p class="mt-3 text-sm text-slate-500">No device event stream is connected yet. Registration: @Model.Device.RegisteredAtUtc.ToLocalTime().ToString("dd MMM yyyy, HH:mm").</p>
+</section>

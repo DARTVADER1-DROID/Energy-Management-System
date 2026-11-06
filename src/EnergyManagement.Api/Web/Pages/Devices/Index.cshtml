@@ -1,0 +1,56 @@
+@page
+@model Devices.IndexModel
+@{
+    ViewData["Title"] = "Devices";
+    ViewData["Households"] = Model.Inventory.Households;
+    ViewData["SelectedHouseholdId"] = Model.Inventory.SelectedHousehold?.Id;
+}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div><p class="eyebrow">Monitoring</p><h2 class="page-heading">Device inventory</h2><p class="mt-1 text-sm text-slate-500">Registered energy monitors for the selected household.</p></div>
+    <a asp-page="/Devices/Register" asp-route-householdId="@Model.Inventory.SelectedHousehold?.Id" class="primary-button">＋ Register device</a>
+</div>
+
+<section class="panel mt-7 overflow-hidden">
+    <div class="flex flex-col gap-4 border-b border-slate-200 p-5 md:flex-row md:items-center md:justify-between dark:border-slate-800">
+        <div><h3 class="font-semibold">Registered devices</h3><p class="mt-1 text-xs text-slate-500">@Model.Inventory.TotalCount device(s) found</p></div>
+        <form method="get" class="flex flex-wrap gap-2">
+            @if (Model.Inventory.SelectedHousehold is not null) { <input type="hidden" name="householdId" value="@Model.Inventory.SelectedHousehold.Id" /> }
+            <label class="sr-only" for="device-search">Search devices</label>
+            <input id="device-search" name="search" value="@Model.Search" class="control-input w-64" placeholder="Search code, name or model..." />
+            <button class="secondary-button" type="submit">Search</button>
+        </form>
+    </div>
+    @if (Model.Inventory.Devices.Count == 0)
+    {
+        <div class="px-6 py-16 text-center"><div class="text-3xl text-slate-300">▣</div><h4 class="mt-3 font-semibold">No devices found</h4><p class="mt-1 text-sm text-slate-500">Register a device or adjust your search.</p></div>
+    }
+    else
+    {
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[900px] text-left text-sm">
+                <thead class="table-head"><tr><th>Device</th><th>Hardware / firmware</th><th>Installation</th><th>Electrical</th><th>Last check-in</th><th>Status</th><th></th></tr></thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                @foreach (var device in Model.Inventory.Devices)
+                {
+                    <tr class="table-row">
+                        <td><a asp-page="/Devices/Details" asp-route-deviceCode="@device.DeviceCode" class="font-semibold text-blue-600 hover:underline">@device.DeviceCode</a><p class="mt-1 text-xs text-slate-500">@device.Name</p></td>
+                        <td><span class="font-medium">@device.HardwareModel</span><p class="mt-1 text-xs text-slate-500">FW @device.FirmwareVersion</p></td>
+                        <td>@device.InstallationLocation</td>
+                        <td>@(device.ElectricalConfiguration == EnergyManagement.Api.Modules.Devices.ElectricalConfiguration.SinglePhase ? "Single-phase" : "Three-phase")</td>
+                        <td class="text-slate-500">@(device.LastSeenAtUtc?.ToLocalTime().ToString("dd MMM yyyy, HH:mm") ?? "Never")</td>
+                        <td><span class="status-pill @(device.IsActive ? "status-neutral" : "status-muted")"><span class="status-dot"></span>@(device.IsActive ? (device.LastSeenAtUtc is null ? "Awaiting first report" : "Active registration") : "Deactivated")</span></td>
+                        <td><a asp-page="/Devices/Details" asp-route-deviceCode="@device.DeviceCode" class="text-xs font-semibold text-blue-600 hover:underline">Details</a></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <div class="flex items-center justify-between border-t border-slate-200 px-5 py-4 text-xs text-slate-500 dark:border-slate-800">
+            <span>Page @Model.Inventory.Page of @Model.Inventory.TotalPages</span>
+            <div class="flex gap-2">
+                @if (Model.Inventory.Page > 1) { <a class="secondary-button" asp-page="/Devices/Index" asp-route-page="@(Model.Inventory.Page - 1)" asp-route-householdId="@Model.Inventory.SelectedHousehold?.Id" asp-route-search="@Model.Search">Previous</a> }
+                @if (Model.Inventory.Page < Model.Inventory.TotalPages) { <a class="secondary-button" asp-page="/Devices/Index" asp-route-page="@(Model.Inventory.Page + 1)" asp-route-householdId="@Model.Inventory.SelectedHousehold?.Id" asp-route-search="@Model.Search">Next</a> }
+            </div>
+        </div>
+    }
+</section>

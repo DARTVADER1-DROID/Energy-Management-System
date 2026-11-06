@@ -23,6 +23,37 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
     }
 
     [Fact]
+    public async Task DeviceRegistrationPage_RendersWizardForExistingHousehold()
+    {
+        var householdId = await CreateHouseholdAsync("Wizard Home");
+
+        var response = await _client.GetAsync($"/Devices/Register?householdId={householdId}");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Register a device", html);
+        Assert.Contains("Electrical configuration", html);
+        Assert.Contains("Warning thresholds", html);
+    }
+
+    [Fact]
+    public async Task DeviceDetailsPage_RendersOperationalConsole()
+    {
+        var householdId = await CreateHouseholdAsync("Console Home");
+        var registration = await _client.PostAsJsonAsync($"/api/devices/{householdId}", ValidRequest());
+        var device = await registration.Content.ReadFromJsonAsync<DeviceResponse>();
+        Assert.NotNull(device);
+
+        var response = await _client.GetAsync($"/Devices/{device.DeviceCode}");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Device console", html);
+        Assert.Contains("Live measurements", html);
+        Assert.Contains("Awaiting telemetry", html);
+    }
+
+    [Fact]
     public async Task CreateHousehold_ReturnsGeneratedHouseholdCode()
     {
         var response = await _client.PostAsJsonAsync(
