@@ -52,6 +52,19 @@ public sealed class AccountSecurityPageTests(PostgreSqlFixture postgres) : IAsyn
         Assert.Contains("15 minutes of inactivity", html);
     }
 
+    [Fact]
+    public async Task LoginPage_UsesAnonymousAccountShell()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/Account/Login");
+        request.Headers.Add("X-Test-Anonymous", "true");
+        var response = await _client.SendAsync(request);
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Sign in", html);
+        Assert.Contains("hidden", html);
+    }
+
     public async Task DisposeAsync()
     {
         _client.Dispose();
