@@ -141,6 +141,30 @@ public sealed class HouseholdInvitationTests(PostgreSqlFixture postgres) : IAsyn
     }
 
     [Fact]
+    public async Task RemovingMemberRevokesOnlySelectedHouseholdMembershipAndAuditsAction()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var member = await userManager.FindByIdAsync("2");
+        Assert.NotNull(member);
+        var previousSecurityStamp = member.SecurityStamp;
+
+        var service = scope.ServiceProvider.GetRequiredService<HouseholdInvitationService>();
+        await service.RemoveMemberAsync(_householdId, 2, 1);
+
+        var updatedMember = await userManager.FindByIdAsync("2");
+        Assert.NotNull(updatedMember);
+        Assert.NotEqual(previousSecurityStamp, updatedMember.SecurityStamp);
+
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        Assert.False(await identityDb.HouseholdMemberships.AnyAsync(membership =>
+            membership.HouseholdId == _householdId && membership.UserId == 2));
+        Assert.NotNull(updatedMember);
+        var auditEvent = await identityDb.SecurityAuditEvents.SingleAsync();
+        Assert.Equal("HouseholdMemberRemoved", auditEvent.EventType);
+    }
+
+    [Fact]
     public async Task HouseholdUsersPageIsAvailableToHouseholdAdministrators()
     {
         var response = await _client.GetAsync($"/Households/Users?householdId={_householdId}");

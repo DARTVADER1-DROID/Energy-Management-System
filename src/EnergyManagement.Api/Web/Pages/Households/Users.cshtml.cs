@@ -20,6 +20,7 @@ public sealed class UsersModel(
     public IReadOnlyList<HouseholdOption> Households { get; private set; } = [];
     public IReadOnlyList<HouseholdMemberSummary> Members { get; private set; } = [];
     public IReadOnlyList<HouseholdInvitationSummary> Invitations { get; private set; } = [];
+    public IReadOnlyList<HouseholdAuditSummary> AuditEvents { get; private set; } = [];
 
     public async Task<IActionResult> OnGetAsync(int? householdId, CancellationToken cancellationToken)
     {
@@ -124,6 +125,30 @@ public sealed class UsersModel(
         return RedirectToPage(new { householdId });
     }
 
+    public async Task<IActionResult> OnPostRemoveMemberAsync(
+        int householdId, int userId, CancellationToken cancellationToken)
+    {
+        if (!User.HasRecentAuthentication())
+        {
+            var returnUrl = Url.Page("/Households/Users", new { householdId });
+            return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
+        }
+
+        try
+        {
+            await invitationService.RemoveMemberAsync(
+                householdId, userId, User.GetUserId(), cancellationToken);
+            TempData["StatusMessage"] = "Household membership removed. The account remains available in other households.";
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or UnauthorizedAccessException)
+        {
+            TempData["ErrorMessage"] = exception.Message;
+        }
+
+        return RedirectToPage(new { householdId });
+    }
+
     private async Task<IActionResult?> LoadAsync(
         int? requestedHouseholdId, CancellationToken cancellationToken)
     {
@@ -139,6 +164,7 @@ public sealed class UsersModel(
         HouseholdId = selected.Id;
         Members = await invitationService.GetMembersAsync(HouseholdId, userId, cancellationToken);
         Invitations = await invitationService.GetPendingInvitationsAsync(HouseholdId, userId, cancellationToken);
+        AuditEvents = await invitationService.GetRecentAuditEventsAsync(HouseholdId, userId, cancellationToken);
         return null;
     }
 

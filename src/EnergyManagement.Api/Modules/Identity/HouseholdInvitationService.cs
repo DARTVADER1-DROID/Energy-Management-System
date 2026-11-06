@@ -1,3 +1,4 @@
+using System.Data;
 using System.Security.Cryptography;
 using System.Text;
 using EnergyManagement.Api.Infrastructure.IdentityPersistence;
@@ -5,6 +6,7 @@ using EnergyManagement.Api.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace EnergyManagement.Api.Modules.Identity;
 
@@ -46,6 +48,25 @@ public sealed class HouseholdInvitationService(
             .Select(invitation => new HouseholdInvitationSummary(
                 invitation.Id, invitation.Email, invitation.Role,
                 invitation.CreatedAtUtc, invitation.ExpiresAtUtc))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<HouseholdAuditSummary>> GetRecentAuditEventsAsync(
+        int householdId, int administratorUserId, CancellationToken cancellationToken = default)
+    {
+        await EnsureAdministratorAsync(administratorUserId, householdId, cancellationToken);
+        return await (
+            from auditEvent in identityDb.SecurityAuditEvents.AsNoTracking()
+            join actor in identityDb.Users.AsNoTracking() on auditEvent.ActorUserId equals actor.Id
+            join target in identityDb.Users.AsNoTracking() on auditEvent.TargetUserId equals target.Id
+            where auditEvent.HouseholdId == householdId
+            orderby auditEvent.CreatedAtUtc descending
+            select new HouseholdAuditSummary(
+                auditEvent.EventType,
+                actor.Email ?? string.Empty,
+                target.Email ?? string.Empty,
+                auditEvent.CreatedAtUtc))
+            .Take(50)
             .ToArrayAsync(cancellationToken);
     }
 
@@ -196,54 +217,128 @@ public sealed class HouseholdInvitationService(
         int householdId, int memberUserId, int administratorUserId, HouseholdRole newRole,
         CancellationToken cancellationToken = default)
     {
-        await EnsureAdministratorAsync(administratorUserId, householdId, cancellationToken);
         ValidateRole(newRole);
         if (memberUserId == administratorUserId)
             throw new InvalidOperationException("You cannot change your own household role.");
 
-        var membership = await identityDb.HouseholdMemberships.SingleOrDefaultAsync(item =>
-            item.HouseholdId == householdId && item.UserId == memberUserId, cancellationToken)
-            ?? throw new InvalidOperationException("The selected household member no longer exists.");
-
-        var previousRole = membership.Role;
-        if (previousRole == HouseholdRole.Administrator.ToString() &&
-            newRole != HouseholdRole.Administrator)
+        try
         {
-            var adminCount = await identityDb.HouseholdMemberships.CountAsync(item =>
-                item.HouseholdId == householdId &&
-                item.Role == HouseholdRole.Administrator.ToString(), cancellationToken);
-            if (adminCount <= 1)
-                throw new InvalidOperationException("A household must retain at least one administrator.");
+            await using var transaction = await identityDb.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable, cancellationToken);
+            await EnsureAdministratorAsync(administratorUserId, householdId, cancellationToken);
+
+            var membership = await identityDb.HouseholdMemberships.SingleOrDefaultAsync(item =>
+                item.HouseholdId == householdId && item.UserId == memberUserId, cancellationToken)
+                ?? throw new InvalidOperationException("The selected household member no longer exists.");
+
+            var previousRole = membership.Role;
+            if (previousRole == newRole.ToString())
+                return;
+
+            if (previousRole == HouseholdRole.Administrator.ToString() &&
+                newRole != HouseholdRole.Administrator)
+            {
+                var adminCount = await identityDb.HouseholdMemberships.CountAsync(item =>
+                    item.HouseholdId == householdId &&
+                    item.Role == HouseholdRole.Administrator.ToString(), cancellationToken);
+                if (adminCount <= 1)
+                    throw new InvalidOperationException("A household must retain at least one administrator.");
+            }
+
+            membership.ChangeRole(newRole);
+            await identityDb.SaveChangesAsync(cancellationToken);
+
+            var user = await userManager.FindByIdAsync(memberUserId.ToString())
+                ?? throw new InvalidOperationException("The selected account no longer exists.");
+            if (newRole == HouseholdRole.Administrator)
+            {
+                await EnsureAdministratorIdentityRoleAsync(user);
+            }
+            else if (previousRole == HouseholdRole.Administrator.ToString())
+            {
+                var remainsAdministrator = await identityDb.HouseholdMemberships.AnyAsync(item =>
+                    item.UserId == memberUserId &&
+                    item.Role == HouseholdRole.Administrator.ToString(), cancellationToken);
+                if (!remainsAdministrator && await userManager.IsInRoleAsync(user, "Administrator"))
+                    EnsureIdentitySucceeded(
+                        await userManager.RemoveFromRoleAsync(user, "Administrator"),
+                        "Unable to update the administrator sign-in role.");
+            }
+
+            EnsureIdentitySucceeded(
+                await userManager.UpdateSecurityStampAsync(user),
+                "Unable to invalidate existing sessions after the household role change.");
+            identityDb.SecurityAuditEvents.Add(new SecurityAuditEvent(
+                householdId, administratorUserId, memberUserId, "HouseholdRoleChanged"));
+            await identityDb.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
         }
-
-        await using var transaction = await identityDb.Database.BeginTransactionAsync(cancellationToken);
-        membership.ChangeRole(newRole);
-        await identityDb.SaveChangesAsync(cancellationToken);
-
-        var user = await userManager.FindByIdAsync(memberUserId.ToString())
-            ?? throw new InvalidOperationException("The selected account no longer exists.");
-        if (newRole == HouseholdRole.Administrator)
+        catch (PostgresException exception) when (
+            exception.SqlState == PostgresErrorCodes.SerializationFailure)
         {
-            await EnsureAdministratorIdentityRoleAsync(user);
+            throw new InvalidOperationException(
+                "Household membership changed concurrently. Refresh the page and try again.");
         }
-        else if (previousRole == HouseholdRole.Administrator.ToString())
-        {
-            var remainsAdministrator = await identityDb.HouseholdMemberships.AnyAsync(item =>
-                item.UserId == memberUserId &&
-                item.Role == HouseholdRole.Administrator.ToString(), cancellationToken);
-            if (!remainsAdministrator && await userManager.IsInRoleAsync(user, "Administrator"))
-                EnsureIdentitySucceeded(
-                    await userManager.RemoveFromRoleAsync(user, "Administrator"),
-                    "Unable to update the administrator sign-in role.");
-        }
+    }
 
-        EnsureIdentitySucceeded(
-            await userManager.UpdateSecurityStampAsync(user),
-            "Unable to invalidate existing sessions after the household role change.");
-        identityDb.SecurityAuditEvents.Add(new SecurityAuditEvent(
-            householdId, administratorUserId, memberUserId, "HouseholdRoleChanged"));
-        await identityDb.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
+    public async Task RemoveMemberAsync(
+        int householdId, int memberUserId, int administratorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        if (memberUserId == administratorUserId)
+            throw new InvalidOperationException("You cannot remove your own household membership.");
+
+        try
+        {
+            await using var transaction = await identityDb.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable, cancellationToken);
+            await EnsureAdministratorAsync(administratorUserId, householdId, cancellationToken);
+
+            var membership = await identityDb.HouseholdMemberships.SingleOrDefaultAsync(item =>
+                item.HouseholdId == householdId && item.UserId == memberUserId, cancellationToken)
+                ?? throw new InvalidOperationException("The selected household member no longer exists.");
+
+            var wasAdministrator = membership.Role == HouseholdRole.Administrator.ToString();
+            if (wasAdministrator)
+            {
+                var adminCount = await identityDb.HouseholdMemberships.CountAsync(item =>
+                    item.HouseholdId == householdId &&
+                    item.Role == HouseholdRole.Administrator.ToString(), cancellationToken);
+                if (adminCount <= 1)
+                    throw new InvalidOperationException("A household must retain at least one administrator.");
+            }
+
+            var user = await userManager.FindByIdAsync(memberUserId.ToString())
+                ?? throw new InvalidOperationException("The selected account no longer exists.");
+
+            identityDb.HouseholdMemberships.Remove(membership);
+            await identityDb.SaveChangesAsync(cancellationToken);
+
+            if (wasAdministrator)
+            {
+                var remainsAdministrator = await identityDb.HouseholdMemberships.AnyAsync(item =>
+                    item.UserId == memberUserId &&
+                    item.Role == HouseholdRole.Administrator.ToString(), cancellationToken);
+                if (!remainsAdministrator && await userManager.IsInRoleAsync(user, "Administrator"))
+                    EnsureIdentitySucceeded(
+                        await userManager.RemoveFromRoleAsync(user, "Administrator"),
+                        "Unable to update the administrator sign-in role.");
+            }
+
+            EnsureIdentitySucceeded(
+                await userManager.UpdateSecurityStampAsync(user),
+                "Unable to invalidate the removed member's existing sessions.");
+            identityDb.SecurityAuditEvents.Add(new SecurityAuditEvent(
+                householdId, administratorUserId, memberUserId, "HouseholdMemberRemoved"));
+            await identityDb.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch (PostgresException exception) when (
+            exception.SqlState == PostgresErrorCodes.SerializationFailure)
+        {
+            throw new InvalidOperationException(
+                "Household membership changed concurrently. Refresh the page and try again.");
+        }
     }
 
     private async Task CompleteAcceptanceAsync(
@@ -330,3 +425,6 @@ public sealed record HouseholdInvitationSummary(
 
 public sealed record HouseholdInvitationDetails(
     int HouseholdId, string HouseholdName, string Email, HouseholdRole Role, DateTimeOffset ExpiresAtUtc);
+
+public sealed record HouseholdAuditSummary(
+    string EventType, string ActorEmail, string TargetEmail, DateTimeOffset CreatedAtUtc);
