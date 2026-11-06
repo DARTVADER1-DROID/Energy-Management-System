@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace EnergyManagement.Tests.Infrastructure;
@@ -13,15 +14,20 @@ public sealed class TestAuthenticationHandler(
 {
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        if (Request.Headers.ContainsKey("X-Test-Anonymous"))
+            return Task.FromResult(AuthenticateResult.NoResult());
+
+        var role = Request.Headers.TryGetValue("X-Test-Role", out var requestedRole)
+            ? requestedRole.ToString()
+            : "Administrator";
+
         var claims = new[]
         {
             new Claim(ClaimTypes.NameIdentifier, "1"),
-            new Claim(ClaimTypes.Name, "integration-test-admin"),
-            new Claim(ClaimTypes.Role, "Administrator")
+            new Claim(ClaimTypes.Name, "integration-test-user"),
+            new Claim(ClaimTypes.Role, role)
         };
-        var identity = new ClaimsIdentity(claims, Scheme.Name);
-        var principal = new ClaimsPrincipal(identity);
-        var ticket = new AuthenticationTicket(principal, Scheme.Name);
+        var ticket = new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity(claims, Scheme.Name)), Scheme.Name);
         return Task.FromResult(AuthenticateResult.Success(ticket));
     }
 }
