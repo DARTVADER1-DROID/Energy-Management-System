@@ -237,6 +237,7 @@ public static class DeviceEndpoints
         DeviceAuthenticationService authenticationService,
         HouseholdAccessService householdAccess,
         ClaimsPrincipal user,
+        HttpContext httpContext,
         CancellationToken cancellationToken)
     {
         if (!user.HasRecentAuthentication())
@@ -247,6 +248,8 @@ public static class DeviceEndpoints
         {
             var result = await authenticationService.CreateProvisioningCodeAsync(
                 deviceCode, GetUserId(user), householdAccess, cancellationToken);
+            httpContext.Response.Headers.CacheControl = "no-store";
+            httpContext.Response.Headers.Pragma = "no-cache";
             return TypedResults.Ok(result);
         }
         catch (KeyNotFoundException)
@@ -266,6 +269,7 @@ public static class DeviceEndpoints
     private static async Task<IResult> ExchangeProvisioningCodeAsync(
         ProvisionDeviceRequest request,
         DeviceAuthenticationService authenticationService,
+        HttpContext httpContext,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.DeviceCode) ||
@@ -276,6 +280,8 @@ public static class DeviceEndpoints
         {
             var result = await authenticationService.ExchangeProvisioningCodeAsync(
                 request.DeviceCode, request.ProvisioningCode, cancellationToken);
+            httpContext.Response.Headers.CacheControl = "no-store";
+            httpContext.Response.Headers.Pragma = "no-cache";
             return TypedResults.Ok(result);
         }
         catch (InvalidOperationException)
