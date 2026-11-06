@@ -10,6 +10,23 @@ A residential energy monitoring and management platform, developed incrementally
 - Backend: .NET 10 modular monolith
 - Persistence: PostgreSQL with EF Core
 
+## Run the API and Swagger UI locally
+
+Requirements: .NET 10 SDK and a reachable PostgreSQL database configured with the
+`EnergyManagement` connection string (or the default local connection string).
+
+Run the API from the repository root:
+
+```powershell
+$env:ASPNETCORE_ENVIRONMENT = "Development"
+dotnet run --project src/EnergyManagement.Api/EnergyManagement.Api.csproj
+```
+
+Open the Swagger UI at `/swagger` on the URL printed by `dotnet run` (typically
+`http://localhost:5000/swagger` or `https://localhost:7000/swagger`). The OpenAPI
+document is available at `/swagger/v1/swagger.json`. Swagger UI and its document
+endpoint are enabled only in the Development environment.
+
 ## Run the test suite locally
 
 Requirements: .NET 10 SDK, Docker Desktop with Docker Compose, and PowerShell.
