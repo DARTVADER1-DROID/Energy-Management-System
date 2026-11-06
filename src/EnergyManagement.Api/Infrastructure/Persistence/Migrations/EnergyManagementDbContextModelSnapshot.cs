@@ -55,7 +55,8 @@ public sealed class EnergyManagementDbContextModelSnapshot : ModelSnapshot
                 .HasMaxLength(1000)
                 .HasColumnType("character varying(1000)");
 
-            entity.Property<string>("ElectricalConfiguration")
+            entity.Property<EnergyManagement.Api.Modules.Devices.ElectricalConfiguration>("ElectricalConfiguration")
+                .HasConversion<string>()
                 .IsRequired()
                 .HasMaxLength(24)
                 .HasColumnType("character varying(24)");
