@@ -25,6 +25,7 @@ Every household-scoped operation must derive and validate household membership f
 - Password recovery uses 30-minute, single-use Identity reset tokens delivered by email. Responses do not disclose whether an address exists. This flow is implemented.
 - SMTP delivery is provider-independent and configured through deployment secrets/environment variables. Credentials must never be committed. Password reset is implemented. Configure `EMS_SMTP_HOST`, `EMS_SMTP_PORT` (default 587), `EMS_SMTP_USERNAME`, `EMS_SMTP_PASSWORD`, `EMS_SMTP_FROM`, `EMS_SMTP_ENABLE_SSL` (default true), and HTTPS `EMS_PUBLIC_BASE_URL`.
 - MFA uses authenticator-app TOTP. Administrators must enroll before accessing protected operations; MFA is optional for Members and Viewers. Enrollment, authenticator challenge, ten one-time recovery codes, and administrator-assisted lost-factor recovery are implemented. Recovery codes are cryptographically random, stored only as SHA-256 hashes, and redeemed atomically once.
+- The application cookie validates the persisted Identity security stamp on each request. Administrator MFA recovery and household role changes rotate the target account's stamp to invalidate existing sessions.
 - An administrator can reset another member's MFA only with recent authentication and household-scoped authority. Recovery of an administrator account requires the recovering administrator to administer every household where the target has administrator access. The action invalidates the target's sessions, rotates the authenticator key, deletes recovery codes, and writes a security audit event. Self-recovery through this route is prohibited.
 - Generate ten one-time recovery codes at MFA enrollment. Show them once and persist only hashes. There is no email-only MFA bypass.
 - Login sessions are non-persistent, limited to eight hours maximum, and expire after fifteen minutes of inactivity. Cookies are HTTP-only, Secure, and SameSite protected. Sensitive actions require password reauthentication and administrator MFA where enabled; the fresh-authentication window is five minutes.
@@ -100,10 +101,8 @@ Implemented on `feat/household-device-security`:
 - Integration coverage for invitation acceptance and authorization, anonymous API rejection, administrator MFA enforcement, household role restrictions, and cross-household isolation.
 
 Still pending:
-- Lost-authenticator and lost-recovery-code administrative recovery workflow.
-- Lost-authenticator and lost-recovery-code administrative recovery workflow.
 - Full ESP32 provisioning, HMAC authentication, replay protection, and credential rotation.
-- Full ESP32 provisioning, HMAC authentication, replay protection, and credential rotation.
+- Reviewable security audit-event viewer and administrative member removal workflow.
 
 ## 9. Production and staging release gates
 

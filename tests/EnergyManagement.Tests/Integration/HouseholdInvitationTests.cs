@@ -60,8 +60,9 @@ public sealed class HouseholdInvitationTests(PostgreSqlFixture postgres) : IAsyn
         var registration = scope.ServiceProvider.GetRequiredService<DeviceRegistrationService>();
         var household = await registration.CreateHouseholdAsync("Invitation Test Home", CancellationToken.None);
         _householdId = household.Id;
-        identityDb.HouseholdMemberships.Add(
-            new HouseholdMembership(1, _householdId, HouseholdRole.Administrator));
+        identityDb.HouseholdMemberships.AddRange(
+            new HouseholdMembership(1, _householdId, HouseholdRole.Administrator),
+            new HouseholdMembership(2, _householdId, HouseholdRole.HouseholdMember));
         await identityDb.SaveChangesAsync();
     }
 
@@ -109,6 +110,34 @@ public sealed class HouseholdInvitationTests(PostgreSqlFixture postgres) : IAsyn
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
             service.CreateAsync(_householdId, 2, "blocked@example.test", HouseholdRole.ReadOnlyViewer));
+    }
+
+    [Fact]
+    public async Task ChangingMemberRoleInvalidatesSessionsAndCreatesAuditEvent()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var member = await userManager.FindByIdAsync("2");
+        Assert.NotNull(member);
+        var previousSecurityStamp = member.SecurityStamp;
+
+        var service = scope.ServiceProvider.GetRequiredService<HouseholdInvitationService>();
+        await service.ChangeRoleAsync(
+            _householdId, 2, 1, HouseholdRole.ReadOnlyViewer);
+
+        var updatedMember = await userManager.FindByIdAsync("2");
+        Assert.NotNull(updatedMember);
+        Assert.NotEqual(previousSecurityStamp, updatedMember.SecurityStamp);
+
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        Assert.True(await identityDb.HouseholdMemberships.AnyAsync(membership =>
+            membership.HouseholdId == _householdId &&
+            membership.UserId == 2 &&
+            membership.Role == HouseholdRole.ReadOnlyViewer.ToString()));
+        var auditEvent = await identityDb.SecurityAuditEvents.SingleAsync();
+        Assert.Equal("HouseholdRoleChanged", auditEvent.EventType);
+        Assert.Equal(1, auditEvent.ActorUserId);
+        Assert.Equal(2, auditEvent.TargetUserId);
     }
 
     [Fact]

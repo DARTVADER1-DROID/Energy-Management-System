@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -101,29 +102,51 @@ builder.Services.ConfigureApplicationCookie(options =>
         return Task.CompletedTask;
     };
 
-    options.Events.OnValidatePrincipal = context =>
+    options.Events.OnValidatePrincipal = async context =>
     {
         var now = DateTimeOffset.UtcNow;
-        var startedClaim = context.Principal?.FindFirst("ems_session_started")?.Value;
-        var activityClaim = context.Principal?.FindFirst("ems_last_activity")?.Value;
+        var principal = context.Principal;
+        var userId = principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+        var identityOptions = context.HttpContext.RequestServices
+            .GetRequiredService<IOptions<IdentityOptions>>().Value;
+        var stampClaim = principal?.FindFirstValue(
+            identityOptions.ClaimsIdentity.SecurityStampClaimType);
+        var userManager = context.HttpContext.RequestServices
+            .GetRequiredService<UserManager<ApplicationUser>>();
 
+        // The application cookie event replaces Identity's default validator.
+        // Check the persisted stamp here so MFA resets and role changes revoke
+        // existing cookies immediately rather than waiting for a sliding interval.
+        var user = userId is null ? null : await userManager.FindByIdAsync(userId);
+        var currentStamp = user is null ? null : await userManager.GetSecurityStampAsync(user);
+        if (user is null || string.IsNullOrWhiteSpace(stampClaim) ||
+            !string.Equals(stampClaim, currentStamp, StringComparison.Ordinal))
+        {
+            context.RejectPrincipal();
+            await context.HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
+            return;
+        }
+
+        var startedClaim = principal?.FindFirst("ems_session_started")?.Value;
+        var activityClaim = principal?.FindFirst("ems_last_activity")?.Value;
         if (!DateTimeOffset.TryParse(startedClaim, out var startedAt)
             || !DateTimeOffset.TryParse(activityClaim, out var lastActivityAt)
             || now - startedAt > TimeSpan.FromHours(8)
             || now - lastActivityAt > TimeSpan.FromMinutes(15))
         {
             context.RejectPrincipal();
-            return context.HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
+            await context.HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
+            return;
         }
 
-        if (context.Principal?.Identity is ClaimsIdentity validatedIdentity)
+        if (principal?.Identity is ClaimsIdentity validatedIdentity)
         {
-            validatedIdentity.RemoveClaim(validatedIdentity.FindFirst("ems_last_activity"));
+            var previousActivity = validatedIdentity.FindFirst("ems_last_activity");
+            if (previousActivity is not null)
+                validatedIdentity.RemoveClaim(previousActivity);
             validatedIdentity.AddClaim(new Claim("ems_last_activity", now.ToString("O")));
             context.ShouldRenew = true;
         }
-
-        return Task.CompletedTask;
     };
 });
 

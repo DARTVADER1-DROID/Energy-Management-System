@@ -237,6 +237,12 @@ public sealed class HouseholdInvitationService(
                     "Unable to update the administrator sign-in role.");
         }
 
+        EnsureIdentitySucceeded(
+            await userManager.UpdateSecurityStampAsync(user),
+            "Unable to invalidate existing sessions after the household role change.");
+        identityDb.SecurityAuditEvents.Add(new SecurityAuditEvent(
+            householdId, administratorUserId, memberUserId, "HouseholdRoleChanged"));
+        await identityDb.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
 
