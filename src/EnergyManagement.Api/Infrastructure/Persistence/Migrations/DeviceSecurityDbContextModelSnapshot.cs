@@ -46,7 +46,7 @@ public sealed class DeviceSecurityDbContextModelSnapshot : ModelSnapshot
             entity.Property<string>("SecretHash").IsRequired().HasMaxLength(64).HasColumnType("character varying(64)");
             entity.Property<string>("ProtectedSigningKey").IsRequired().HasMaxLength(256).HasColumnType("character varying(256)");
             entity.Property<DateTimeOffset>("CreatedAtUtc").HasColumnType("timestamp with time zone");
-            entity.Property<bool>("IsPendingRotation").HasColumnType("boolean");
+            entity.Property<bool>("IsPendingRotation").HasDefaultValue(false).HasColumnType("boolean");
             entity.Property<DateTimeOffset?>("RotationExpiresAtUtc").HasColumnType("timestamp with time zone");
             entity.Property<DateTimeOffset?>("ConfirmedAtUtc").HasColumnType("timestamp with time zone");
             entity.Property<DateTimeOffset?>("RevokedAtUtc").HasColumnType("timestamp with time zone");
