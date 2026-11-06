@@ -446,7 +446,7 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
         Assert.Contains("Device security history", html);
         Assert.Contains("ProvisioningCodeCreated", html);
         Assert.Contains("DeviceProvisioned", html);
-        Assert.Contains("User #1", html);
+        Assert.Contains("device-admin@example.test", html);
         Assert.Contains("Device", html);
     }
 
