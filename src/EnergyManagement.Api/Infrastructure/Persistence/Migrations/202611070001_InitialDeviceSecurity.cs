@@ -65,17 +65,11 @@ public sealed class InitialDeviceSecurity : Migration
         migrationBuilder.CreateIndex("IX_device_provisioning_codes_DeviceId_ExpiresAtUtc", "device_provisioning_codes", new[] { "DeviceId", "ExpiresAtUtc" });
         migrationBuilder.CreateIndex("IX_device_credentials_DeviceId_RevokedAtUtc", "device_credentials", new[] { "DeviceId", "RevokedAtUtc" });
         migrationBuilder.CreateIndex(
-            name: "IX_device_credentials_DeviceId_Current",
+            name: "IX_device_credentials_DeviceId_IsPendingRotation",
             table: "device_credentials",
-            column: "DeviceId",
+            columns: new[] { "DeviceId", "IsPendingRotation" },
             unique: true,
-            filter: "\"IsPendingRotation\" = FALSE AND \"RevokedAtUtc\" IS NULL");
-        migrationBuilder.CreateIndex(
-            name: "IX_device_credentials_DeviceId",
-            table: "device_credentials",
-            column: "DeviceId",
-            unique: true,
-            filter: "\"IsPendingRotation\" = TRUE AND \"RevokedAtUtc\" IS NULL");
+            filter: "\"RevokedAtUtc\" IS NULL");
         migrationBuilder.CreateIndex("IX_device_request_nonces_DeviceId_Nonce", "device_request_nonces", new[] { "DeviceId", "Nonce" }, unique: true);
         migrationBuilder.CreateIndex("IX_device_request_nonces_CreatedAtUtc", "device_request_nonces", "CreatedAtUtc");
     }
