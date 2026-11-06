@@ -1,3 +1,4 @@
+using System.Data;
 using System.Security.Cryptography;
 using System.Text;
 using EnergyManagement.Api.Infrastructure.Persistence;
@@ -47,6 +48,8 @@ public sealed class DeviceAuthenticationService(
         var encryptionKey = GetEncryptionKey();
         CryptographicOperations.ZeroMemory(encryptionKey);
 
+        await using var transaction = await securityDb.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable, cancellationToken);
         var now = DateTimeOffset.UtcNow;
         await securityDb.ProvisioningCodes
             .Where(code => code.DeviceId == device.Id && code.UsedAtUtc == null && code.RevokedAtUtc == null)
@@ -71,7 +74,23 @@ public sealed class DeviceAuthenticationService(
             throw new InvalidOperationException(
                 "A provisioning code was generated concurrently. Refresh the page and try again.");
         }
+        catch (DbUpdateException exception) when (
+            exception.GetBaseException() is PostgresException postgres &&
+            postgres.SqlState == PostgresErrorCodes.SerializationFailure)
+        {
+            securityDb.Entry(entity).State = EntityState.Detached;
+            throw new InvalidOperationException(
+                "Provisioning changed concurrently. Refresh the page and try again.");
+        }
+        catch (PostgresException exception) when (
+            exception.SqlState == PostgresErrorCodes.SerializationFailure)
+        {
+            securityDb.ChangeTracker.Clear();
+            throw new InvalidOperationException(
+                "Provisioning changed concurrently. Refresh the page and try again.");
+        }
 
+        await transaction.CommitAsync(cancellationToken);
         return new ProvisioningCodeResult(device.DeviceCode, rawCode, entity.ExpiresAtUtc);
     }
 
@@ -164,6 +183,8 @@ public sealed class DeviceAuthenticationService(
         if (!device.IsActive)
             throw new InvalidOperationException("A deactivated device cannot rotate credentials.");
 
+        await using var transaction = await securityDb.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable, cancellationToken);
         var now = DateTimeOffset.UtcNow;
         await securityDb.Credentials
             .Where(item => item.DeviceId == device.Id &&
@@ -213,7 +234,23 @@ public sealed class DeviceAuthenticationService(
             throw new InvalidOperationException(
                 "A credential rotation was started concurrently. Refresh the page and try again.");
         }
+        catch (DbUpdateException exception) when (
+            exception.GetBaseException() is PostgresException postgres &&
+            postgres.SqlState == PostgresErrorCodes.SerializationFailure)
+        {
+            securityDb.Entry(pendingCredential).State = EntityState.Detached;
+            throw new InvalidOperationException(
+                "Credential rotation changed concurrently. Refresh the page and try again.");
+        }
+        catch (PostgresException exception) when (
+            exception.SqlState == PostgresErrorCodes.SerializationFailure)
+        {
+            securityDb.ChangeTracker.Clear();
+            throw new InvalidOperationException(
+                "Credential rotation changed concurrently. Refresh the page and try again.");
+        }
 
+        await transaction.CommitAsync(cancellationToken);
         logger.LogInformation(
             "Credential rotation was initiated for device {DeviceCode}.", deviceCode);
         return new DeviceCredentialRotationResult(
