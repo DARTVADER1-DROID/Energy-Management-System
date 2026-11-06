@@ -12,11 +12,12 @@ namespace EnergyManagement.Tests.Integration;
 [Collection(PostgreSqlCollection.Name)]
 public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAsyncLifetime
 {
-    private readonly EnergyManagementApiFactory _factory = new(postgres.ConnectionString);
+    private EnergyManagementApiFactory _factory = null!;
     private HttpClient _client = null!;
 
     public async Task InitializeAsync()
     {
+        _factory = new EnergyManagementApiFactory(postgres.ConnectionString);
         _client = _factory.CreateClient();
         await ResetDatabaseAsync();
     }

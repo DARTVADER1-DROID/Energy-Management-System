@@ -12,11 +12,12 @@ namespace EnergyManagement.Tests.Integration;
 public sealed class DeviceRegistrationConcurrencyTests(PostgreSqlFixture postgres)
     : IAsyncLifetime
 {
-    private readonly EnergyManagementApiFactory _factory = new(postgres.ConnectionString);
+    private EnergyManagementApiFactory _factory = null!;
     private int _householdId;
 
     public async Task InitializeAsync()
     {
+        _factory = new EnergyManagementApiFactory(postgres.ConnectionString);
         await using var scope = _factory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
         await dbContext.Database.EnsureDeletedAsync();
