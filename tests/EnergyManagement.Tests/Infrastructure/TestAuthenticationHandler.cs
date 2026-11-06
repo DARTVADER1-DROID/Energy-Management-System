@@ -21,9 +21,12 @@ public sealed class TestAuthenticationHandler(
             ? requestedRole.ToString()
             : "Administrator";
 
+        var userId = Request.Headers.TryGetValue("X-Test-User-Id", out var requestedUserId)
+            ? requestedUserId.ToString()
+            : "1";
         var claims = new[]
         {
-            new Claim(ClaimTypes.NameIdentifier, "1"),
+            new Claim(ClaimTypes.NameIdentifier, userId),
             new Claim(ClaimTypes.Name, "integration-test-user"),
             new Claim(ClaimTypes.Role, role)
         };
