@@ -105,6 +105,35 @@ public sealed class DetailsModel(
         return await OnGetAsync(deviceCode, cancellationToken);
     }
 
+    public async Task<IActionResult> OnPostRevokeCredentialsAsync(
+        string deviceCode, CancellationToken cancellationToken)
+    {
+        if (!User.HasRecentAuthentication())
+        {
+            var returnUrl = Url.Page("/Devices/Details", new { deviceCode });
+            return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
+        }
+
+        try
+        {
+            var count = await deviceAuthenticationService.RevokeCredentialsAsync(
+                deviceCode, User.GetUserId(), householdAccess, cancellationToken);
+            TempData["StatusMessage"] = count > 0
+                ? $"Revoked {count} device credential(s). The device must be provisioned again before it can authenticate."
+                : "There were no active device credentials to revoke.";
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        return RedirectToPage(new { deviceCode });
+    }
+
     public async Task<IActionResult> OnPostDeactivateAsync(
         string deviceCode, CancellationToken cancellationToken)
     {
