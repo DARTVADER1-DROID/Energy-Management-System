@@ -1,0 +1,97 @@
+@page
+@model RegisterModel
+@{
+    ViewData["Title"] = "Register device";
+}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div><p class="eyebrow">Device management</p><h2 class="page-heading">Register a device</h2><p class="mt-1 text-sm text-slate-500">Configure a monitor in four guided steps.</p></div>
+    <a asp-page="/Devices/Index" class="secondary-button">← Back to devices</a>
+</div>
+
+@if (Model.Households.Count == 0)
+{
+    <section class="panel mt-7 p-8"><h3 class="font-semibold">Create a household first</h3><p class="mt-2 text-sm text-slate-500">Device registration requires an existing household. Household creation is currently available through the API.</p></section>
+}
+else
+{
+<form method="post" novalidate data-registration-wizard class="mt-7">
+    <input asp-for="Input.HouseholdId" type="hidden" />
+    <div class="panel p-5 md:p-7">
+        <ol class="mb-8 grid grid-cols-4 gap-2">
+            @foreach (var label in new[] { "Identity", "Electrical", "Thresholds", "Review" })
+            {
+                var index = Array.IndexOf(new[] { "Identity", "Electrical", "Thresholds", "Review" }, label);
+                <li data-wizard-indicator class="wizard-step rounded-lg border border-slate-200 p-2 text-center text-xs font-semibold text-slate-500 dark:border-slate-700" aria-current="@(index == 0 ? "step" : "false")"><span class="block text-base">0@(index + 1)</span><span class="hidden sm:inline">@label</span></li>
+            }
+        </ol>
+        <div asp-validation-summary="ModelOnly" class="mb-4 text-sm text-rose-600"></div>
+
+        <section data-wizard-step>
+            <h3 class="text-lg font-semibold">Device identity</h3><p class="mb-5 mt-1 text-sm text-slate-500">Enter the hardware and installation details.</p>
+            <div class="grid gap-4 md:grid-cols-2">
+                <label class="field-label">Household<select asp-for="Input.HouseholdId" class="control-select mt-1 w-full" disabled><option value="@Model.Households.FirstOrDefault(item => item.Id == Model.Input.HouseholdId)?.Id">@Model.Households.FirstOrDefault(item => item.Id == Model.Input.HouseholdId)?.Code · @Model.Households.FirstOrDefault(item => item.Id == Model.Input.HouseholdId)?.Name</option></select></label>
+                <label class="field-label">Device name<input asp-for="Input.Name" class="control-input mt-1 w-full" required maxlength="120" placeholder="Main energy monitor" /></label>
+                <label class="field-label">Hardware model<input asp-for="Input.HardwareModel" class="control-input mt-1 w-full" required maxlength="80" placeholder="ESP32" /></label>
+                <label class="field-label">Firmware version<input asp-for="Input.FirmwareVersion" class="control-input mt-1 w-full" required maxlength="80" placeholder="1.0.0" /></label>
+                <label class="field-label md:col-span-2">Installation location<input asp-for="Input.InstallationLocation" class="control-input mt-1 w-full" required maxlength="160" placeholder="Main distribution board" /></label>
+                <label class="field-label md:col-span-2">Description (optional)<textarea asp-for="Input.Description" class="control-input mt-1 w-full" rows="3" maxlength="1000"></textarea></label>
+            </div>
+        </section>
+
+        <section data-wizard-step hidden>
+            <h3 class="text-lg font-semibold">Electrical configuration</h3><p class="mb-5 mt-1 text-sm text-slate-500">Choose the supply configuration supported by the installed monitor.</p>
+            <div class="grid gap-3 md:grid-cols-2">
+                <label class="flex cursor-pointer gap-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700"><input asp-for="Input.ElectricalConfiguration" type="radio" value="SinglePhase" checked /><span><strong class="block text-sm">Single-phase</strong><span class="text-xs text-slate-500">Typical residential single-phase supply.</span></span></label>
+                <label class="flex cursor-pointer gap-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700"><input asp-for="Input.ElectricalConfiguration" type="radio" value="ThreePhase" /><span><strong class="block text-sm">Three-phase</strong><span class="text-xs text-slate-500">Three-phase household supply.</span></span></label>
+            </div>
+            <p class="mt-5 rounded-lg bg-blue-50 p-3 text-xs leading-5 text-blue-800 dark:bg-blue-950/40 dark:text-blue-200">The initial hardware rollout targets single-phase monitoring. Three-phase registration is supported by the data model for future hardware.</p>
+        </section>
+
+        <section data-wizard-step hidden>
+            <h3 class="text-lg font-semibold">Warning thresholds</h3><p class="mb-5 mt-1 text-sm text-slate-500">All values are optional. If any threshold is set, specify how long a violation must persist before a warning is raised.</p>
+            <div class="grid gap-4 md:grid-cols-2">
+                <label class="field-label">Minimum voltage (V)<input asp-for="Input.MinimumVoltage" type="number" step="0.1" min="0" class="control-input mt-1 w-full" /></label>
+                <label class="field-label">Maximum voltage (V)<input asp-for="Input.MaximumVoltage" type="number" step="0.1" min="0" class="control-input mt-1 w-full" /></label>
+                <label class="field-label">Maximum current (A)<input asp-for="Input.MaximumCurrent" type="number" step="0.1" min="0" class="control-input mt-1 w-full" /></label>
+                <label class="field-label">Maximum instantaneous power (W)<input asp-for="Input.MaximumInstantaneousPower" type="number" step="1" min="0" class="control-input mt-1 w-full" /></label>
+                <label class="field-label">Maximum daily energy (kWh)<input asp-for="Input.MaximumDailyEnergy" type="number" step="0.1" min="0" class="control-input mt-1 w-full" /></label>
+                <label class="field-label">Maximum temperature (°C, optional)<input asp-for="Input.MaximumTemperature" type="number" step="0.1" min="0" class="control-input mt-1 w-full" /></label>
+                <label class="field-label md:col-span-2">Warning persistence (seconds)<input asp-for="Input.WarningPersistenceSeconds" type="number" min="1" max="86400" class="control-input mt-1 w-full" placeholder="Required when thresholds are configured" /></label>
+            </div>
+            <p class="mt-5 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">These thresholds generate dashboard warnings only. They do not replace independent firmware protection or electrical safety interlocks.</p>
+        </section>
+
+        <section data-wizard-step hidden>
+            <h3 class="text-lg font-semibold">Review registration</h3><p class="mb-5 mt-1 text-sm text-slate-500">Review the details and submit. The backend generates the immutable device code.</p>
+            <div class="rounded-xl bg-slate-50 p-5 text-sm dark:bg-slate-800/60">
+                <p><strong>Device:</strong> <span id="review-name">Complete the previous step</span></p>
+                <p class="mt-2"><strong>Hardware:</strong> <span id="review-hardware">—</span></p>
+                <p class="mt-2"><strong>Location:</strong> <span id="review-location">—</span></p>
+                <p class="mt-2"><strong>Electrical:</strong> <span id="review-electrical">—</span></p>
+            </div>
+        </section>
+        <div class="mt-8 flex items-center justify-between border-t border-slate-200 pt-5 dark:border-slate-700">
+            <button type="button" data-wizard-back class="secondary-button" hidden>Back</button>
+            <span class="flex-1"></span>
+            <button type="button" data-wizard-next class="primary-button">Continue</button>
+            <button type="submit" data-wizard-submit class="primary-button" hidden>Register device</button>
+        </div>
+    </div>
+</form>
+}
+@section Scripts {
+<script>
+document.querySelector("[data-registration-wizard]")?.addEventListener("submit", event => {
+    const form = event.currentTarget;
+    const fields = ["Input_Name", "Input_HardwareModel", "Input_InstallationLocation"];
+    for (const id of fields) {
+        const field = document.getElementById(id);
+        if (field && !field.value.trim()) { event.preventDefault(); field.focus(); field.reportValidity(); return; }
+    }
+    document.getElementById("review-name").textContent = document.getElementById("Input_Name").value;
+    document.getElementById("review-hardware").textContent = document.getElementById("Input_HardwareModel").value;
+    document.getElementById("review-location").textContent = document.getElementById("Input_InstallationLocation").value;
+    document.getElementById("review-electrical").textContent = document.querySelector('input[name="Input.ElectricalConfiguration"]:checked')?.value || "—";
+});
+</script>
+}

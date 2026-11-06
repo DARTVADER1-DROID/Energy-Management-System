@@ -7,6 +7,45 @@ namespace EnergyManagement.Api.Web.Services;
 
 public sealed class DashboardReadService(EnergyManagementDbContext dbContext)
 {
+    public async Task<IReadOnlyList<HouseholdOption>> GetHouseholdsAsync(CancellationToken cancellationToken) =>
+        await dbContext.Households
+            .AsNoTracking()
+            .OrderBy(item => item.Name)
+            .Select(item => new HouseholdOption(item.Id, item.HouseholdCode, item.Name))
+            .ToArrayAsync(cancellationToken);
+
+    public async Task<DeviceDetails?> GetDeviceDetailsAsync(
+        string deviceCode,
+        CancellationToken cancellationToken)
+    {
+        var device = await dbContext.Devices
+            .AsNoTracking()
+            .SingleOrDefaultAsync(item => item.DeviceCode == deviceCode, cancellationToken);
+
+        return device is null
+            ? null
+            : new DeviceDetails(
+                device.Id,
+                device.HouseholdId,
+                device.DeviceCode,
+                device.Name,
+                device.HardwareModel,
+                device.FirmwareVersion,
+                device.InstallationLocation,
+                device.ElectricalConfiguration,
+                device.Description,
+                device.IsActive,
+                device.RegisteredAtUtc,
+                device.LastSeenAtUtc,
+                device.Thresholds.MinimumVoltage,
+                device.Thresholds.MaximumVoltage,
+                device.Thresholds.MaximumCurrent,
+                device.Thresholds.MaximumInstantaneousPower,
+                device.Thresholds.MaximumDailyEnergy,
+                device.Thresholds.MaximumTemperature,
+                device.Thresholds.WarningPersistenceSeconds);
+    }
+
     public async Task<DashboardSnapshot> GetDashboardAsync(
         int? householdId,
         CancellationToken cancellationToken)
@@ -101,6 +140,27 @@ public sealed class DashboardReadService(EnergyManagementDbContext dbContext)
 }
 
 public sealed record HouseholdOption(int Id, string Code, string Name);
+
+public sealed record DeviceDetails(
+    int Id,
+    int HouseholdId,
+    string DeviceCode,
+    string Name,
+    string HardwareModel,
+    string FirmwareVersion,
+    string InstallationLocation,
+    ElectricalConfiguration ElectricalConfiguration,
+    string? Description,
+    bool IsActive,
+    DateTimeOffset RegisteredAtUtc,
+    DateTimeOffset? LastSeenAtUtc,
+    decimal? MinimumVoltage,
+    decimal? MaximumVoltage,
+    decimal? MaximumCurrent,
+    decimal? MaximumInstantaneousPower,
+    decimal? MaximumDailyEnergy,
+    decimal? MaximumTemperature,
+    int? WarningPersistenceSeconds);
 
 public sealed record DashboardSnapshot(
     IReadOnlyList<HouseholdOption> Households,

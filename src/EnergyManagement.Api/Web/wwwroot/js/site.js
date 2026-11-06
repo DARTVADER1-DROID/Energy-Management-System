@@ -30,4 +30,32 @@
         backdrop?.classList.remove("hidden");
     });
     backdrop?.addEventListener("click", closeSidebar);
+
+    const wizard = document.querySelector("[data-registration-wizard]");
+    if (wizard) {
+        const steps = [...wizard.querySelectorAll("[data-wizard-step]")];
+        const indicators = [...wizard.querySelectorAll("[data-wizard-indicator]")];
+        let activeStep = 0;
+        const showStep = (index) => {
+            activeStep = Math.max(0, Math.min(index, steps.length - 1));
+            steps.forEach((step, i) => step.hidden = i !== activeStep);
+            indicators.forEach((indicator, i) => {
+                indicator.setAttribute("aria-current", i === activeStep ? "step" : "false");
+                indicator.classList.toggle("wizard-step-active", i === activeStep);
+            });
+            wizard.querySelector("[data-wizard-back]")?.toggleAttribute("hidden", activeStep === 0);
+            const next = wizard.querySelector("[data-wizard-next]");
+            const submit = wizard.querySelector("[data-wizard-submit]");
+            if (next) next.hidden = activeStep === steps.length - 1;
+            if (submit) submit.hidden = activeStep !== steps.length - 1;
+        };
+        wizard.querySelector("[data-wizard-next]")?.addEventListener("click", () => {
+            const invalid = [...steps[activeStep].querySelectorAll("input, select, textarea")]
+                .find(field => !field.checkValidity());
+            if (invalid) { invalid.reportValidity(); return; }
+            showStep(activeStep + 1);
+        });
+        wizard.querySelector("[data-wizard-back]")?.addEventListener("click", () => showStep(activeStep - 1));
+        showStep(0);
+    }
 })();
