@@ -4,7 +4,7 @@
 
 The initial Render environment is a staging deployment for synthetic/test data only. It is not an approved production environment and must not be connected to real household devices or used for real household data.
 
-The current application does not yet implement user authentication, household-level authorization, or device authentication. The staging web service is internet-reachable; do not enter sensitive information or expose real device-control workflows.
+The application now includes account authentication, MFA, household membership and role-based authorization, device provisioning, HMAC-SHA-256 device request authentication, replay protection, credential rotation/revocation, and signed telemetry ingestion. The staging web service is internet-reachable and remains a test environment only. Use synthetic data, do not connect real electrical equipment, and do not treat cloud telemetry or alerts as protective controls.
 
 ## Infrastructure
 
@@ -36,9 +36,22 @@ The application reads its database connection from `ConnectionStrings__EnergyMan
 
 ## Database migrations
 
-The application supports opt-in startup migrations through `Database:ApplyMigrationsOnStartup`. The staging Blueprint sets this to `true`, so the existing EF Core migrations are applied before the app begins serving requests.
+The application supports opt-in startup migrations through `Database:ApplyMigrationsOnStartup`. The staging Blueprint sets this to `true`, so the energy, identity, and device-security EF Core migration sets are applied before the app begins serving requests. The bootstrapper then ensures the application roles exist and can create the initial administrator and household when the bootstrap variables are supplied.
 
-This is intentionally disabled by default in other environments. A production rollout must use a controlled migration process and account for compatibility between old and new application versions.
+This is intentionally disabled by default in other environments. Production must use a controlled migration/release process and account for compatibility between old and new application versions.
+
+## Required staging secrets and first administrator
+
+Configure these environment variables on the Render web service before the first authenticated staging session:
+
+- `EMS_BOOTSTRAP_ADMIN_EMAIL`: email address for the initial staging administrator.
+- `EMS_BOOTSTRAP_ADMIN_PASSWORD`: initial password (minimum 12 characters, including uppercase, lowercase, digit, and non-alphanumeric character).
+- `EMS_BOOTSTRAP_HOUSEHOLD_NAME`: initial household display name.
+- `EMS_DEVICE_CREDENTIAL_ENCRYPTION_KEY`: base64-encoded cryptographic key that decodes to exactly 32 bytes. Generate a unique random value and keep it in Render's secret environment settings. Do not commit it to the repository or reuse a test key.
+
+The bootstrapper creates the administrator only when the installation contains no users. Once the administrator and household have been created, remove the bootstrap email/password variables from the service environment and redeploy; do not leave bootstrap credentials configured indefinitely. If no bootstrap account is configured, the login page can load but there will be no initial user able to sign in.
+
+The device encryption key is required when provisioning device credentials. Changing it after credentials have been stored makes previously encrypted device signing keys unreadable, so preserve it across deploys and backups.
 
 ## Deployment workflow
 
@@ -48,11 +61,12 @@ The staging Blueprint is linked to `deploy/render-staging`. It is configured to 
 
 Before any production release:
 
-- Implement authentication and household-level authorization.
-- Implement device authentication, provisioning, and credential rotation.
-- Review and protect all device registration and control endpoints.
-- Add request rate limiting, secure cookie/CSRF protections where applicable, and security-focused tests.
+- Complete an independent security review of authentication, MFA, household authorization, device provisioning, HMAC authentication, and credential rotation.
+- Complete ESP32 firmware provisioning, secure credential storage, signed publishing, command polling, and offline queue behavior.
+- Review and protect all future device-control endpoints; keep time-critical fault handling and protective shutdown local to the device.
+- Validate proxy/TLS forwarding, secure cookies, CSRF protections, rate limiting, secret rotation, backups, and recovery under the actual production topology.
 - Establish persistent paid PostgreSQL, backups, restore drills, and a data-retention policy.
 - Establish a controlled database migration/release procedure.
 - Verify logging, monitoring, incident response, and rollback compatibility.
-- Complete a security review before connecting physical ESP32 devices.
+- Complete physical-device end-to-end validation and electrical safety review before connecting ESP32 devices to real equipment.
+- Implement durable alert evaluation, notification delivery, historical telemetry charts, and command workflows before treating the dashboard as an operational monitoring system.
