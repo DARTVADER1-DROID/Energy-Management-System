@@ -156,6 +156,44 @@ public sealed class DeviceAuthenticationService(
             deviceCode, secret, "HMAC-SHA256", "X-EMS-Timestamp", "X-EMS-Nonce", "X-EMS-Signature");
     }
 
+    public async Task<int> RevokeCredentialsAsync(
+        string deviceCode,
+        int administratorUserId,
+        HouseholdAccessService householdAccess,
+        CancellationToken cancellationToken = default)
+    {
+        var device = await energyDb.Devices.SingleOrDefaultAsync(
+            item => item.DeviceCode == deviceCode, cancellationToken)
+            ?? throw new KeyNotFoundException("The selected device was not found.");
+
+        if (!await householdAccess.IsMemberAsync(
+            administratorUserId, device.HouseholdId, cancellationToken))
+            throw new KeyNotFoundException("The selected device was not found.");
+
+        if (!await householdAccess.IsAdministratorAsync(
+            administratorUserId, device.HouseholdId, cancellationToken))
+            throw new UnauthorizedAccessException("Only a household administrator can revoke device credentials.");
+
+        await using var transaction = await securityDb.Database.BeginTransactionAsync(cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+        var revokedCount = await securityDb.Credentials
+            .Where(item => item.DeviceId == device.Id && item.RevokedAtUtc == null)
+            .ExecuteUpdateAsync(setters =>
+                setters.SetProperty(item => item.RevokedAtUtc, now), cancellationToken);
+
+        await securityDb.ProvisioningCodes
+            .Where(item => item.DeviceId == device.Id &&
+                item.UsedAtUtc == null && item.RevokedAtUtc == null)
+            .ExecuteUpdateAsync(setters =>
+                setters.SetProperty(item => item.RevokedAtUtc, now), cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
+        logger.LogWarning(
+            "Administrator {AdministratorUserId} revoked {CredentialCount} credential(s) for device {DeviceCode}.",
+            administratorUserId, revokedCount, deviceCode);
+        return revokedCount;
+    }
+
     public Task<bool> HasActiveCredentialAsync(
         int deviceId, CancellationToken cancellationToken = default) =>
         securityDb.Credentials.AsNoTracking().AnyAsync(item =>
