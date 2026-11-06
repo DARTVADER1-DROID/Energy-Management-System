@@ -10,10 +10,13 @@ namespace EnergyManagement.Api.Web.Pages.Devices;
 public sealed class DetailsModel(
     DashboardReadService dashboardReadService,
     EnergyManagementDbContext energyDb,
-    HouseholdAccessService householdAccess) : PageModel
+    HouseholdAccessService householdAccess,
+    DeviceAuthenticationService deviceAuthenticationService) : PageModel
 {
     public DeviceDetails Device { get; private set; } = null!;
     public bool CanManageDevice { get; private set; }
+    public string? ProvisioningCode { get; private set; }
+    public DateTimeOffset? ProvisioningCodeExpiresAtUtc { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(string deviceCode, CancellationToken cancellationToken)
     {
@@ -26,6 +29,40 @@ public sealed class DetailsModel(
         CanManageDevice = await householdAccess.IsAdministratorAsync(
             userId, device.HouseholdId, cancellationToken);
         return Page();
+    }
+
+    public async Task<IActionResult> OnPostProvisionAsync(
+        string deviceCode, CancellationToken cancellationToken)
+    {
+        if (!User.HasRecentAuthentication())
+        {
+            var returnUrl = Url.Page("/Devices/Details", new { deviceCode });
+            return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
+        }
+
+        try
+        {
+            var result = await deviceAuthenticationService.CreateProvisioningCodeAsync(
+                deviceCode, User.GetUserId(), householdAccess, cancellationToken);
+            ProvisioningCode = result.Code;
+            ProvisioningCodeExpiresAtUtc = result.ExpiresAtUtc;
+            Response.Headers["Cache-Control"] = "no-store";
+            Response.Headers["Pragma"] = "no-cache";
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException exception)
+        {
+            TempData["ErrorMessage"] = exception.Message;
+        }
+
+        return await OnGetAsync(deviceCode, cancellationToken);
     }
 
     public async Task<IActionResult> OnPostDeactivateAsync(
