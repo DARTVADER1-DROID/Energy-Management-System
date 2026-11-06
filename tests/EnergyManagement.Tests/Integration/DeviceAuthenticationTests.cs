@@ -355,6 +355,51 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
         Assert.Equal(HttpStatusCode.OK, originalKeyResponse.StatusCode);
     }
 
+    [Fact]
+    public async Task AdministratorCanRevokeCurrentAndPendingCredentials()
+    {
+        var originalSecret = await ProvisionDeviceAsync();
+        DeviceCredentialRotationResult rotation;
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var service = scope.ServiceProvider.GetRequiredService<DeviceAuthenticationService>();
+            var access = scope.ServiceProvider.GetRequiredService<HouseholdAccessService>();
+            rotation = await service.CreateCredentialRotationAsync(_deviceCode, 1, access);
+            var revokedCount = await service.RevokeCredentialsAsync(_deviceCode, 1, access);
+            Assert.Equal(2, revokedCount);
+        }
+
+        var originalBytes = WebEncoders.Base64UrlDecode(originalSecret);
+        var rotatedBytes = WebEncoders.Base64UrlDecode(rotation.NewDeviceSecret);
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var oldNonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+        var newNonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+
+        var oldResponse = await SendHeartbeatAsync(
+            timestamp, oldNonce, SignHeartbeat(originalBytes, timestamp, oldNonce));
+        var newResponse = await SendHeartbeatAsync(
+            timestamp, newNonce, SignHeartbeat(rotatedBytes, timestamp, newNonce));
+        Assert.Equal(HttpStatusCode.Unauthorized, oldResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, newResponse.StatusCode);
+
+        await using var verifyScope = _factory.Services.CreateAsyncScope();
+        var securityDb = verifyScope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
+        Assert.All(await securityDb.Credentials.ToArrayAsync(),
+            credential => Assert.NotNull(credential.RevokedAtUtc));
+    }
+
+    [Fact]
+    public async Task NonAdministratorCannotRevokeDeviceCredentials()
+    {
+        await ProvisionDeviceAsync();
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var service = scope.ServiceProvider.GetRequiredService<DeviceAuthenticationService>();
+        var access = scope.ServiceProvider.GetRequiredService<HouseholdAccessService>();
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            service.RevokeCredentialsAsync(_deviceCode, 2, access));
+    }
+
     private async Task<string> ProvisionDeviceAsync()
     {
         await using var scope = _factory.Services.CreateAsyncScope();
