@@ -57,31 +57,52 @@ service container for every workflow run.
 
 ### Domain
 
-- Household name validation and trimming
-- Sequential device-number allocation
-- Required device metadata and metadata updates
-- Single-phase and three-phase configurations
-- Stable household-scoped device codes
-- Soft deactivation
-- Last-seen timestamp ordering and UTC validation
+- Household name validation, trimming and maximum-length boundaries
+- Device construction, required metadata and positive device-number invariants
+- Device identity, initial state and registration timestamp
+- Optional description normalisation
+- Metadata update validation and threshold replacement/clearing
+- Single-phase and three-phase configuration
+- Soft deactivation and stable device identity
+- Last-seen timestamp UTC validation and monotonic ordering
 - Optional thresholds and optional temperature
 - Negative thresholds, invalid voltage ranges, and invalid warning persistence
 - Required persistence duration when a warning threshold is configured
 
 ### API and persistence
 
-- Household creation and validation
+- Household creation, trimming, generated code, Location header and validation
+- Household listing and deterministic ordering
 - Device registration, metadata persistence, and generated identifiers
-- Missing household and invalid request handling
-- Threshold validation at the HTTP boundary
-- Device listing by household
-- Soft deactivation while retaining device history
+- Required-field validation and maximum-length boundaries
+- Unsupported electrical configuration and threshold boundary validation
+- Missing household/device and invalid request handling
+- Invalid registration does not consume a device number
+- Device listing across households and by household filter
+- Soft deactivation is idempotent and inactive devices remain retrievable/listed
+- Optional temperature threshold remains optional
 
 ### Concurrency
 
 - Twenty simultaneous registrations through independent dependency-injection scopes
 - Unique, sequential identifiers under concurrent registration
+- Persisted device count verified after concurrent registration
 - Deactivated identifiers are not reused
+- Device numbering is independent per household
+
+## Latest validation
+
+The expanded Feature 001 suite completed successfully in GitHub Actions on 6 November 2026:
+
+- **97 passed**
+- **0 failed**
+- **0 skipped**
+- **9 seconds** test execution time
+- .NET 10 with PostgreSQL 17
+
+See [the successful workflow run](https://github.com/DARTVADER1-DROID/Energy-Management-System/actions/runs/42248843753)
+and the [comprehensive test-suite document](FEATURE-001-TEST-SUITE.md) for detailed
+coverage, scope exclusions and maintenance expectations.
 
 ## Known scope boundaries
 

@@ -32,7 +32,8 @@ The default host port is 55432. Set `EMS_TEST_POSTGRES_PORT` before running the 
 to use another available port. The script temporarily sets
 `EMS_TEST_CONNECTION_STRING` for the test process and restores its previous value.
 
-See [test coverage and details](docs/TESTING.md) and the
+See [test coverage and details](docs/TESTING.md),
+[Feature 001 test-suite documentation](docs/FEATURE-001-TEST-SUITE.md), and the
 [development workflow](docs/DEVELOPMENT.md).
 
 ## Safety and deployment note
