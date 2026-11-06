@@ -203,6 +203,15 @@ public sealed class DeviceAuthenticationService(
             return null;
         }
 
+        var actualSecretHash = Convert.ToHexString(SHA256.HashData(signingSecret));
+        var storedSecretHash = Convert.FromHexString(credential.SecretHash);
+        if (!CryptographicOperations.FixedTimeEquals(
+            Convert.FromHexString(actualSecretHash), storedSecretHash))
+        {
+            CryptographicOperations.ZeroMemory(signingSecret);
+            return null;
+        }
+
         var expectedSignature = HMACSHA256.HashData(
             signingSecret, Encoding.UTF8.GetBytes(canonicalRequest));
         CryptographicOperations.ZeroMemory(signingSecret);
