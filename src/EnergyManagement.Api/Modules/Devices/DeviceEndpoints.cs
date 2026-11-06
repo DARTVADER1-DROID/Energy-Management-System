@@ -35,6 +35,8 @@ public static class DeviceEndpoints
             .RequireRateLimiting("device-provisioning");
         devices.MapPost("/{deviceCode}/credential-rotations", CreateCredentialRotationAsync)
             .RequireRateLimiting("device-provisioning");
+        devices.MapPost("/{deviceCode}/credentials/revoke", RevokeDeviceCredentialsAsync)
+            .RequireRateLimiting("device-provisioning");
 
         var deviceAuthentication = endpoints.MapGroup("/api/device-auth")
             .WithTags("Device authentication");
@@ -269,6 +271,33 @@ public static class DeviceEndpoints
         }
     }
 
+    private static async Task<IResult> RevokeDeviceCredentialsAsync(
+        string deviceCode,
+        DeviceAuthenticationService authenticationService,
+        HouseholdAccessService householdAccess,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken)
+    {
+        if (!user.HasRecentAuthentication())
+            return TypedResults.Problem(statusCode: 428, title: "Recent authentication required",
+                detail: "Reauthenticate before revoking device credentials.");
+
+        try
+        {
+            var revokedCount = await authenticationService.RevokeCredentialsAsync(
+                deviceCode, GetUserId(user), householdAccess, cancellationToken);
+            return TypedResults.Ok(new DeviceCredentialRevocationResult(deviceCode, revokedCount));
+        }
+        catch (KeyNotFoundException)
+        {
+            return TypedResults.NotFound("Device was not found.");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return TypedResults.Forbid();
+        }
+    }
+
     private static async Task<IResult> CreateCredentialRotationAsync(
         string deviceCode,
         DeviceAuthenticationService authenticationService,
@@ -420,3 +449,6 @@ public sealed record ProvisionDeviceRequest(string DeviceCode, string Provisioni
 
 public sealed record DeviceHeartbeatResponse(
     string DeviceCode, DateTimeOffset ServerReceivedAtUtc);
+
+public sealed record DeviceCredentialRevocationResult(
+    string DeviceCode, int RevokedCredentialCount);
