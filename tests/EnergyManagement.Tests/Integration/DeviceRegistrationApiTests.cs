@@ -22,6 +22,28 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
         await ResetDatabaseAsync();
     }
 
+
+    [Fact]
+    public async Task AnonymousClient_CannotReadDeviceApi()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/devices");
+        request.Headers.Add("X-Test-Anonymous", "true");
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task HouseholdMember_CannotCreateHousehold()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/households/")
+        {
+            Content = JsonContent.Create(new { name = "Not permitted" })
+        };
+        request.Headers.Add("X-Test-Role", "Household Member");
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     [Fact]
     public async Task DeviceRegistrationPage_RendersWizardForExistingHousehold()
     {
