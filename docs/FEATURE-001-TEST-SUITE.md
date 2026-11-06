@@ -37,7 +37,7 @@ The integration tests use the actual PostgreSQL provider and apply the repositor
 - Required household name validation and whitespace trimming.
 - Maximum household-name length and its accepted boundary.
 - Household creation response, generated household code and resource location.
-- Listing households in deterministic identifier order.
+- Listing households in deterministic identifier order and retrieving a household by ID.
 - Invalid household requests return a client error.
 
 ### 3.2 Device domain invariants
@@ -64,7 +64,7 @@ The integration tests use the actual PostgreSQL provider and apply the repositor
 - Warning persistence duration rejects zero, negative and over-limit values, and accepts its lower and upper bounds.
 - Temperature remains optional when other thresholds are configured.
 - Invalid registration requests do not consume a device number.
-- Device listing supports household filtering and an unfiltered list.
+- Device listing supports household filtering, bounded pagination and page metadata headers.
 - Deactivation is idempotent; inactive devices remain retrievable and visible in the device list.
 
 ### 3.4 Identifier allocation and concurrency

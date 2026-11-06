@@ -7,8 +7,9 @@ using Microsoft.OpenApi;
 var builder = WebApplication.CreateBuilder(args);
 
 var connectionString = builder.Configuration.GetConnectionString("EnergyManagement")
+    ?? Environment.GetEnvironmentVariable("EMS_TEST_CONNECTION_STRING")
     ?? throw new InvalidOperationException(
-        "The ConnectionStrings:EnergyManagement configuration value is required.");
+        "Configure ConnectionStrings:EnergyManagement before starting the API.");
 
 builder.Services.AddDbContext<EnergyManagementDbContext>(options =>
     options.UseNpgsql(connectionString));
