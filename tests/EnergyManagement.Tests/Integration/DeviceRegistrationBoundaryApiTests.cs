@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using EnergyManagement.Api.Infrastructure.Persistence;
 using EnergyManagement.Api.Infrastructure.IdentityPersistence;
 using EnergyManagement.Api.Modules.Identity;
+using Microsoft.AspNetCore.Identity;
 using EnergyManagement.Api.Modules.Devices;
 using EnergyManagement.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -33,8 +34,15 @@ public sealed class DeviceRegistrationBoundaryApiTests(PostgreSqlFixture postgre
             Id = 1,
             UserName = "boundary-admin@example.test",
             Email = "boundary-admin@example.test",
-            EmailConfirmed = true
+            EmailConfirmed = true,
+            TwoFactorEnabled = true
         });
+        identityDb.Roles.Add(new IdentityRole<int>("Administrator")
+        {
+            Id = 1,
+            NormalizedName = "ADMINISTRATOR"
+        });
+        identityDb.UserRoles.Add(new IdentityUserRole<int> { UserId = 1, RoleId = 1 });
         await identityDb.SaveChangesAsync();
     }
 
