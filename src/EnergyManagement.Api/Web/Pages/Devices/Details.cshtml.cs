@@ -1,20 +1,59 @@
-using EnergyManagement.Api.Web.Services;
+using EnergyManagement.Api.Infrastructure.Persistence;
 using EnergyManagement.Api.Modules.Identity;
+using EnergyManagement.Api.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 
 namespace EnergyManagement.Api.Web.Pages.Devices;
 
-public sealed class DetailsModel(DashboardReadService dashboardReadService) : PageModel
+public sealed class DetailsModel(
+    DashboardReadService dashboardReadService,
+    EnergyManagementDbContext energyDb,
+    HouseholdAccessService householdAccess) : PageModel
 {
     public DeviceDetails Device { get; private set; } = null!;
+    public bool CanManageDevice { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(string deviceCode, CancellationToken cancellationToken)
     {
-        var device = await dashboardReadService.GetDeviceDetailsAsync(deviceCode, User.GetUserId(), cancellationToken);
+        var userId = User.GetUserId();
+        var device = await dashboardReadService.GetDeviceDetailsAsync(
+            deviceCode, userId, cancellationToken);
         if (device is null) return NotFound();
 
         Device = device;
+        CanManageDevice = await householdAccess.IsAdministratorAsync(
+            userId, device.HouseholdId, cancellationToken);
         return Page();
+    }
+
+    public async Task<IActionResult> OnPostDeactivateAsync(
+        string deviceCode, CancellationToken cancellationToken)
+    {
+        var device = await energyDb.Devices.SingleOrDefaultAsync(
+            item => item.DeviceCode == deviceCode, cancellationToken);
+        if (device is null) return NotFound();
+
+        var userId = User.GetUserId();
+        if (!await householdAccess.IsMemberAsync(userId, device.HouseholdId, cancellationToken))
+            return NotFound();
+        if (!await householdAccess.IsAdministratorAsync(userId, device.HouseholdId, cancellationToken))
+            return Forbid();
+
+        if (!User.HasRecentAuthentication())
+        {
+            var returnUrl = Url.Page("/Devices/Details", new { deviceCode });
+            return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
+        }
+
+        if (device.IsActive)
+        {
+            device.Deactivate();
+            await energyDb.SaveChangesAsync(cancellationToken);
+            TempData["StatusMessage"] = "Device registration deactivated.";
+        }
+
+        return RedirectToPage(new { deviceCode });
     }
 }

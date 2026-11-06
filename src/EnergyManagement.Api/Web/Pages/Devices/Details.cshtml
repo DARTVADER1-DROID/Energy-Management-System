@@ -3,9 +3,23 @@
 @{
     ViewData["Title"] = "Device console";
 }
+@if (TempData["StatusMessage"] is string status)
+{
+    <div class="mb-5 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">@status</div>
+}
 <div class="flex flex-wrap items-start justify-between gap-4">
     <div><p class="eyebrow">Device console · @Model.Device.DeviceCode</p><h2 class="page-heading">@Model.Device.Name</h2><p class="mt-1 text-sm text-slate-500">@Model.Device.HardwareModel · Firmware @Model.Device.FirmwareVersion</p></div>
-    <div class="flex gap-2"><a asp-page="/Devices/Index" asp-route-householdId="@Model.Device.HouseholdId" class="secondary-button">← Inventory</a><span class="status-pill @(Model.Device.IsActive ? "status-neutral" : "status-muted")">@(Model.Device.IsActive ? "Active registration" : "Deactivated")</span></div>
+    <div class="flex flex-wrap items-center gap-2">
+        <a asp-page="/Devices/Index" asp-route-householdId="@Model.Device.HouseholdId" class="secondary-button">← Inventory</a>
+        @if (Model.CanManageDevice && Model.Device.IsActive)
+        {
+            <form method="post" asp-page-handler="Deactivate" asp-route-deviceCode="@Model.Device.DeviceCode"
+                  onsubmit="return confirm('Deactivate this device registration? The device will no longer be treated as an active household device.');">
+                <button type="submit" class="secondary-button text-rose-700 dark:text-rose-300">Deactivate registration</button>
+            </form>
+        }
+        <span class="status-pill @(Model.Device.IsActive ? "status-neutral" : "status-muted")">@(Model.Device.IsActive ? "Active registration" : "Deactivated")</span>
+    </div>
 </div>
 <div class="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
     <article class="metric-card"><p class="metric-label">Connectivity</p><p class="mt-3 text-lg font-semibold">@(Model.Device.LastSeenAtUtc is null ? "No check-in yet" : "Last seen recorded")</p><p class="metric-foot">Current online state unavailable</p></article>
