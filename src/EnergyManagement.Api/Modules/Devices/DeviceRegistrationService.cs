@@ -1,6 +1,8 @@
+using System.Data.Common;
 using EnergyManagement.Api.Infrastructure.Persistence;
 using EnergyManagement.Api.Modules.Households;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
 
 namespace EnergyManagement.Api.Modules.Devices;
@@ -53,21 +55,16 @@ public sealed class DeviceRegistrationService(EnergyManagementDbContext dbContex
         RegisterDeviceRequest request,
         CancellationToken cancellationToken)
     {
-        // The UPDATE obtains a PostgreSQL row lock and increments the counter
-        // atomically. Concurrent registrations therefore cannot read the same
-        // device number. The counter update and device insert share a transaction.
+        // The atomic update locks the household row. Keeping it in the same
+        // transaction as the insert ensures failed registrations consume no number.
         await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
 
-        var deviceNumber = await dbContext.Database
-            .SqlQuery<int>($"""
-                UPDATE "households"
-                SET "NextDeviceNumber" = "NextDeviceNumber" + 1
-                WHERE "Id" = {householdId}
-                RETURNING "NextDeviceNumber" - 1 AS "Value"
-                """)
-            .SingleOrDefaultAsync(cancellationToken);
+        var allocatedNumber = await AllocateDeviceNumberAsync(
+            householdId,
+            transaction,
+            cancellationToken);
 
-        if (deviceNumber == 0)
+        if (allocatedNumber is null)
         {
             throw new HouseholdNotFoundException(householdId);
         }
@@ -84,13 +81,38 @@ public sealed class DeviceRegistrationService(EnergyManagementDbContext dbContex
             request.ElectricalConfiguration,
             request.Description,
             request.Thresholds,
-            deviceNumber);
+            allocatedNumber.Value);
 
         dbContext.Devices.Add(device);
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
         return device;
+    }
+
+    private async Task<int?> AllocateDeviceNumberAsync(
+        int householdId,
+        IDbContextTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        // Execute the UPDATE directly: EF query composition is not supported
+        // for PostgreSQL UPDATE ... RETURNING statements.
+        await using var command = dbContext.Database.GetDbConnection().CreateCommand();
+        command.Transaction = transaction.GetDbTransaction();
+        command.CommandText = """
+            UPDATE "households"
+            SET "NextDeviceNumber" = "NextDeviceNumber" + 1
+            WHERE "Id" = @householdId
+            RETURNING "NextDeviceNumber" - 1
+            """;
+
+        var householdIdParameter = command.CreateParameter();
+        householdIdParameter.ParameterName = "householdId";
+        householdIdParameter.Value = householdId;
+        command.Parameters.Add(householdIdParameter);
+
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        return result is null or DBNull ? null : Convert.ToInt32(result);
     }
 
     private static bool IsSerializationFailure(DbUpdateException exception) =>
