@@ -31,6 +31,10 @@ public sealed class DeviceSecurityDbContext(
             entity.HasIndex(credential => new { credential.DeviceId, credential.RevokedAtUtc });
             entity.HasIndex(credential => credential.DeviceId)
                 .IsUnique()
+                .HasDatabaseName("IX_device_credentials_DeviceId_Current")
+                .HasFilter("\"IsPendingRotation\" = FALSE AND \"RevokedAtUtc\" IS NULL");
+            entity.HasIndex(credential => credential.DeviceId)
+                .IsUnique()
                 .HasFilter("\"IsPendingRotation\" = TRUE AND \"RevokedAtUtc\" IS NULL");
             entity.Property(credential => credential.SecretHash).HasMaxLength(64).IsRequired();
             entity.Property(credential => credential.ProtectedSigningKey).HasMaxLength(256).IsRequired();
