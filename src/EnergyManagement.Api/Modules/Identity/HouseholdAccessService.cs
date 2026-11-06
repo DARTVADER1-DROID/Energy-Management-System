@@ -11,6 +11,16 @@ public sealed class HouseholdAccessService(IdentityDbContext identityDb)
             .Select(membership => membership.HouseholdId)
             .ToArrayAsync(cancellationToken);
 
+    public Task<int[]> GetAdministratorHouseholdIdsAsync(
+        int userId,
+        CancellationToken cancellationToken = default) =>
+        identityDb.HouseholdMemberships.AsNoTracking()
+            .Where(membership =>
+                membership.UserId == userId &&
+                membership.Role == HouseholdRole.Administrator.ToString())
+            .Select(membership => membership.HouseholdId)
+            .ToArrayAsync(cancellationToken);
+
     public Task<bool> IsMemberAsync(
         int userId,
         int householdId,
