@@ -27,5 +27,4 @@ databases:
     databaseName: energy_management_staging
     plan: free
     region: singapore
-    diskSizeGB: 1
     postgresMajorVersion: "18"
