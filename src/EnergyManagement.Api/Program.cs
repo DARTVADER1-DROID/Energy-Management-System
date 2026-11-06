@@ -4,13 +4,16 @@ using EnergyManagement.Api.Modules.Devices;
 using EnergyManagement.Api.Web.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var connectionString = builder.Configuration.GetConnectionString("EnergyManagement")
+var configuredConnectionString = builder.Configuration.GetConnectionString("EnergyManagement")
     ?? Environment.GetEnvironmentVariable("EMS_TEST_CONNECTION_STRING")
     ?? throw new InvalidOperationException(
         "Configure ConnectionStrings:EnergyManagement before starting the API.");
+
+var connectionString = NormalizePostgresConnectionString(configuredConnectionString);
 
 builder.Services.AddDbContext<EnergyManagementDbContext>(options =>
     options.UseNpgsql(connectionString));
@@ -56,6 +59,30 @@ app.MapDeviceEndpoints();
 app.MapRazorPages();
 
 app.Run();
+
+// Render supplies PostgreSQL URLs (postgres:// or postgresql://), while Npgsql
+// expects a keyword/value connection string. Accept both formats so local
+// development and Render deployments can share the same configuration key.
+static string NormalizePostgresConnectionString(string connectionString)
+{
+    if (!Uri.TryCreate(connectionString, UriKind.Absolute, out var databaseUri)
+        || (databaseUri.Scheme != "postgres" && databaseUri.Scheme != "postgresql"))
+    {
+        return connectionString;
+    }
+
+    var userInfo = databaseUri.UserInfo.Split(':', 2);
+    var builder = new NpgsqlConnectionStringBuilder
+    {
+        Host = databaseUri.Host,
+        Port = databaseUri.IsDefaultPort || databaseUri.Port <= 0 ? 5432 : databaseUri.Port,
+        Database = Uri.UnescapeDataString(databaseUri.AbsolutePath.TrimStart('/')),
+        Username = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : string.Empty,
+        Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : string.Empty
+    };
+
+    return builder.ConnectionString;
+}
 
 // Exposed for future integration tests using WebApplicationFactory.
 public partial class Program
