@@ -70,5 +70,19 @@ public sealed class DeviceSecurityDbContextModelSnapshot : ModelSnapshot
             entity.HasIndex("CreatedAtUtc");
             entity.ToTable("device_request_nonces");
         });
+
+        modelBuilder.Entity<DeviceSecurityAuditEvent>(entity =>
+        {
+            entity.Property<long>("Id").ValueGeneratedOnAdd().HasColumnType("bigint")
+                .HasAnnotation("Npgsql:ValueGenerationStrategy", Npgsql.EntityFrameworkCore.PostgreSQL.Metadata.NpgsqlValueGenerationStrategy.IdentityByDefaultColumn);
+            entity.Property<int>("DeviceId").HasColumnType("integer");
+            entity.Property<int?>("ActorUserId").HasColumnType("integer");
+            entity.Property<string>("EventType").IsRequired().HasMaxLength(80).HasColumnType("character varying(80)");
+            entity.Property<string>("Details").IsRequired().HasMaxLength(256).HasColumnType("character varying(256)");
+            entity.Property<DateTimeOffset>("CreatedAtUtc").HasColumnType("timestamp with time zone");
+            entity.HasKey("Id");
+            entity.HasIndex("DeviceId", "CreatedAtUtc");
+            entity.ToTable("device_security_audit_events");
+        });
     }
 }
