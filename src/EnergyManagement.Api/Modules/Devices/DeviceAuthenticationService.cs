@@ -29,6 +29,14 @@ public sealed class DeviceAuthenticationService(
             item => item.DeviceCode == deviceCode, cancellationToken)
             ?? throw new KeyNotFoundException("The selected device was not found.");
 
+        if (!await householdAccess.IsMemberAsync(
+            administratorUserId, device.HouseholdId, cancellationToken))
+            throw new KeyNotFoundException("The selected device was not found.");
+
+        if (!await householdAccess.IsAdministratorAsync(
+            administratorUserId, device.HouseholdId, cancellationToken))
+            throw new UnauthorizedAccessException("Only a household administrator can provision this device.");
+
         if (!device.IsActive)
             throw new InvalidOperationException("A deactivated device cannot be provisioned.");
 
@@ -38,10 +46,6 @@ public sealed class DeviceAuthenticationService(
 
         var encryptionKey = GetEncryptionKey();
         CryptographicOperations.ZeroMemory(encryptionKey);
-
-        if (!await householdAccess.IsAdministratorAsync(
-            administratorUserId, device.HouseholdId, cancellationToken))
-            throw new UnauthorizedAccessException("Only a household administrator can provision this device.");
 
         var now = DateTimeOffset.UtcNow;
         await securityDb.ProvisioningCodes
