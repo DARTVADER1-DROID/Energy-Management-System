@@ -270,7 +270,6 @@ app.Use(async (context, next) =>
     {
         context.Response.Headers.CacheControl = "no-store, no-cache, max-age=0";
         context.Response.Headers.Pragma = "no-cache";
-        context.Response.Headers.Expires = "0";
     }
 
     await next();
