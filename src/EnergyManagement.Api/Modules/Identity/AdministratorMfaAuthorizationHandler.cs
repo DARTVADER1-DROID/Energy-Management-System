@@ -16,7 +16,11 @@ public sealed class AdministratorMfaAuthorizationHandler(
         AuthorizationHandlerContext context,
         AdministratorMfaRequirement requirement)
     {
-        if (!context.User.IsInRole("Administrator"))
+        var isAdministrator = context.User.Claims.Any(claim =>
+            (claim.Type == ClaimTypes.Role || claim.Type == "role") &&
+            string.Equals(claim.Value, "Administrator", StringComparison.OrdinalIgnoreCase));
+
+        if (!isAdministrator)
         {
             context.Succeed(requirement);
             return;
