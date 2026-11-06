@@ -104,6 +104,24 @@ public sealed class TelemetryIngestionTests(PostgreSqlFixture postgres) : IAsync
     }
 
     [Fact]
+    public async Task DashboardDisplaysPersistedTelemetryInsteadOfPlaceholderValues()
+    {
+        var secret = await ProvisionDeviceAsync();
+        using var ingestResponse = await SendTelemetryAsync(secret, CreateEnvelope());
+        Assert.Equal(HttpStatusCode.Accepted, ingestResponse.StatusCode);
+
+        using var dashboardResponse = await _client.GetAsync("/");
+        var html = await dashboardResponse.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, dashboardResponse.StatusCode);
+        Assert.Contains("Telemetry reporting", html);
+        Assert.Contains("0.92", html);
+        Assert.Contains("231.4", html);
+        Assert.Contains("12.54", html);
+        Assert.DoesNotContain("No telemetry has been received yet", html);
+    }
+
+    [Fact]
     public async Task InvalidMeasurementsAreRejectedWithoutPersistence()
     {
         var secret = await ProvisionDeviceAsync();
