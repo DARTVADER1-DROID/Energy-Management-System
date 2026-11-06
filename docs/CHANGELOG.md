@@ -35,3 +35,19 @@ The pull-request CI workflow completed successfully before merge:
 - [GitHub Actions run](https://github.com/DARTVADER1-DROID/Energy-Management-System/actions/runs/42249562360).
 
 The source branches were retained after merging. Authentication and role-based authorization remain deferred; the API must not be exposed to the public internet or used in production until the security requirements documented for Feature 001 are implemented.
+
+
+## 2026-11-07 — Household/device security and telemetry ingestion
+
+### Included changes
+
+- Household identity, membership administration, invitations, role management, MFA recovery controls and security activity.
+- Device provisioning with single-use codes, HMAC-SHA-256 request authentication, timestamp/nonce replay protection, credential rotation and emergency revocation.
+- Persistent device security audit history with administrator-only visibility.
+- Versioned flexible telemetry envelope with root measurements, optional L1/L2/L3 phase readings and bounded additional sensor values.
+- Signed telemetry ingestion endpoint, JSONB persistence, per-device sample deduplication and household-scoped history API.
+- PostgreSQL migration and integration coverage for valid ingestion, duplicate samples and invalid measurement rejection.
+
+### Validation status
+
+The telemetry changes are committed to `feat/household-device-security`. CI is running against the latest implementation; passing status must be confirmed from the latest branch-head workflow run before this increment is considered validated. Firmware publishing, dashboard measurement cards, threshold alert evaluation and physical-device validation remain outstanding.
