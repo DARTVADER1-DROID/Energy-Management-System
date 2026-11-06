@@ -50,4 +50,4 @@ The source branches were retained after merging. Authentication and role-based a
 
 ### Validation status
 
-The telemetry implementation commit `339d0c8` passed the full GitHub Actions .NET test workflow with PostgreSQL 17 (run [#267](https://github.com/DARTVADER1-DROID/Energy-Management-System/actions/runs/42283344008)). The subsequent architecture/documentation commit `65cec3c` also passed CI (run [#268](https://github.com/DARTVADER1-DROID/Energy-Management-System/actions/runs/42283400780)). Firmware publishing, dashboard measurement cards, threshold alert evaluation and physical-device validation remain outstanding.
+The telemetry implementation commit `339d0c8` passed the full GitHub Actions .NET test workflow with PostgreSQL 17 (run [#267](https://github.com/DARTVADER1-DROID/Energy-Management-System/actions/runs/42283344008)). The subsequent architecture/documentation commit `65cec3c` also passed CI (run [#269](https://github.com/DARTVADER1-DROID/Energy-Management-System/actions/runs/42283400780)). Firmware publishing, dashboard measurement cards, threshold alert evaluation and physical-device validation remain outstanding.
