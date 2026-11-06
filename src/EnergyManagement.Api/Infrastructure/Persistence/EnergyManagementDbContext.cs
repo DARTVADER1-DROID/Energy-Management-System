@@ -1,5 +1,6 @@
 using EnergyManagement.Api.Modules.Devices;
 using EnergyManagement.Api.Modules.Households;
+using EnergyManagement.Api.Modules.Telemetry;
 using Microsoft.EntityFrameworkCore;
 
 namespace EnergyManagement.Api.Infrastructure.Persistence;
@@ -11,6 +12,8 @@ public sealed class EnergyManagementDbContext(
 
     public DbSet<Device> Devices => Set<Device>();
 
+    public DbSet<TelemetryReading> TelemetryReadings => Set<TelemetryReading>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Household>(entity =>
@@ -20,6 +23,19 @@ public sealed class EnergyManagementDbContext(
             entity.Property(household => household.Name).HasMaxLength(120).IsRequired();
             entity.Property(household => household.NextDeviceNumber).IsConcurrencyToken();
             entity.Ignore(household => household.HouseholdCode);
+        });
+
+        modelBuilder.Entity<TelemetryReading>(entity =>
+        {
+            entity.ToTable("telemetry_readings");
+            entity.HasKey(reading => reading.Id);
+            entity.HasIndex(reading => new { reading.DeviceId, reading.SampleId }).IsUnique();
+            entity.HasIndex(reading => new { reading.DeviceId, reading.CapturedAtUtc });
+            entity.Property(reading => reading.PayloadJson).HasColumnType("jsonb").IsRequired();
+            entity.HasOne<Device>()
+                .WithMany()
+                .HasForeignKey(reading => reading.DeviceId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Device>(entity =>
