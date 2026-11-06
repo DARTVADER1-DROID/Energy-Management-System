@@ -1,4 +1,5 @@
 using EnergyManagement.Api.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -31,6 +32,14 @@ public sealed class EnergyManagementApiFactory(string connectionString)
 
             services.AddDbContext<EnergyManagementDbContext>(options =>
                 options.UseNpgsql(connectionString));
+
+            services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = "IntegrationTest";
+                options.DefaultChallengeScheme = "IntegrationTest";
+                options.DefaultForbidScheme = "IntegrationTest";
+            }).AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(
+                "IntegrationTest", _ => { });
         });
     }
 }
