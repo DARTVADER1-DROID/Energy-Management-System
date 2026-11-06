@@ -133,16 +133,14 @@ public sealed class DashboardReadService(
                 (phases.Length > 0 && phases.All(value => value.ActivePowerWatts.HasValue)
                     ? phases.Sum(value => value.ActivePowerWatts!.Value)
                     : (decimal?)null);
+            var phaseVoltages = phases.Where(value => value.VoltageVolts.HasValue)
+                .Select(value => value.VoltageVolts!.Value).ToArray();
+            var phaseCurrents = phases.Where(value => value.CurrentAmps.HasValue)
+                .Select(value => value.CurrentAmps!.Value).ToArray();
             var voltage = measurements.VoltageVolts ??
-                (phases.Length > 0
-                    ? phases.Where(value => value.VoltageVolts.HasValue)
-                        .Select(value => value.VoltageVolts!.Value).DefaultIfEmpty().Average()
-                    : (decimal?)null);
+                (phaseVoltages.Length > 0 ? phaseVoltages.Average() : (decimal?)null);
             var current = measurements.CurrentAmps ??
-                (phases.Length > 0
-                    ? phases.Where(value => value.CurrentAmps.HasValue)
-                        .Select(value => value.CurrentAmps!.Value).DefaultIfEmpty().Average()
-                    : (decimal?)null);
+                (phaseCurrents.Length > 0 ? phaseCurrents.Average() : (decimal?)null);
             var energy = measurements.EnergyWattHours ??
                 (phases.Length > 0 && phases.All(value => value.EnergyWattHours.HasValue)
                     ? phases.Sum(value => value.EnergyWattHours!.Value)
