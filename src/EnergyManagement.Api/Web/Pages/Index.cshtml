@@ -78,12 +78,12 @@ else
                 </div>
                 <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
                     <p class="text-sm text-slate-500">Average voltage</p>
-                    <p class="mt-3 text-2xl font-semibold tracking-tight">@Model.Snapshot.AverageVoltageVolts?.ToString("N1") ?? "—" <span class="text-sm font-medium text-slate-500">V</span></p>
+                    <p class="mt-3 text-2xl font-semibold tracking-tight">@(Model.Snapshot.AverageVoltageVolts?.ToString("N1") ?? "—") <span class="text-sm font-medium text-slate-500">V</span></p>
                     <p class="mt-1 text-xs text-slate-400">Average of available device readings</p>
                 </div>
                 <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
                     <p class="text-sm text-slate-500">Average current</p>
-                    <p class="mt-3 text-2xl font-semibold tracking-tight">@Model.Snapshot.AverageCurrentAmps?.ToString("N2") ?? "—" <span class="text-sm font-medium text-slate-500">A</span></p>
+                    <p class="mt-3 text-2xl font-semibold tracking-tight">@(Model.Snapshot.AverageCurrentAmps?.ToString("N2") ?? "—") <span class="text-sm font-medium text-slate-500">A</span></p>
                     <p class="mt-1 text-xs text-slate-400">Average of available device readings</p>
                 </div>
                 <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
