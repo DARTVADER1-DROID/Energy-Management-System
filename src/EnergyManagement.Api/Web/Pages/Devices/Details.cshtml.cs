@@ -1,3 +1,4 @@
+using EnergyManagement.Api.Infrastructure.IdentityPersistence;
 using EnergyManagement.Api.Infrastructure.Persistence;
 using EnergyManagement.Api.Modules.Devices;
 using EnergyManagement.Api.Modules.Identity;
@@ -12,6 +13,7 @@ public sealed class DetailsModel(
     DashboardReadService dashboardReadService,
     EnergyManagementDbContext energyDb,
     DeviceSecurityDbContext deviceSecurityDb,
+    IdentityDbContext identityDb,
     HouseholdAccessService householdAccess,
     DeviceAuthenticationService deviceAuthenticationService) : PageModel
 {
@@ -38,13 +40,27 @@ public sealed class DetailsModel(
             await deviceAuthenticationService.HasActiveCredentialAsync(device.Id, cancellationToken);
         if (CanManageDevice)
         {
-            SecurityEvents = await deviceSecurityDb.AuditEvents.AsNoTracking()
+            var auditEvents = await deviceSecurityDb.AuditEvents.AsNoTracking()
                 .Where(item => item.DeviceId == device.Id)
                 .OrderByDescending(item => item.CreatedAtUtc)
                 .Take(20)
-                .Select(item => new DeviceSecurityAuditSummary(
-                    item.EventType, item.ActorUserId, item.Details, item.CreatedAtUtc))
                 .ToArrayAsync(cancellationToken);
+            var actorIds = auditEvents
+                .Where(item => item.ActorUserId.HasValue)
+                .Select(item => item.ActorUserId!.Value)
+                .Distinct()
+                .ToArray();
+            var actorEmails = await identityDb.Users.AsNoTracking()
+                .Where(user => actorIds.Contains(user.Id))
+                .ToDictionaryAsync(user => user.Id, user => user.Email ?? "Unknown account",
+                    cancellationToken);
+            SecurityEvents = auditEvents.Select(item => new DeviceSecurityAuditSummary(
+                item.EventType,
+                item.ActorUserId.HasValue && actorEmails.TryGetValue(item.ActorUserId.Value, out var email)
+                    ? email
+                    : item.ActorUserId.HasValue ? "Former account" : "Device",
+                item.Details,
+                item.CreatedAtUtc)).ToArray();
         }
         return Page();
     }
@@ -178,4 +194,4 @@ public sealed class DetailsModel(
 
 
 public sealed record DeviceSecurityAuditSummary(
-    string EventType, int? ActorUserId, string Details, DateTimeOffset CreatedAtUtc);
+    string EventType, string Actor, string Details, DateTimeOffset CreatedAtUtc);
