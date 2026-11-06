@@ -4,7 +4,9 @@ using Microsoft.AspNetCore.Identity;
 
 namespace EnergyManagement.Api.Modules.Identity;
 
-public sealed class AdministratorMfaRequirement : IAuthorizationRequirement;
+public sealed class AdministratorMfaRequirement : IAuthorizationRequirement
+{
+}
 
 public sealed class AdministratorMfaAuthorizationHandler(
     UserManager<ApplicationUser> userManager)
