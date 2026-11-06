@@ -1,6 +1,7 @@
 using EnergyManagement.Api.Infrastructure.IdentityPersistence;
 using EnergyManagement.Api.Modules.Identity;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,14 +17,11 @@ public sealed class ProfileModel(
     public bool IsAdministrator { get; private set; }
     public int RecoveryCodesRemaining { get; private set; }
 
-    public async Task OnGetAsync(CancellationToken cancellationToken)
+    public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
         var user = await userManager.GetUserAsync(User);
         if (user is null)
-        {
-            Response.Redirect("/Account/Login");
-            return;
-        }
+            return Challenge();
 
         Email = user.Email ?? string.Empty;
         EmailConfirmed = user.EmailConfirmed;
@@ -32,5 +30,7 @@ public sealed class ProfileModel(
         RecoveryCodesRemaining = await identityDb.MfaRecoveryCodes
             .AsNoTracking()
             .CountAsync(code => code.UserId == user.Id && code.UsedAtUtc == null, cancellationToken);
+
+        return Page();
     }
 }
