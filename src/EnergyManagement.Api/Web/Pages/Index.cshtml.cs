@@ -1,4 +1,5 @@
 using EnergyManagement.Api.Web.Services;
+using EnergyManagement.Api.Modules.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -10,6 +11,6 @@ public sealed class IndexModel(DashboardReadService dashboardReadService) : Page
 
     public async Task OnGetAsync([FromQuery] int? householdId, CancellationToken cancellationToken)
     {
-        Snapshot = await dashboardReadService.GetDashboardAsync(householdId, cancellationToken);
+        Snapshot = await dashboardReadService.GetDashboardAsync(householdId, User.GetUserId(), cancellationToken);
     }
 }

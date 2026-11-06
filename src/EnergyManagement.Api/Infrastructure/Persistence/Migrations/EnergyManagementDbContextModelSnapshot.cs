@@ -18,6 +18,33 @@ public sealed class EnergyManagementDbContextModelSnapshot : ModelSnapshot
             .HasAnnotation("Relational:MaxIdentifierLength", 63)
             .HasAnnotation("Npgsql:ValueGenerationStrategy", Npgsql.EntityFrameworkCore.PostgreSQL.Metadata.NpgsqlValueGenerationStrategy.IdentityByDefaultColumn);
 
+        modelBuilder.Entity<EnergyManagement.Api.Modules.Telemetry.TelemetryReading>(entity =>
+        {
+            entity.Property<long>("Id")
+                .ValueGeneratedOnAdd()
+                .HasColumnType("bigint")
+                .HasAnnotation("Npgsql:ValueGenerationStrategy", Npgsql.EntityFrameworkCore.PostgreSQL.Metadata.NpgsqlValueGenerationStrategy.IdentityByDefaultColumn);
+
+            entity.Property<DateTimeOffset>("CapturedAtUtc").HasColumnType("timestamp with time zone");
+            entity.Property<int>("DeviceId").HasColumnType("integer");
+            entity.Property<string>("PayloadJson").IsRequired().HasColumnType("jsonb");
+            entity.Property<DateTimeOffset>("ReceivedAtUtc").HasColumnType("timestamp with time zone");
+            entity.Property<Guid>("SampleId").HasColumnType("uuid");
+            entity.Property<int>("SchemaVersion").HasColumnType("integer");
+
+            entity.HasKey("Id");
+            entity.HasIndex("DeviceId", "CapturedAtUtc");
+            entity.HasIndex("DeviceId", "SampleId").IsUnique();
+
+            entity.HasOne<EnergyManagement.Api.Modules.Devices.Device>()
+                .WithMany()
+                .HasForeignKey("DeviceId")
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired();
+
+            entity.ToTable("telemetry_readings");
+        });
+
         modelBuilder.Entity<EnergyManagement.Api.Modules.Households.Household>(entity =>
         {
             entity.Property<int>("Id")

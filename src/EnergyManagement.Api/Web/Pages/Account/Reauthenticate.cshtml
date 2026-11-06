@@ -1,0 +1,22 @@
+@page
+@model EnergyManagement.Api.Web.Pages.Account.ReauthenticateModel
+@{
+    ViewData["Title"] = "Confirm your identity";
+}
+<div class="mx-auto max-w-xl">
+    <p class="eyebrow">Security check</p>
+    <h2 class="page-heading">Confirm your identity</h2>
+    <p class="mt-2 text-sm leading-6 text-slate-500">This action requires a recent sign-in. Confirm your password; if MFA is enabled, you will also be asked for your authenticator code.</p>
+    <section class="panel mt-6 p-6">
+        <form method="post" class="space-y-4">
+            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+            <div asp-validation-summary="ModelOnly" class="text-sm text-rose-600"></div>
+            <div>
+                <label asp-for="Password" class="field-label">Password</label>
+                <input asp-for="Password" autocomplete="current-password" class="control-input mt-1 w-full" autofocus />
+                <span asp-validation-for="Password" class="text-xs text-rose-600"></span>
+            </div>
+            <button type="submit" class="primary-button w-full">Verify and continue</button>
+        </form>
+    </section>
+</div>

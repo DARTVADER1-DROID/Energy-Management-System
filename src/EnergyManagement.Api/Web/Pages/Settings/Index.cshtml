@@ -4,7 +4,19 @@
     ViewData["Title"] = "Settings";
 }
 <div><p class="eyebrow">Management</p><h2 class="page-heading">Settings</h2><p class="mt-1 text-sm text-slate-500">Application preferences and household configuration.</p></div>
+
 <section class="panel mt-7 p-6">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+            <p class="eyebrow">Personal security</p>
+            <h3 class="mt-1 font-semibold">Account and authentication</h3>
+            <p class="mt-1 text-sm text-slate-500">Review your email identity, authenticator status, recovery codes and session policy.</p>
+        </div>
+        <a asp-page="/Account/Profile" class="primary-button">Account security</a>
+    </div>
+</section>
+
+<section class="panel mt-5 p-6">
     <h3 class="font-semibold">Appearance</h3>
     <p class="mt-1 text-sm text-slate-500">Choose light or dark mode, or follow your device preference.</p>
     <div class="mt-4 flex flex-wrap gap-2">
@@ -12,5 +24,28 @@
         <button type="button" class="secondary-button" data-set-theme="dark">Dark</button>
         <button type="button" class="secondary-button" data-set-theme="system">System default</button>
     </div>
-    <p class="mt-5 text-xs text-slate-400">More household and device settings will be added as their backend capabilities become available.</p>
+</section>
+
+@if (User.IsInRole("Administrator"))
+{
+    <section class="panel mt-5 p-6">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+                <h3 class="font-semibold">Household management</h3>
+                <p class="mt-1 text-sm text-slate-500">Create households, invite users, assign roles and revoke outstanding invitations.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <a asp-page="/Households/Create" class="secondary-button">Create household</a>
+                @if (Model.DefaultAdministratorHouseholdId.HasValue)
+                {
+                    <a asp-page="/Households/Users" asp-route-householdId="@Model.DefaultAdministratorHouseholdId" class="primary-button">Manage household users</a>
+                }
+            </div>
+        </div>
+    </section>
+}
+
+<section class="panel mt-5 p-6">
+    <h3 class="font-semibold">Device and telemetry services</h3>
+    <p class="mt-1 text-sm text-slate-500">Household administrators can register devices, provision ESP32 identities and rotate device credentials from each device console. Telemetry ingestion and alert delivery remain under development; live measurements are not fabricated.</p>
 </section>

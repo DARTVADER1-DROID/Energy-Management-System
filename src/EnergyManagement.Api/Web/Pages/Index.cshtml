@@ -11,7 +11,13 @@
         <h2 class="page-heading">Energy at a glance</h2>
         <p class="mt-1 text-sm text-slate-500">A consolidated view of household energy operations.</p>
     </div>
-    <span class="status-pill status-neutral"><span class="status-dot"></span> SSR dashboard</span>
+    <div class="flex items-center gap-3">
+        @if (User.IsInRole("Administrator"))
+        {
+            <a asp-page="/Households/Create" class="primary-button">＋ Create household</a>
+        }
+        <span class="status-pill status-neutral"><span class="status-dot"></span> SSR dashboard</span>
+    </div>
 </div>
 
 @if (Model.Snapshot.SelectedHousehold is null)
@@ -19,8 +25,15 @@
     <section class="panel mt-8 p-10 text-center">
         <div class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-blue-50 text-2xl text-blue-600 dark:bg-blue-950">⌂</div>
         <h3 class="mt-4 text-lg font-semibold">No household registered</h3>
-        <p class="mx-auto mt-2 max-w-md text-sm text-slate-500">Create a household through the existing API to begin managing energy devices.</p>
-        <p class="mt-4 text-xs text-slate-400">Household registration UI will be added in a subsequent increment.</p>
+        <p class="mx-auto mt-2 max-w-md text-sm text-slate-500">Create a household to begin registering devices and managing energy operations.</p>
+        @if (User.IsInRole("Administrator"))
+        {
+            <a asp-page="/Households/Create" class="primary-button mt-5 inline-flex">Create your first household</a>
+        }
+        else
+        {
+            <p class="mt-4 text-xs text-slate-400">Ask your household administrator to invite you to a household.</p>
+        }
     </section>
 }
 else
@@ -52,22 +65,43 @@ else
         <section class="panel p-6">
             <div class="flex items-start justify-between gap-4">
                 <div>
-                    <p class="eyebrow">Live energy</p>
+                    <p class="eyebrow">Latest readings</p>
                     <h3 class="mt-1 text-lg font-semibold">Electrical measurements</h3>
                 </div>
-                <span class="status-pill status-neutral">Awaiting telemetry</span>
+                <span class="status-pill status-neutral">@(Model.Snapshot.TelemetryDevices > 0 ? "Telemetry data available" : "Awaiting telemetry")</span>
             </div>
             <div class="mt-7 grid gap-4 sm:grid-cols-2">
-                @foreach (var metric in new[] { ("Instantaneous power", "kW"), ("Voltage", "V"), ("Current", "A"), ("Energy today", "kWh") })
-                {
-                    <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-                        <p class="text-sm text-slate-500">@metric.Item1</p>
-                        <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-400">— <span class="text-sm font-medium">@metric.Item2</span></p>
-                        <p class="mt-1 text-xs text-slate-400">No telemetry received</p>
-                    </div>
-                }
+                <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+                    <p class="text-sm text-slate-500">Instantaneous power</p>
+                    <p class="mt-3 text-2xl font-semibold tracking-tight">@((Model.Snapshot.TotalPowerWatts / 1000m)?.ToString("N2") ?? "—") <span class="text-sm font-medium text-slate-500">kW</span></p>
+                    <p class="mt-1 text-xs text-slate-400">Latest reading across reporting devices</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+                    <p class="text-sm text-slate-500">Average voltage</p>
+                    <p class="mt-3 text-2xl font-semibold tracking-tight">@(Model.Snapshot.AverageVoltageVolts?.ToString("N1") ?? "—") <span class="text-sm font-medium text-slate-500">V</span></p>
+                    <p class="mt-1 text-xs text-slate-400">Average of available device readings</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+                    <p class="text-sm text-slate-500">Average current</p>
+                    <p class="mt-3 text-2xl font-semibold tracking-tight">@(Model.Snapshot.AverageCurrentAmps?.ToString("N2") ?? "—") <span class="text-sm font-medium text-slate-500">A</span></p>
+                    <p class="mt-1 text-xs text-slate-400">Average of available device readings</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+                    <p class="text-sm text-slate-500">Cumulative energy</p>
+                    <p class="mt-3 text-2xl font-semibold tracking-tight">@((Model.Snapshot.CumulativeEnergyWattHours / 1000m)?.ToString("N2") ?? "—") <span class="text-sm font-medium text-slate-500">kWh</span></p>
+                    <p class="mt-1 text-xs text-slate-400">Latest cumulative meter readings</p>
+                </div>
             </div>
-            <p class="mt-5 text-xs leading-5 text-slate-500">Measurements will appear when device telemetry ingestion is implemented. Missing readings are intentionally shown as unavailable, not zero.</p>
+            <p class="mt-5 text-xs leading-5 text-slate-500">
+                @if (Model.Snapshot.LatestTelemetryAtUtc.HasValue)
+                {
+                    <span>@Model.Snapshot.TelemetryDevices device(s) reported. Latest sample received @Model.Snapshot.LatestTelemetryAtUtc.Value.ToLocalTime().ToString("dd MMM yyyy, HH:mm").</span>
+                }
+                else
+                {
+                    <span>No telemetry has been received yet. Missing readings are intentionally shown as unavailable, not zero.</span>
+                }
+            </p>
         </section>
 
         <section class="panel p-6">
@@ -82,8 +116,15 @@ else
                 <div class="flex items-center justify-between"><span class="text-sm text-slate-500">Ever reported</span><span class="font-semibold">@Model.Snapshot.DevicesSeen</span></div>
             </div>
             <div class="mt-7 rounded-xl bg-amber-50 p-4 dark:bg-amber-950/30">
-                <p class="text-sm font-semibold text-amber-900 dark:text-amber-200">Telemetry not connected</p>
-                <p class="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-300">Device connectivity and live measurements will be populated by the upcoming telemetry pipeline.</p>
+                <p class="text-sm font-semibold text-amber-900 dark:text-amber-200">@(Model.Snapshot.TelemetryDevices > 0 ? "Telemetry data available" : "Telemetry not connected")</p>
+                @if (Model.Snapshot.TelemetryDevices > 0)
+                {
+                    <p class="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-300">@Model.Snapshot.TelemetryDevices device(s) have submitted signed measurement samples. This does not imply that they are currently online.</p>
+                }
+                else
+                {
+                    <p class="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-300">Live measurements will appear after a provisioned device publishes its first signed sample.</p>
+                }
             </div>
         </section>
     </div>

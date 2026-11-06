@@ -1,3 +1,4 @@
+using EnergyManagement.Api.Modules.Identity;
 using EnergyManagement.Api.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -8,6 +9,7 @@ public sealed class IndexModel(DashboardReadService dashboardReadService) : Page
 {
     public DeviceInventoryPage Inventory { get; private set; } = null!;
     public string? Search { get; private set; }
+    public bool CanRegisterDevices { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(
         [FromQuery] int? householdId,
@@ -18,8 +20,15 @@ public sealed class IndexModel(DashboardReadService dashboardReadService) : Page
         if (page < 1) return BadRequest();
 
         Search = search;
+        var userId = User.GetUserId();
         Inventory = await dashboardReadService.GetDevicesAsync(
-            householdId, search, page, 25, cancellationToken);
+            householdId, search, userId, page, 25, cancellationToken);
+
+        var administratorHouseholds = await dashboardReadService.GetAdministratorHouseholdsAsync(
+            userId, cancellationToken);
+        CanRegisterDevices = Inventory.SelectedHousehold is not null &&
+            administratorHouseholds.Any(item => item.Id == Inventory.SelectedHousehold.Id);
+
         return Page();
     }
 }

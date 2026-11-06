@@ -1,0 +1,95 @@
+using EnergyManagement.Api.Modules.Identity;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+
+namespace EnergyManagement.Api.Infrastructure.IdentityPersistence;
+
+public sealed class IdentityDbContext(
+    DbContextOptions<IdentityDbContext> options)
+    : IdentityDbContext<ApplicationUser, IdentityRole<int>, int>(options)
+{
+    public DbSet<HouseholdMembership> HouseholdMemberships => Set<HouseholdMembership>();
+    public DbSet<MfaRecoveryCode> MfaRecoveryCodes => Set<MfaRecoveryCode>();
+    public DbSet<HouseholdInvitation> HouseholdInvitations => Set<HouseholdInvitation>();
+    public DbSet<SecurityAuditEvent> SecurityAuditEvents => Set<SecurityAuditEvent>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<ApplicationUser>(entity =>
+        {
+            entity.ToTable("users");
+            entity.Property(user => user.CreatedAtUtc).IsRequired();
+        });
+
+        modelBuilder.Entity<IdentityRole<int>>().ToTable("roles");
+        modelBuilder.Entity<IdentityUserRole<int>>().ToTable("user_roles");
+        modelBuilder.Entity<IdentityUserClaim<int>>().ToTable("user_claims");
+        modelBuilder.Entity<IdentityUserLogin<int>>().ToTable("user_logins");
+        modelBuilder.Entity<IdentityRoleClaim<int>>().ToTable("role_claims");
+        modelBuilder.Entity<IdentityUserToken<int>>().ToTable("user_tokens");
+
+        modelBuilder.Entity<HouseholdMembership>(entity =>
+        {
+            entity.ToTable("household_memberships");
+            entity.HasKey(membership => membership.Id);
+            entity.HasIndex(membership => new { membership.UserId, membership.HouseholdId }).IsUnique();
+            entity.Property(membership => membership.Role).HasMaxLength(32).IsRequired();
+            entity.Property(membership => membership.CreatedAtUtc).IsRequired();
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(membership => membership.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MfaRecoveryCode>(entity =>
+        {
+            entity.ToTable("mfa_recovery_codes");
+            entity.HasKey(code => code.Id);
+            entity.HasIndex(code => new { code.UserId, code.CodeHash }).IsUnique();
+            entity.HasIndex(code => new { code.UserId, code.UsedAtUtc });
+            entity.Property(code => code.CodeHash).HasMaxLength(64).IsRequired();
+            entity.Property(code => code.CreatedAtUtc).IsRequired();
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(code => code.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<HouseholdInvitation>(entity =>
+        {
+            entity.ToTable("household_invitations");
+            entity.HasKey(invitation => invitation.Id);
+            entity.HasIndex(invitation => invitation.TokenHash).IsUnique();
+            entity.HasIndex(invitation => new { invitation.HouseholdId, invitation.NormalizedEmail })
+                .IsUnique()
+                .HasFilter("\"AcceptedAtUtc\" IS NULL AND \"RevokedAtUtc\" IS NULL");
+            entity.Property(invitation => invitation.Email).HasMaxLength(256).IsRequired();
+            entity.Property(invitation => invitation.NormalizedEmail).HasMaxLength(256).IsRequired();
+            entity.Property(invitation => invitation.Role).HasMaxLength(32).IsRequired();
+            entity.Property(invitation => invitation.TokenHash).HasMaxLength(64).IsRequired();
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(invitation => invitation.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<SecurityAuditEvent>(entity =>
+        {
+            entity.ToTable("security_audit_events");
+            entity.HasKey(auditEvent => auditEvent.Id);
+            entity.HasIndex(auditEvent => new { auditEvent.HouseholdId, auditEvent.CreatedAtUtc });
+            entity.HasIndex(auditEvent => new { auditEvent.TargetUserId, auditEvent.CreatedAtUtc });
+            entity.Property(auditEvent => auditEvent.EventType).HasMaxLength(80).IsRequired();
+            entity.Property(auditEvent => auditEvent.CreatedAtUtc).IsRequired();
+            entity.HasOne<ApplicationUser>().WithMany()
+                .HasForeignKey(auditEvent => auditEvent.ActorUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>().WithMany()
+                .HasForeignKey(auditEvent => auditEvent.TargetUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+}

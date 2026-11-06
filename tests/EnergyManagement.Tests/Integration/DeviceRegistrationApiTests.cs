@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using EnergyManagement.Api.Infrastructure.Persistence;
+using EnergyManagement.Api.Infrastructure.IdentityPersistence;
+using EnergyManagement.Api.Modules.Identity;
+using Microsoft.AspNetCore.Identity;
 using EnergyManagement.Api.Modules.Devices;
 using EnergyManagement.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +23,145 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
         _factory = new EnergyManagementApiFactory(postgres.ConnectionString);
         _client = _factory.CreateClient();
         await ResetDatabaseAsync();
+    }
+
+
+    [Fact]
+    public async Task AdministratorWithoutMfa_CannotAccessProtectedApi()
+    {
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            var administrator = await identityDb.Users.SingleAsync(user => user.Id == 1);
+            administrator.TwoFactorEnabled = false;
+            await identityDb.SaveChangesAsync();
+        }
+
+        var response = await _client.GetAsync("/api/devices");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task HealthReadiness_RemainsAnonymous()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/health/ready");
+        request.Headers.Add("X-Test-Anonymous", "true");
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AnonymousClient_CannotReadDeviceApi()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/devices");
+        request.Headers.Add("X-Test-Anonymous", "true");
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task HouseholdMember_CannotCreateHousehold()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/households/")
+        {
+            Content = JsonContent.Create(new { name = "Not permitted" })
+        };
+        request.Headers.Add("X-Test-Role", "Household Member");
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+
+    [Fact]
+    public async Task MfaRecoveryCodes_AreHashedAndSingleUse()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var recoveryCodes = scope.ServiceProvider.GetRequiredService<MfaRecoveryCodeService>();
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+
+        var generated = await recoveryCodes.GenerateAsync(2);
+        Assert.Equal(10, generated.Count);
+        Assert.True(await recoveryCodes.RedeemAsync(2, generated[0]));
+        Assert.False(await recoveryCodes.RedeemAsync(2, generated[0]));
+
+        var storedCodes = await identityDb.MfaRecoveryCodes
+            .AsNoTracking()
+            .Where(code => code.UserId == 2)
+            .ToListAsync();
+        Assert.Equal(10, storedCodes.Count);
+        Assert.DoesNotContain(storedCodes, code => generated.Contains(code.CodeHash));
+        Assert.Single(storedCodes, code => code.UsedAtUtc is not null);
+    }
+
+    [Fact]
+    public async Task UserCannotReadAnotherHouseholdsResources()
+    {
+        var householdId = await CreateHouseholdAsync("Private Home");
+        await _client.PostAsJsonAsync($"/api/devices/{householdId}", ValidRequest());
+
+        using var householdRequest = new HttpRequestMessage(
+            HttpMethod.Get, $"/api/households/{householdId}");
+        householdRequest.Headers.Add("X-Test-User-Id", "2");
+        householdRequest.Headers.Add("X-Test-Role", "Household Member");
+        var householdResponse = await _client.SendAsync(householdRequest);
+
+        using var devicesRequest = new HttpRequestMessage(HttpMethod.Get, "/api/devices");
+        devicesRequest.Headers.Add("X-Test-User-Id", "2");
+        devicesRequest.Headers.Add("X-Test-Role", "Household Member");
+        var devicesResponse = await _client.SendAsync(devicesRequest);
+        var devices = await devicesResponse.Content.ReadFromJsonAsync<DeviceResponse[]>();
+
+        Assert.Equal(HttpStatusCode.NotFound, householdResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, devicesResponse.StatusCode);
+        Assert.NotNull(devices);
+        Assert.Empty(devices);
+    }
+
+
+    [Fact]
+    public async Task HouseholdMember_CanReadButCannotRegisterDevices()
+    {
+        var householdId = await CreateHouseholdAsync("Shared Home");
+        var registration = await _client.PostAsJsonAsync(
+            $"/api/devices/{householdId}", ValidRequest());
+        var registered = await registration.Content.ReadFromJsonAsync<DeviceResponse>();
+        Assert.NotNull(registered);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            identityDb.HouseholdMemberships.Add(new HouseholdMembership(
+                2, householdId, HouseholdRole.HouseholdMember));
+            identityDb.Roles.AddRange(
+            new IdentityRole<int>("Administrator") { Id = 1, NormalizedName = "ADMINISTRATOR" },
+            new IdentityRole<int>("Household Member") { Id = 2, NormalizedName = "HOUSEHOLD MEMBER" },
+            new IdentityRole<int>("Read-only Viewer") { Id = 3, NormalizedName = "READ-ONLY VIEWER" });
+        identityDb.UserRoles.AddRange(
+            new IdentityUserRole<int> { UserId = 1, RoleId = 1 },
+            new IdentityUserRole<int> { UserId = 2, RoleId = 2 });
+        await identityDb.SaveChangesAsync();
+        }
+
+        using var listRequest = new HttpRequestMessage(HttpMethod.Get, "/api/devices");
+        listRequest.Headers.Add("X-Test-User-Id", "2");
+        listRequest.Headers.Add("X-Test-Role", "Household Member");
+        var listResponse = await _client.SendAsync(listRequest);
+        var visibleDevices = await listResponse.Content.ReadFromJsonAsync<DeviceResponse[]>();
+
+        using var registerRequest = new HttpRequestMessage(
+            HttpMethod.Post, $"/api/devices/{householdId}")
+        {
+            Content = JsonContent.Create(ValidRequest())
+        };
+        registerRequest.Headers.Add("X-Test-User-Id", "2");
+        registerRequest.Headers.Add("X-Test-Role", "Household Member");
+        var registerResponse = await _client.SendAsync(registerRequest);
+
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        Assert.NotNull(visibleDevices);
+        Assert.Single(visibleDevices);
+        Assert.Equal(HttpStatusCode.Forbidden, registerResponse.StatusCode);
     }
 
     [Fact]
@@ -51,6 +193,34 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
         Assert.Contains("Device console", html);
         Assert.Contains("Live measurements", html);
         Assert.Contains("Awaiting telemetry", html);
+    }
+
+    [Fact]
+    public async Task HouseholdMemberCannotSeeDeviceSecurityAuditHistory()
+    {
+        var householdId = await CreateHouseholdAsync("Audit Visibility Home");
+        var registration = await _client.PostAsJsonAsync(
+            $"/api/devices/{householdId}", ValidRequest());
+        var device = await registration.Content.ReadFromJsonAsync<DeviceResponse>();
+        Assert.NotNull(device);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            identityDb.HouseholdMemberships.Add(new HouseholdMembership(
+                2, householdId, HouseholdRole.HouseholdMember));
+            await identityDb.SaveChangesAsync();
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/Devices/{device.DeviceCode}");
+        request.Headers.Add("X-Test-User-Id", "2");
+        request.Headers.Add("X-Test-Role", "Household Member");
+        using var response = await _client.SendAsync(request);
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Device console", html);
+        Assert.DoesNotContain("Device security history", html);
     }
 
     [Fact]
@@ -244,7 +414,29 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
         await using var scope = _factory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
         await dbContext.Database.EnsureDeletedAsync();
+
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var deviceSecurityDb = scope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
         await dbContext.Database.MigrateAsync();
+        await identityDb.Database.MigrateAsync();
+        await deviceSecurityDb.Database.MigrateAsync();
+        identityDb.Users.AddRange(
+            new ApplicationUser
+            {
+                Id = 1,
+                UserName = "integration-test-admin@example.test",
+                Email = "integration-test-admin@example.test",
+                EmailConfirmed = true,
+                TwoFactorEnabled = true
+            },
+            new ApplicationUser
+            {
+                Id = 2,
+                UserName = "integration-test-other@example.test",
+                Email = "integration-test-other@example.test",
+                EmailConfirmed = true
+            });
+        await identityDb.SaveChangesAsync();
     }
 
     private static RegisterDeviceRequest ValidRequest() => new(

@@ -1,0 +1,186 @@
+@page
+@model EnergyManagement.Api.Web.Pages.Households.UsersModel
+@{
+    ViewData["Title"] = "Household users";
+}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+        <p class="eyebrow">Household administration</p>
+        <h2 class="page-heading">Members and invitations</h2>
+        <p class="mt-1 text-sm text-slate-500">Invite people and control their access to this household.</p>
+    </div>
+    <a asp-page="/Settings/Index" class="secondary-button">Back to settings</a>
+</div>
+
+@if (TempData["StatusMessage"] is string status)
+{
+    <div class="mt-5 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">@status</div>
+}
+@if (TempData["ErrorMessage"] is string error)
+{
+    <div class="mt-5 rounded-lg bg-rose-50 p-3 text-sm text-rose-800 dark:bg-rose-950/40 dark:text-rose-200">@error</div>
+}
+
+<section class="panel mt-6 p-5">
+    <form method="get" class="flex flex-wrap items-center gap-3">
+        <label for="householdId" class="text-sm font-semibold">Household</label>
+        <select id="householdId" name="householdId" class="control-select min-w-64" onchange="this.form.submit()">
+            @foreach (var household in Model.Households)
+            {
+                <option value="@household.Id" selected="@(household.Id == Model.HouseholdId)">@household.Code · @household.Name</option>
+            }
+        </select>
+    </form>
+</section>
+
+<section class="panel mt-5 p-6">
+    <p class="eyebrow">Invite</p>
+    <h3 class="mt-1 text-lg font-semibold">Add a household user</h3>
+    <p class="mt-1 text-sm text-slate-500">An email invitation will be sent with a single-use link that expires after 24 hours.</p>
+    <form method="post" asp-page-handler="Invite" class="mt-5 grid gap-4 md:grid-cols-[minmax(0,1fr)_220px_auto] md:items-end">
+        <input type="hidden" asp-for="HouseholdId" />
+        <div>
+            <label asp-for="Input.Email" class="field-label">Email address</label>
+            <input asp-for="Input.Email" type="email" autocomplete="email" class="control-input mt-1 w-full" placeholder="person@example.com" />
+            <span asp-validation-for="Input.Email" class="text-xs text-rose-600"></span>
+        </div>
+        <div>
+            <label asp-for="Input.Role" class="field-label">Household role</label>
+            <select asp-for="Input.Role" class="control-select mt-1 w-full">
+                <option value="HouseholdMember">Household Member</option>
+                <option value="ReadOnlyViewer">Read-only Viewer</option>
+                <option value="Administrator">Administrator</option>
+            </select>
+        </div>
+        <button type="submit" class="primary-button">Send invitation</button>
+        <div asp-validation-summary="ModelOnly" class="text-sm text-rose-600 md:col-span-3"></div>
+    </form>
+</section>
+
+<section class="panel mt-5 overflow-hidden">
+    <div class="border-b border-slate-200 p-5 dark:border-slate-800">
+        <h3 class="font-semibold">Current members</h3>
+        <p class="mt-1 text-xs text-slate-500">@Model.Members.Count member(s) in this household</p>
+    </div>
+    @if (Model.Members.Count == 0)
+    {
+        <p class="p-6 text-sm text-slate-500">No members are assigned to this household.</p>
+    }
+    else
+    {
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[700px] text-left text-sm">
+                <thead class="table-head"><tr><th>Email</th><th>Role</th><th>Joined</th><th>Manage</th></tr></thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                @foreach (var member in Model.Members)
+                {
+                    <tr class="table-row">
+                        <td class="font-medium">@member.Email @(member.UserId == User.GetUserId() ? "(you)" : "")</td>
+                        <td>@member.Role</td>
+                        <td class="text-slate-500">@member.JoinedAtUtc.ToLocalTime().ToString("dd MMM yyyy")</td>
+                        <td>
+                            @if (member.UserId != User.GetUserId())
+                            {
+                                <form method="post" asp-page-handler="ChangeRole" class="flex items-center gap-2">
+                                    <input type="hidden" name="householdId" value="@Model.HouseholdId" />
+                                    <input type="hidden" name="userId" value="@member.UserId" />
+                                    <select name="role" class="control-select text-xs">
+                                        <option value="Administrator" selected="@(member.Role == HouseholdRole.Administrator.ToString())">Administrator</option>
+                                        <option value="HouseholdMember" selected="@(member.Role == HouseholdRole.HouseholdMember.ToString())">Household Member</option>
+                                        <option value="ReadOnlyViewer" selected="@(member.Role == HouseholdRole.ReadOnlyViewer.ToString())">Read-only Viewer</option>
+                                    </select>
+                                    <button type="submit" class="secondary-button">Save</button>
+                                </form>
+                                <form method="post" asp-page-handler="ResetMfa"
+                                      onsubmit="return confirm('Reset this user’s authenticator and invalidate their active sessions? They will need to enroll a new authenticator.');"
+                                      class="mt-2">
+                                    <input type="hidden" name="householdId" value="@Model.HouseholdId" />
+                                    <input type="hidden" name="userId" value="@member.UserId" />
+                                    <button type="submit" class="secondary-button">Reset MFA</button>
+                                </form>
+                                <form method="post" asp-page-handler="RemoveMember"
+                                      onsubmit="return confirm('Remove this account from the selected household? The account itself will not be deleted.');"
+                                      class="mt-2">
+                                    <input type="hidden" name="householdId" value="@Model.HouseholdId" />
+                                    <input type="hidden" name="userId" value="@member.UserId" />
+                                    <button type="submit" class="secondary-button text-rose-700 dark:text-rose-300">Remove member</button>
+                                </form>
+                            }
+                            else
+                            {
+                                <span class="text-xs text-slate-400">Self-management disabled</span>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+<section class="panel mt-5 overflow-hidden">
+    <div class="border-b border-slate-200 p-5 dark:border-slate-800">
+        <h3 class="font-semibold">Pending invitations</h3>
+        <p class="mt-1 text-xs text-slate-500">@Model.Invitations.Count pending invitation(s)</p>
+    </div>
+    @if (Model.Invitations.Count == 0)
+    {
+        <p class="p-6 text-sm text-slate-500">There are no pending invitations.</p>
+    }
+    else
+    {
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[650px] text-left text-sm">
+                <thead class="table-head"><tr><th>Email</th><th>Role</th><th>Expires</th><th></th></tr></thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                @foreach (var invitation in Model.Invitations)
+                {
+                    <tr class="table-row">
+                        <td class="font-medium">@invitation.Email</td>
+                        <td>@invitation.Role</td>
+                        <td class="text-slate-500">@invitation.ExpiresAtUtc.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</td>
+                        <td>
+                            <form method="post" asp-page-handler="Revoke">
+                                <input type="hidden" name="householdId" value="@Model.HouseholdId" />
+                                <input type="hidden" name="invitationId" value="@invitation.Id" />
+                                <button type="submit" class="secondary-button">Revoke</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+<section class="panel mt-5 overflow-hidden">
+    <div class="border-b border-slate-200 p-5 dark:border-slate-800">
+        <h3 class="font-semibold">Recent security activity</h3>
+        <p class="mt-1 text-xs text-slate-500">Latest 50 recorded household security events</p>
+    </div>
+    @if (Model.AuditEvents.Count == 0)
+    {
+        <p class="p-6 text-sm text-slate-500">No security events have been recorded for this household yet.</p>
+    }
+    else
+    {
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[650px] text-left text-sm">
+                <thead class="table-head"><tr><th>Event</th><th>Initiated by</th><th>Target account</th><th>Time</th></tr></thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                @foreach (var auditEvent in Model.AuditEvents)
+                {
+                    <tr class="table-row">
+                        <td class="font-medium">@auditEvent.EventType</td>
+                        <td>@auditEvent.ActorEmail</td>
+                        <td>@auditEvent.TargetEmail</td>
+                        <td class="text-slate-500">@auditEvent.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

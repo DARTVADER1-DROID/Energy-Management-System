@@ -3,10 +3,84 @@
 @{
     ViewData["Title"] = "Device console";
 }
+@if (TempData["StatusMessage"] is string status)
+{
+    <div class="mb-5 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">@status</div>
+}
+@if (TempData["ErrorMessage"] is string error)
+{
+    <div class="mb-5 rounded-lg bg-rose-50 p-3 text-sm text-rose-800 dark:bg-rose-950/40 dark:text-rose-200">@error</div>
+}
 <div class="flex flex-wrap items-start justify-between gap-4">
     <div><p class="eyebrow">Device console · @Model.Device.DeviceCode</p><h2 class="page-heading">@Model.Device.Name</h2><p class="mt-1 text-sm text-slate-500">@Model.Device.HardwareModel · Firmware @Model.Device.FirmwareVersion</p></div>
-    <div class="flex gap-2"><a asp-page="/Devices/Index" asp-route-householdId="@Model.Device.HouseholdId" class="secondary-button">← Inventory</a><span class="status-pill @(Model.Device.IsActive ? "status-neutral" : "status-muted")">@(Model.Device.IsActive ? "Active registration" : "Deactivated")</span></div>
+    <div class="flex flex-wrap items-center gap-2">
+        <a asp-page="/Devices/Index" asp-route-householdId="@Model.Device.HouseholdId" class="secondary-button">← Inventory</a>
+        @if (Model.CanManageDevice && Model.Device.IsActive)
+        {
+            <form method="post" asp-page-handler="Deactivate" asp-route-deviceCode="@Model.Device.DeviceCode"
+                  onsubmit="return confirm('Deactivate this device registration? The device will no longer be treated as an active household device.');">
+                <button type="submit" class="secondary-button text-rose-700 dark:text-rose-300">Deactivate registration</button>
+            </form>
+        }
+        <span class="status-pill @(Model.Device.IsActive ? "status-neutral" : "status-muted")">@(Model.Device.IsActive ? "Active registration" : "Deactivated")</span>
+    </div>
 </div>
+@if (Model.CanManageDevice && Model.Device.IsActive && !Model.CanRotateDeviceCredential)
+{
+    <section class="panel mt-6 p-6">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+                <p class="eyebrow">Device identity</p>
+                <h3 class="mt-1 text-lg font-semibold">Secure device provisioning</h3>
+                <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Generate a single-use provisioning code for this registered ESP32. The code expires after 10 minutes and can be exchanged through either the serial setup utility or the temporary local Wi-Fi portal.</p>
+            </div>
+            <form method="post" asp-page-handler="Provision" asp-route-deviceCode="@Model.Device.DeviceCode"
+                  onsubmit="return confirm('Generate a new provisioning code? Any previous unused code for this device will be invalidated.');">
+                <button type="submit" class="primary-button">Generate provisioning code</button>
+            </form>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Model.ProvisioningCode))
+        {
+            <div class="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-950/30">
+                <p class="text-sm font-semibold text-amber-950 dark:text-amber-100">Copy this code now</p>
+                <p class="mt-1 text-xs text-amber-900 dark:text-amber-200">It is displayed only once. Do not share it with anyone who should not provision this device.</p>
+                <code class="mt-4 block break-all rounded-lg bg-white px-4 py-3 text-lg font-bold tracking-wider text-slate-950 dark:bg-slate-900 dark:text-white">@Model.ProvisioningCode</code>
+                <p class="mt-3 text-xs text-amber-900 dark:text-amber-200">Expires: @Model.ProvisioningCodeExpiresAtUtc?.ToLocalTime().ToString("dd MMM yyyy, HH:mm:ss") local time</p>
+            </div>
+        }
+    </section>
+}
+
+@if (Model.CanManageDevice && Model.Device.IsActive && Model.CanRotateDeviceCredential)
+{
+    <section class="panel mt-5 p-6">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+                <p class="eyebrow">Credential lifecycle</p>
+                <h3 class="mt-1 text-lg font-semibold">Rotate device credential</h3>
+                <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Create a replacement secret without immediately invalidating the current one. The device must send a valid signed request using the new secret within 24 hours. That request confirms the rotation and revokes the previous secret. If confirmation never arrives, the new secret expires and the old one remains active.</p>
+            </div>
+            <form method="post" asp-page-handler="RotateCredential" asp-route-deviceCode="@Model.Device.DeviceCode"
+                  onsubmit="return confirm('Generate a replacement credential? The device must start using it within 24 hours to complete rotation.');">
+                <button type="submit" class="secondary-button">Generate replacement secret</button>
+            </form>
+            <form method="post" asp-page-handler="RevokeCredentials" asp-route-deviceCode="@Model.Device.DeviceCode"
+                  onsubmit="return confirm('Immediately revoke every active and pending device credential? The ESP32 will lose access until it is provisioned again.');">
+                <button type="submit" class="secondary-button text-rose-700 dark:text-rose-300">Revoke credentials</button>
+            </form>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Model.RotatedDeviceSecret))
+        {
+            <div class="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-950/30">
+                <p class="text-sm font-semibold text-amber-950 dark:text-amber-100">Store the new device secret securely</p>
+                <p class="mt-1 text-xs leading-5 text-amber-900 dark:text-amber-200">This secret is displayed only once. Install it in the device's secure configuration before the expiry time. The current secret remains valid until the device successfully authenticates with this replacement.</p>
+                <code class="mt-4 block break-all rounded-lg bg-white px-4 py-3 text-sm font-bold text-slate-950 dark:bg-slate-900 dark:text-white">@Model.RotatedDeviceSecret</code>
+                <p class="mt-3 text-xs text-amber-900 dark:text-amber-200">Rotation expires: @Model.RotationExpiresAtUtc?.ToLocalTime().ToString("dd MMM yyyy, HH:mm:ss") local time</p>
+            </div>
+        }
+    </section>
+}
+
 <div class="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
     <article class="metric-card"><p class="metric-label">Connectivity</p><p class="mt-3 text-lg font-semibold">@(Model.Device.LastSeenAtUtc is null ? "No check-in yet" : "Last seen recorded")</p><p class="metric-foot">Current online state unavailable</p></article>
     <article class="metric-card"><p class="metric-label">Electrical setup</p><p class="mt-3 text-lg font-semibold">@Model.Device.ElectricalConfiguration</p><p class="metric-foot">Configured supply type</p></article>
@@ -36,7 +110,37 @@
         <p class="mt-4 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">Dashboard warning thresholds are not protection settings. Local firmware safety remains authoritative.</p>
     </section>
 </div>
-<section class="panel mt-6 p-6">
-    <p class="eyebrow">Activity</p><h3 class="mt-1 text-lg font-semibold">Event history</h3>
-    <p class="mt-3 text-sm text-slate-500">No device event stream is connected yet. Registration: @Model.Device.RegisteredAtUtc.ToLocalTime().ToString("dd MMM yyyy, HH:mm").</p>
+@if (Model.CanManageDevice)
+{
+<section class="panel mt-6 overflow-hidden">
+    <div class="border-b border-slate-200 p-6 dark:border-slate-800">
+        <p class="eyebrow">Activity</p>
+        <h3 class="mt-1 text-lg font-semibold">Device security history</h3>
+        <p class="mt-2 text-sm text-slate-500">Provisioning, credential rotation and revocation events for this device.</p>
+    </div>
+    @if (Model.SecurityEvents.Count > 0)
+    {
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[640px] text-left text-sm">
+                <thead class="table-head"><tr><th>Event</th><th>Actor</th><th>Details</th><th>Time</th></tr></thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                @foreach (var securityEvent in Model.SecurityEvents)
+                {
+                    <tr class="table-row">
+                        <td class="font-semibold">@securityEvent.EventType</td>
+                        <td class="text-slate-500">@securityEvent.Actor</td>
+                        <td class="text-slate-500">@securityEvent.Details</td>
+                        <td class="whitespace-nowrap text-slate-500">@securityEvent.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy, HH:mm:ss")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <p class="p-6 text-sm text-slate-500">No device security events have been recorded yet. Registration: @Model.Device.RegisteredAtUtc.ToLocalTime().ToString("dd MMM yyyy, HH:mm").</p>
+    }
+    <p class="border-t border-slate-200 p-5 text-xs text-slate-500 dark:border-slate-800">Telemetry, equipment state changes and operational fault history are not yet connected to the event stream.</p>
 </section>
+}
