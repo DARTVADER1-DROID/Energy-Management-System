@@ -191,6 +191,35 @@ builder.Services.AddRateLimiter(options =>
                 AutoReplenishment = true
             });
     });
+
+    options.AddPolicy("device-hmac", context =>
+    {
+        var clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var deviceCode = context.Request.Headers["X-EMS-Device"].ToString();
+        return RateLimitPartition.GetFixedWindowLimiter(
+            $"device-hmac:{clientIp}:{deviceCode}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
+
+    options.AddPolicy("device-provisioning", context =>
+    {
+        var clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            $"device-provisioning:{clientIp}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
 });
 
 builder.Services.AddScoped<DeviceRegistrationService>();
