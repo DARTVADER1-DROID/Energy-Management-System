@@ -447,6 +447,14 @@ public sealed class DeviceAuthenticationService(
 
         if (matchedCredential.IsPendingRotation)
         {
+            // Revoke the old current key before promoting the pending key so the
+            // unique current-credential index remains valid throughout the transaction.
+            await securityDb.Credentials
+                .Where(item => item.DeviceId == device.Id &&
+                    item.Id != matchedCredential.Id && item.RevokedAtUtc == null)
+                .ExecuteUpdateAsync(setters =>
+                    setters.SetProperty(item => item.RevokedAtUtc, now), cancellationToken);
+
             var confirmed = await securityDb.Credentials
                 .Where(item => item.Id == matchedCredential.Id &&
                     item.DeviceId == device.Id && item.IsPendingRotation &&
@@ -461,12 +469,6 @@ public sealed class DeviceAuthenticationService(
                 securityDb.ChangeTracker.Clear();
                 return null;
             }
-
-            await securityDb.Credentials
-                .Where(item => item.DeviceId == device.Id &&
-                    item.Id != matchedCredential.Id && item.RevokedAtUtc == null)
-                .ExecuteUpdateAsync(setters =>
-                    setters.SetProperty(item => item.RevokedAtUtc, now), cancellationToken);
 
             logger.LogInformation(
                 "Device {DeviceCode} confirmed its rotated credential; previous credentials were revoked.",
