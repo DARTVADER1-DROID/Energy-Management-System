@@ -27,6 +27,13 @@ public sealed class HouseholdMembership
     public string Role { get; private set; } = string.Empty;
     public DateTimeOffset CreatedAtUtc { get; private set; }
 
+    public void ChangeRole(HouseholdRole role)
+    {
+        if (!Enum.IsDefined(role))
+            throw new ArgumentOutOfRangeException(nameof(role));
+        Role = role.ToString();
+    }
+
     public bool HasRole(HouseholdRole role) =>
         string.Equals(Role, role.ToString(), StringComparison.Ordinal);
 }
