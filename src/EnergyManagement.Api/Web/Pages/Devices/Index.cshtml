@@ -7,7 +7,10 @@
 }
 <div class="flex flex-wrap items-end justify-between gap-4">
     <div><p class="eyebrow">Monitoring</p><h2 class="page-heading">Device inventory</h2><p class="mt-1 text-sm text-slate-500">Registered energy monitors for the selected household.</p></div>
-    <a asp-page="/Devices/Register" asp-route-householdId="@Model.Inventory.SelectedHousehold?.Id" class="primary-button">＋ Register device</a>
+    @if (Model.CanRegisterDevices)
+    {
+        <a asp-page="/Devices/Register" asp-route-householdId="@Model.Inventory.SelectedHousehold?.Id" class="primary-button">＋ Register device</a>
+    }
 </div>
 
 <section class="panel mt-7 overflow-hidden">
@@ -22,7 +25,7 @@
     </div>
     @if (Model.Inventory.Devices.Count == 0)
     {
-        <div class="px-6 py-16 text-center"><div class="text-3xl text-slate-300">▣</div><h4 class="mt-3 font-semibold">No devices found</h4><p class="mt-1 text-sm text-slate-500">Register a device or adjust your search.</p></div>
+        <div class="px-6 py-16 text-center"><div class="text-3xl text-slate-300">▣</div><h4 class="mt-3 font-semibold">No devices found</h4><p class="mt-1 text-sm text-slate-500">There are no devices in this household yet, or no devices match your search.</p></div>
     }
     else
     {
