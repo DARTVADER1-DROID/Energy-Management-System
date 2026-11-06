@@ -104,7 +104,17 @@ public sealed class DeviceAuthenticationService(
         var secretBytes = RandomNumberGenerator.GetBytes(32);
         var secret = WebEncoders.Base64UrlEncode(secretBytes);
         var secretHash = Convert.ToHexString(SHA256.HashData(secretBytes));
-        var protectedSecret = Protect(secretBytes, GetEncryptionKey());
+        var encryptionKey = GetEncryptionKey();
+        string protectedSecret;
+        try
+        {
+            protectedSecret = Protect(secretBytes, encryptionKey);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(encryptionKey);
+            CryptographicOperations.ZeroMemory(secretBytes);
+        }
 
         securityDb.Credentials.Add(new DeviceCredential(device.Id, secretHash, protectedSecret));
         await securityDb.SaveChangesAsync(cancellationToken);
@@ -197,20 +207,24 @@ public sealed class DeviceAuthenticationService(
             bodyHashHex);
 
         byte[] signingSecret;
+        var encryptionKey = GetEncryptionKey();
         try
         {
-            signingSecret = Unprotect(credential.ProtectedSigningKey, GetEncryptionKey());
+            signingSecret = Unprotect(credential.ProtectedSigningKey, encryptionKey);
         }
         catch (CryptographicException exception)
         {
             logger.LogError(exception, "Unable to unprotect the signing key for device {DeviceCode}.", deviceCode);
             return null;
         }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(encryptionKey);
+        }
 
-        var actualSecretHash = Convert.ToHexString(SHA256.HashData(signingSecret));
+        var actualSecretHash = SHA256.HashData(signingSecret);
         var storedSecretHash = Convert.FromHexString(credential.SecretHash);
-        if (!CryptographicOperations.FixedTimeEquals(
-            Convert.FromHexString(actualSecretHash), storedSecretHash))
+        if (!CryptographicOperations.FixedTimeEquals(actualSecretHash, storedSecretHash))
         {
             CryptographicOperations.ZeroMemory(signingSecret);
             return null;
