@@ -19,8 +19,15 @@ public sealed class EnableMfaModel(
 
     public async Task<IActionResult> OnGetAsync()
     {
+        SetNoStoreHeaders();
         if (User.Identity?.IsAuthenticated != true)
             return RedirectToPage("/Account/Login");
+
+        if (!User.HasRecentAuthentication())
+        {
+            var returnUrl = Url.Page("/Account/EnableMfa");
+            return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
+        }
 
         var user = await userManager.GetUserAsync(User);
         if (user is null) return RedirectToPage("/Account/Login");
@@ -38,8 +45,15 @@ public sealed class EnableMfaModel(
 
     public async Task<IActionResult> OnPostAsync()
     {
+        SetNoStoreHeaders();
         if (User.Identity?.IsAuthenticated != true)
             return RedirectToPage("/Account/Login");
+
+        if (!User.HasRecentAuthentication())
+        {
+            var returnUrl = Url.Page("/Account/EnableMfa");
+            return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
+        }
 
         if (!ModelState.IsValid)
             return await OnGetAsync();
@@ -67,9 +81,16 @@ public sealed class EnableMfaModel(
             return Page();
         }
 
+        HttpContext.Items["ems_recent_auth_verified"] = true;
         await signInManager.RefreshSignInAsync(user);
         RecoveryCodes = await recoveryCodeService.GenerateAsync(user.Id);
         return Page();
+    }
+
+    private void SetNoStoreHeaders()
+    {
+        Response.Headers.CacheControl = "no-store";
+        Response.Headers.Pragma = "no-cache";
     }
 
     private static string FormatKey(string key) =>
