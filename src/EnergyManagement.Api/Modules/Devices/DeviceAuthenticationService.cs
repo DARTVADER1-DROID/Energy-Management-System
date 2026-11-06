@@ -137,6 +137,12 @@ public sealed class DeviceAuthenticationService(
             deviceCode, secret, "HMAC-SHA256", "X-EMS-Timestamp", "X-EMS-Nonce", "X-EMS-Signature");
     }
 
+    public Task<bool> HasActiveCredentialAsync(
+        int deviceId, CancellationToken cancellationToken = default) =>
+        securityDb.Credentials.AsNoTracking().AnyAsync(item =>
+            item.DeviceId == deviceId && !item.IsPendingRotation &&
+            item.RevokedAtUtc == null, cancellationToken);
+
     public async Task<DeviceCredentialRotationResult> CreateCredentialRotationAsync(
         string deviceCode,
         int administratorUserId,
