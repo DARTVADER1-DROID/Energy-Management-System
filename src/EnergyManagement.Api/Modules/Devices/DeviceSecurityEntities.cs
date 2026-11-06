@@ -38,7 +38,9 @@ public sealed class DeviceCredential
     public DeviceCredential(
         int deviceId,
         string secretHash,
-        string protectedSigningKey)
+        string protectedSigningKey,
+        bool isPendingRotation = false,
+        DateTimeOffset? rotationExpiresAtUtc = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(deviceId);
         ArgumentException.ThrowIfNullOrWhiteSpace(secretHash);
@@ -47,6 +49,8 @@ public sealed class DeviceCredential
         DeviceId = deviceId;
         SecretHash = secretHash;
         ProtectedSigningKey = protectedSigningKey;
+        IsPendingRotation = isPendingRotation;
+        RotationExpiresAtUtc = rotationExpiresAtUtc;
         CreatedAtUtc = DateTimeOffset.UtcNow;
     }
 
@@ -55,7 +59,19 @@ public sealed class DeviceCredential
     public string SecretHash { get; private set; } = string.Empty;
     public string ProtectedSigningKey { get; private set; } = string.Empty;
     public DateTimeOffset CreatedAtUtc { get; private set; }
+    public bool IsPendingRotation { get; private set; }
+    public DateTimeOffset? RotationExpiresAtUtc { get; private set; }
+    public DateTimeOffset? ConfirmedAtUtc { get; private set; }
     public DateTimeOffset? RevokedAtUtc { get; private set; }
+
+    public void ConfirmRotation(DateTimeOffset confirmedAtUtc)
+    {
+        if (!IsPendingRotation || RotationExpiresAtUtc <= confirmedAtUtc || RevokedAtUtc is not null)
+            throw new InvalidOperationException("The pending credential cannot be confirmed.");
+
+        IsPendingRotation = false;
+        ConfirmedAtUtc = confirmedAtUtc;
+    }
 
     public void Revoke(DateTimeOffset revokedAtUtc) => RevokedAtUtc = revokedAtUtc;
 }
