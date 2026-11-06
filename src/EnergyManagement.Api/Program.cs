@@ -6,6 +6,7 @@ using EnergyManagement.Api.Infrastructure.Persistence;
 using EnergyManagement.Api.Infrastructure.IdentityPersistence;
 using EnergyManagement.Api.Modules.Devices;
 using EnergyManagement.Api.Modules.Identity;
+using EnergyManagement.Api.Modules.Telemetry;
 using EnergyManagement.Api.Web.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
@@ -225,6 +226,7 @@ builder.Services.AddRateLimiter(options =>
 
 builder.Services.AddScoped<DeviceRegistrationService>();
 builder.Services.AddScoped<DeviceAuthenticationService>();
+builder.Services.AddScoped<TelemetryService>();
 builder.Services.AddScoped<DashboardReadService>();
 builder.Services.AddScoped<HouseholdAccessService>();
 builder.Services.AddScoped<InitialAdminBootstrapper>();
@@ -308,6 +310,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapHealthEndpoints();
 app.MapDeviceEndpoints();
+app.MapTelemetryEndpoints();
 app.MapRazorPages();
 
 app.Run();
