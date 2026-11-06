@@ -56,6 +56,9 @@
                 </a>
                 @if (User.IsInRole("Administrator"))
                 {
+                    <a asp-page="/Households/Create" class="nav-link @(currentPath.StartsWith("/Households/Create") ? "nav-link-active" : "")">
+                        <span class="nav-icon">＋</span> Create household
+                    </a>
                     <a asp-page="/Households/Users" class="nav-link @(currentPath.StartsWith("/Households/Users") ? "nav-link-active" : "")">
                         <span class="nav-icon">♙</span> Household users
                     </a>
