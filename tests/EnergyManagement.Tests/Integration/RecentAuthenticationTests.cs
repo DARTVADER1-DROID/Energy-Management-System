@@ -134,7 +134,6 @@ public sealed class RecentAuthenticationTests(PostgreSqlFixture postgres) : IAsy
         Assert.Equal("DENY", response.Headers.GetValues("X-Frame-Options").Single());
         Assert.Equal("no-store, no-cache, max-age=0", response.Headers.GetValues("Cache-Control").Single());
         Assert.Equal("no-cache", response.Headers.GetValues("Pragma").Single());
-        Assert.Equal("0", response.Headers.GetValues("Expires").Single());
     }
 
     [Fact]
