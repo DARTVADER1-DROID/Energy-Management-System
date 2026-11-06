@@ -1,61 +1,43 @@
 # Energy Management System
 
-A residential energy management platform built incrementally with a .NET backend and ESP32-based edge firmware.
+A residential energy monitoring and management platform, developed incrementally.
 
-## Project goals
+## Current development
 
-- Monitor household voltage, current, instantaneous power and accumulated energy.
-- Keep electrical monitoring and protective logic local to the microcontroller.
-- Provide a responsive web application with server-side rendering (SSR).
-- Support remote access, analytics, basic bill estimation and controllable loads.
-- Keep the codebase modular, readable, testable and suitable for incremental development.
+- Feature 001: household and device registration / identity management
+- Backend: .NET 10 modular monolith
+- Persistence: PostgreSQL with EF Core
 
-## Repository layout
+## Run the test suite locally
 
-```text
-docs/                         Architecture and engineering documentation
-firmware/                     ESP32 firmware (introduced in a later milestone)
-src/
-  EnergyManagement.Api/       ASP.NET Core application host
-tests/                        Automated tests (introduced with the first testable module)
-REQUIREMENTS.md               Confirmed product requirements and open decisions
+Requirements: .NET 10 SDK, Docker Desktop with Docker Compose, and PowerShell.
+
+From the repository root, run:
+
+```powershell
+.\scripts\test.ps1
 ```
 
-The backend is being developed as a **modular monolith**: one deployable application with clearly separated business modules. Microservices are not part of the initial plan.
+The script starts an isolated PostgreSQL 17 test database, runs the test project in
+Release configuration (including restore and build), and stops the database afterward.
+No separately installed PostgreSQL server is required.
 
-## Current development status
+To keep the database running for debugging:
 
-**Milestone 0 — Foundation**
-
-- [x] Capture confirmed requirements.
-- [x] Document architecture direction.
-- [x] Create the ASP.NET Core API host.
-- [x] Add a lightweight liveness endpoint.
-- [ ] Add automated tests and CI.
-- [ ] Implement the first business module (device/telemetry ingestion).
-
-No electrical control, device authentication, telemetry ingestion, or production safety behaviour is implemented yet.
-
-## Getting started
-
-Prerequisite: .NET 10 SDK.
-
-Run the API:
-
-```bash
-dotnet run --project src/EnergyManagement.Api
+```powershell
+.\scripts\test.ps1 -KeepDatabase
 ```
 
-Check liveness at:
+The default host port is 55432. Set `EMS_TEST_POSTGRES_PORT` before running the script
+to use another available port. The script temporarily sets
+`EMS_TEST_CONNECTION_STRING` for the test process and restores its previous value.
 
-```text
-GET /health/live
-```
+See [test coverage and details](docs/TESTING.md),
+[Feature 001 test-suite documentation](docs/FEATURE-001-TEST-SUITE.md), and the
+[development workflow](docs/DEVELOPMENT.md).
 
-The endpoint confirms that the API process is running. It does not yet check databases, devices, cloud dependencies or end-to-end system health.
+## Safety and deployment note
 
-## Important safety and security notice
-
-This repository is an early software foundation, not a certified electrical protection system. Do not connect it to mains switching hardware or rely on it for electrical protection. Any eventual hardware implementation must use appropriately rated protection devices, validated sensing and switching circuits, fail-safe design, and qualified electrical review.
-
-Device authentication is intentionally deferred by the current product requirements. An unauthenticated device-ingestion endpoint must not be exposed to the public internet. Production deployment is blocked until an appropriate authentication and security design is implemented.
+Authentication and role-based authorization are intentionally deferred in this early
+development stage. Do not expose the API to the public internet or use it in production.
+Dashboard warning thresholds are not electrical protection settings.

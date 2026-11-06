@@ -4,4 +4,7 @@
     <RootNamespace>EnergyManagement.Api</RootNamespace>
     <AssemblyName>EnergyManagement.Api</AssemblyName>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+  </ItemGroup>
 </Project>

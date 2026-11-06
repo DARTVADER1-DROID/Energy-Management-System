@@ -1,0 +1,36 @@
+using EnergyManagement.Api.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
+namespace EnergyManagement.Tests.Infrastructure;
+
+public sealed class EnergyManagementApiFactory(string connectionString)
+    : WebApplicationFactory<Program>
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.ConfigureAppConfiguration((_, configuration) =>
+        {
+            configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:EnergyManagement"] = connectionString
+            });
+        });
+
+        // Override the application's DbContext registration directly. This keeps
+        // database resets and API requests on the exact same test database,
+        // independent of configuration-provider ordering in the test host.
+        builder.ConfigureServices(services =>
+        {
+            services.RemoveAll<DbContextOptions<EnergyManagementDbContext>>();
+            services.RemoveAll<EnergyManagementDbContext>();
+
+            services.AddDbContext<EnergyManagementDbContext>(options =>
+                options.UseNpgsql(connectionString));
+        });
+    }
+}
