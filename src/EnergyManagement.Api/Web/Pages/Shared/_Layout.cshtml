@@ -20,7 +20,7 @@
 </head>
 <body class="min-h-full bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
 <div class="min-h-screen">
-    <aside id="sidebar" class="sidebar fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform dark:border-slate-800 dark:bg-slate-900 lg:translate-x-0">
+    <aside id="sidebar" class="sidebar fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform dark:border-slate-800 dark:bg-slate-900 @(User.Identity?.IsAuthenticated == true ? "lg:translate-x-0" : "hidden")">
         <a asp-page="/Index" class="flex h-20 items-center gap-3 border-b border-slate-200 px-6 dark:border-slate-800">
             <span class="grid h-10 w-10 place-items-center rounded-xl bg-blue-600 text-white">
                 <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2 4 14h7l-1 8 10-13h-7l0-7Z" stroke-linejoin="round"/></svg>
@@ -65,8 +65,8 @@
         </div>
     </aside>
 
-    <div class="lg:pl-64">
-        <header class="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-slate-200 bg-white/90 px-4 backdrop-blur md:px-8 dark:border-slate-800 dark:bg-slate-900/90">
+    <div class="@(User.Identity?.IsAuthenticated == true ? "lg:pl-64" : "")">
+        <header class="@(User.Identity?.IsAuthenticated == true ? "sticky top-0 z-30 flex h-20 items-center justify-between border-b border-slate-200 bg-white/90 px-4 backdrop-blur md:px-8 dark:border-slate-800 dark:bg-slate-900/90" : "hidden")">
             <div class="flex min-w-0 items-center gap-3">
                 <button id="sidebar-toggle" class="icon-button lg:hidden" type="button" aria-label="Open navigation">☰</button>
                 <div class="min-w-0">
@@ -103,7 +103,7 @@
                 </form>
             </div>
         </header>
-        <main class="mx-auto max-w-[1600px] px-4 py-7 md:px-8 md:py-9">
+        <main class="mx-auto max-w-[1600px] px-4 py-7 md:px-8 md:py-9 @(User.Identity?.IsAuthenticated == true ? "" : "min-h-screen")">
             @RenderBody()
         </main>
     </div>
