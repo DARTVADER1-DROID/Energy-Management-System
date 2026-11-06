@@ -43,6 +43,10 @@ builder.Services
     .AddDefaultTokenProviders()
     .AddSignInManager();
 
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+    options.TokenLifespan = TimeSpan.FromMinutes(30));
+builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
+
 builder.Services
     .AddAuthentication(IdentityConstants.ApplicationScheme)
     .AddIdentityCookies();
@@ -121,6 +125,8 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeFolder("/");
     options.Conventions.AllowAnonymousToPage("/Account/Login");
     options.Conventions.AllowAnonymousToPage("/Account/AccessDenied");
+    options.Conventions.AllowAnonymousToPage("/Account/ForgotPassword");
+    options.Conventions.AllowAnonymousToPage("/Account/ResetPassword");
 });
 
 builder.Services.AddEndpointsApiExplorer();
