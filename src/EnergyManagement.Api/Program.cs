@@ -1,6 +1,7 @@
 using EnergyManagement.Api.Endpoints;
 using EnergyManagement.Api.Infrastructure.Persistence;
 using EnergyManagement.Api.Modules.Devices;
+using EnergyManagement.Api.Web.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 
@@ -14,6 +15,8 @@ var connectionString = builder.Configuration.GetConnectionString("EnergyManageme
 builder.Services.AddDbContext<EnergyManagementDbContext>(options =>
     options.UseNpgsql(connectionString));
 builder.Services.AddScoped<DeviceRegistrationService>();
+builder.Services.AddScoped<DashboardReadService>();
+builder.Services.AddRazorPages();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -38,8 +41,10 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+app.UseStaticFiles();
 app.MapHealthEndpoints();
 app.MapDeviceEndpoints();
+app.MapRazorPages();
 
 app.Run();
 

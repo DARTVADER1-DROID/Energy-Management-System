@@ -23,6 +23,35 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
     }
 
     [Fact]
+    public async Task Dashboard_RendersServerSideHouseholdSummary()
+    {
+        await CreateHouseholdAsync("SSR Family Home");
+
+        var response = await _client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Energy at a glance", html);
+        Assert.Contains("SSR Family Home", html);
+        Assert.Contains("No telemetry received", html);
+    }
+
+    [Fact]
+    public async Task DevicesPage_RendersServerSideDeviceInventory()
+    {
+        var householdId = await CreateHouseholdAsync("SSR Devices Home");
+        await _client.PostAsJsonAsync($"/api/devices/{householdId}", ValidRequest());
+
+        var response = await _client.GetAsync($"/Devices?householdId={householdId}");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Device inventory", html);
+        Assert.Contains("H001-DEV001", html);
+        Assert.Contains("Main Energy Monitor", html);
+    }
+
+    [Fact]
     public async Task CreateHousehold_ReturnsGeneratedHouseholdCode()
     {
         var response = await _client.PostAsJsonAsync(

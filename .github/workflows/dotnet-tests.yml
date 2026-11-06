@@ -27,6 +27,14 @@ jobs:
       EMS_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=energy_management_tests;Username=test_user;Password=test_password
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Build Tailwind assets
+        run: |
+          npm install
+          npm run build
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
