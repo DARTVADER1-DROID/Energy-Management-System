@@ -10,6 +10,7 @@ public sealed class IdentityDbContext(
     : IdentityDbContext<ApplicationUser, IdentityRole<int>, int>(options)
 {
     public DbSet<HouseholdMembership> HouseholdMemberships => Set<HouseholdMembership>();
+    public DbSet<MfaRecoveryCode> MfaRecoveryCodes => Set<MfaRecoveryCode>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -38,6 +39,20 @@ public sealed class IdentityDbContext(
             entity.HasOne<ApplicationUser>()
                 .WithMany()
                 .HasForeignKey(membership => membership.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MfaRecoveryCode>(entity =>
+        {
+            entity.ToTable("mfa_recovery_codes");
+            entity.HasKey(code => code.Id);
+            entity.HasIndex(code => new { code.UserId, code.CodeHash }).IsUnique();
+            entity.HasIndex(code => new { code.UserId, code.UsedAtUtc });
+            entity.Property(code => code.CodeHash).HasMaxLength(64).IsRequired();
+            entity.Property(code => code.CreatedAtUtc).IsRequired();
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(code => code.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

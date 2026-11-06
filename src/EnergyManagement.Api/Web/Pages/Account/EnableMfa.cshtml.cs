@@ -8,7 +8,8 @@ namespace EnergyManagement.Api.Web.Pages.Account;
 
 public sealed class EnableMfaModel(
     UserManager<ApplicationUser> userManager,
-    SignInManager<ApplicationUser> signInManager) : PageModel
+    SignInManager<ApplicationUser> signInManager,
+    MfaRecoveryCodeService recoveryCodeService) : PageModel
 {
     [BindProperty]
     public MfaInput Input { get; set; } = new();
@@ -67,7 +68,7 @@ public sealed class EnableMfaModel(
         }
 
         await signInManager.RefreshSignInAsync(user);
-        RecoveryCodes = (await userManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 10))?.ToArray() ?? [];
+        RecoveryCodes = await recoveryCodeService.GenerateAsync(user.Id);
         return Page();
     }
 

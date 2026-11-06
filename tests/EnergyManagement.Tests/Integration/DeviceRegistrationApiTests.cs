@@ -49,6 +49,26 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
 
 
     [Fact]
+    public async Task MfaRecoveryCodes_AreHashedAndSingleUse()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var recoveryCodes = scope.ServiceProvider.GetRequiredService<MfaRecoveryCodeService>();
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+
+        var generated = await recoveryCodes.GenerateAsync(2);
+        Assert.Equal(10, generated.Count);
+        Assert.True(await recoveryCodes.RedeemAsync(2, generated[0]));
+        Assert.False(await recoveryCodes.RedeemAsync(2, generated[0]));
+
+        var storedCodes = await identityDb.MfaRecoveryCodes
+            .Where(code => code.UserId == 2)
+            .ToListAsync();
+        Assert.Equal(10, storedCodes.Count);
+        Assert.DoesNotContain(storedCodes, code => generated.Contains(code.CodeHash));
+        Assert.Single(storedCodes.Where(code => code.UsedAtUtc is not null));
+    }
+
+    [Fact]
     public async Task UserCannotReadAnotherHouseholdsResources()
     {
         var householdId = await CreateHouseholdAsync("Private Home");
