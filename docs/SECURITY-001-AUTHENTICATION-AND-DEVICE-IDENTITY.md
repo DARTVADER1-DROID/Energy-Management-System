@@ -10,19 +10,21 @@ This document records the approved security decisions. It is the implementation 
 
 Human identities and ESP32 identities are independent security principals. A human session never authenticates a device, and a device credential never grants access to human or household administration APIs.
 
-Every household-scoped operation must derive and validate household membership from the authenticated principal. Client-supplied household IDs are selectors, not proof of authorization. Cross-household access must fail closed.
+Every household-scoped operation must derive and validate household membership from the authenticated principal. Membership is stored separately from global Identity roles and is unique per user/household pair. Client-supplied household IDs are selectors, not proof of authorization. Cross-household access must fail closed. Device and household API reads and mutations, and SSR dashboard/device queries, are filtered by the caller's household memberships.
 
 ## 2. Human authentication
 
 - Use ASP.NET Core Identity with email address and password.
 - Public self-registration is disabled.
-- The first household and Administrator account are created through a one-time setup wizard.
-- Setup is available only while the installation is uninitialized. Initialization must be atomic and safe under concurrent requests; once committed, setup cannot be reopened through HTTP.
-- Additional users join only through Administrator-issued email invitations.
+- The first household and Administrator account are provisioned through a one-time deployment bootstrap, not public registration.
+- Bootstrap requires the deployment secrets `EMS_BOOTSTRAP_ADMIN_EMAIL`, `EMS_BOOTSTRAP_ADMIN_PASSWORD`, and `EMS_BOOTSTRAP_HOUSEHOLD_NAME`. The first account is email-confirmed as part of this trusted operator-controlled bootstrap.
+- Bootstrap is disabled once any user exists unless the configured bootstrap account already exists; it is idempotent for that account and creates its initial household membership once.
+- Identity schema migrations run independently from the EMS domain migration history. The API applies both migration sets before serving requests.
+- Additional users join only through Administrator-issued email invitations. Invitation delivery and acceptance are still pending implementation; no self-registration endpoint is exposed.
 - Invitations are random, single-use, time-limited, revocable, and bound to one household and one assigned role.
 - Password recovery uses time-limited, single-use Identity reset tokens delivered by email. Responses must not disclose whether an address exists.
-- SMTP is provider-independent and configured through deployment secrets/environment variables. Credentials must never be committed.
-- MFA uses authenticator-app TOTP. Administrators must enroll before accessing protected household operations; MFA is optional for Members and Viewers.
+- SMTP is provider-independent and configured through deployment secrets/environment variables. Credentials must never be committed. SMTP delivery and password-reset flows are still pending implementation.
+- MFA uses authenticator-app TOTP. Administrators must enroll before accessing protected household operations; MFA is optional for Members and Viewers. MFA enrollment, challenge, and recovery-code workflows are still pending implementation.
 - Generate ten one-time recovery codes at MFA enrollment. Show them once and persist only hashes. There is no email-only MFA bypass.
 - Login sessions are non-persistent, limited to eight hours maximum, and expire after fifteen minutes of inactivity. Cookies are HTTP-only, Secure, and SameSite protected. Sensitive actions require recent authentication.
 - Rate-limit login, invitation acceptance, password reset, MFA verification, and setup attempts. Emit security audit events without recording secrets or raw tokens.
@@ -85,9 +87,27 @@ Command delivery initially uses HTTPS polling at a fixed five-second interval. F
 - If confirmation does not arrive before rotation expiry, discard the pending replacement and retain the existing credential.
 - Emergency revocation remains available to an Administrator.
 
-## 8. Production and staging release gates
+## 8. Current implementation status
+
+Implemented on `feat/household-device-security`:
+- Separate ASP.NET Core Identity persistence and migration history.
+- Email/password sign-in and sign-out pages; public self-registration is not mapped.
+- Secure application cookies with a 15-minute inactivity timeout and an eight-hour absolute session limit.
+- Administrator bootstrap through deployment environment secrets.
+- Household membership persistence and role-aware access checks for household/device API operations and SSR device/dashboard queries.
+- Integration coverage for anonymous API rejection, household role restrictions, and cross-household isolation.
+
+Still pending:
+- Invitation creation, email delivery, invitation acceptance, and membership management UI/API.
+- Password-reset delivery and token redemption.
+- TOTP enrollment/challenge and ten single-use recovery codes.
+- Recent-authentication checks for sensitive operations.
+- Full ESP32 provisioning, HMAC authentication, replay protection, and credential rotation.
+
+## 9. Production and staging release gates
 
 - No unauthenticated household/device administration endpoints may be exposed.
+- Initial bootstrap secrets must be supplied securely and removed after the first administrator is provisioned.
 - Health liveness/readiness endpoints remain anonymous and disclose no sensitive configuration.
 - Swagger remains Development-only.
 - Secrets are supplied through environment variables/Render secrets, never source control.
