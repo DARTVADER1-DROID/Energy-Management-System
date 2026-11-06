@@ -12,6 +12,7 @@ public static class DeviceEndpoints
         var households = endpoints.MapGroup("/api/households").WithTags("Households");
         households.MapPost("/", CreateHouseholdAsync);
         households.MapGet("/", ListHouseholdsAsync);
+        households.MapGet("/{householdId:int}", GetHouseholdAsync);
 
         var devices = endpoints.MapGroup("/api/devices").WithTags("Devices");
         devices.MapPost("/{householdId:int}", RegisterDeviceAsync);
@@ -53,6 +54,22 @@ public static class DeviceEndpoints
         return TypedResults.Ok<IReadOnlyList<HouseholdResponse>>(
             households.Select(item => new HouseholdResponse(
                 item.Id, item.HouseholdCode, item.Name)).ToArray());
+    }
+
+
+    private static async Task<Results<Ok<HouseholdResponse>, NotFound>> GetHouseholdAsync(
+        int householdId,
+        EnergyManagementDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var household = await dbContext.Households
+            .AsNoTracking()
+            .SingleOrDefaultAsync(item => item.Id == householdId, cancellationToken);
+
+        return household is null
+            ? TypedResults.NotFound()
+            : TypedResults.Ok(new HouseholdResponse(
+                household.Id, household.HouseholdCode, household.Name));
     }
 
     private static async Task<Results<Created<DeviceResponse>, NotFound<string>, ValidationProblem>> RegisterDeviceAsync(
@@ -140,7 +157,7 @@ public static class DeviceEndpoints
             errors["electricalConfiguration"] = ["A supported electrical configuration is required."];
         }
 
-        if (request.Description?.Length > 1000)
+        if (request.Description?.Trim().Length > 1000)
         {
             errors["description"] = ["Description must not exceed 1000 characters."];
         }

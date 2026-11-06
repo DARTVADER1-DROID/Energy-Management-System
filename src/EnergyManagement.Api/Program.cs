@@ -2,11 +2,13 @@ using EnergyManagement.Api.Endpoints;
 using EnergyManagement.Api.Infrastructure.Persistence;
 using EnergyManagement.Api.Modules.Devices;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
 var connectionString = builder.Configuration.GetConnectionString("EnergyManagement")
-    ?? "Host=localhost;Port=5432;Database=energy_management;Username=postgres;Password=postgres";
+    ?? throw new InvalidOperationException(
+        "The ConnectionStrings:EnergyManagement configuration value is required.");
 
 builder.Services.AddDbContext<EnergyManagementDbContext>(options =>
     options.UseNpgsql(connectionString));
@@ -15,7 +17,7 @@ builder.Services.AddScoped<DeviceRegistrationService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
-    options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    options.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "Energy Management System API",
         Version = "v1",

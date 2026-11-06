@@ -1,3 +1,6 @@
+using EnergyManagement.Api.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+
 namespace EnergyManagement.Api.Endpoints;
 
 public static class HealthEndpoints
@@ -12,6 +15,18 @@ public static class HealthEndpoints
                 TimestampUtc = DateTimeOffset.UtcNow
             }))
             .WithName("GetLiveness")
+            .WithTags("Health");
+
+        endpoints.MapGet("/health/ready", async (
+            EnergyManagementDbContext dbContext,
+            CancellationToken cancellationToken) =>
+        {
+            var canConnect = await dbContext.Database.CanConnectAsync(cancellationToken);
+            return canConnect
+                ? TypedResults.Ok(new { Status = "Ready" })
+                : TypedResults.StatusCode(StatusCodes.Status503ServiceUnavailable);
+        })
+            .WithName("GetReadiness")
             .WithTags("Health");
 
         return endpoints;

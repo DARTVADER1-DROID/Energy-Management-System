@@ -35,6 +35,26 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
         Assert.NotNull(household);
         Assert.Equal("H001", household.HouseholdCode);
         Assert.Equal("Family Home", household.Name);
+        Assert.Equal($"/api/households/{household.Id}", response.Headers.Location?.ToString());
+        var getResponse = await _client.GetAsync(response.Headers.Location);
+        var retrieved = await getResponse.Content.ReadFromJsonAsync<HouseholdResponse>();
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+        Assert.Equal(household.Id, retrieved?.Id);
+    }
+
+    [Fact]
+    public async Task SwaggerDocument_IsAvailableInDevelopment()
+    {
+        var response = await _client.GetAsync("/swagger/v1/swagger.json");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Energy Management System API", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task ReadinessEndpoint_ReportsDatabaseConnectivity()
+    {
+        var response = await _client.GetAsync("/health/ready");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
