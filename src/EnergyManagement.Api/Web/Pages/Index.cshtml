@@ -68,7 +68,7 @@ else
                     <p class="eyebrow">Live energy</p>
                     <h3 class="mt-1 text-lg font-semibold">Electrical measurements</h3>
                 </div>
-                <span class="status-pill @(Model.Snapshot.TelemetryDevices > 0 ? "status-success" : "status-neutral")">@(Model.Snapshot.TelemetryDevices > 0 ? "Telemetry received" : "Awaiting telemetry")</span>
+                <span class="status-pill status-neutral">@(Model.Snapshot.TelemetryDevices > 0 ? "Telemetry data available" : "Awaiting telemetry")</span>
             </div>
             <div class="mt-7 grid gap-4 sm:grid-cols-2">
                 <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
@@ -117,7 +117,7 @@ else
             </div>
             <div class="mt-7 rounded-xl bg-amber-50 p-4 dark:bg-amber-950/30">
                 <p class="text-sm font-semibold text-amber-900 dark:text-amber-200">@(Model.Snapshot.TelemetryDevices > 0 ? "Telemetry reporting" : "Telemetry not connected")</p>
-                <p class="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-300">@(Model.Snapshot.TelemetryDevices > 0 ? "Reporting devices have submitted signed measurement samples." : "Live measurements will appear after a provisioned device publishes its first signed sample.")</p>
+                <p class="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-300">@(Model.Snapshot.TelemetryDevices > 0 ? "@Model.Snapshot.TelemetryDevices device(s) have submitted signed measurement samples." : "Live measurements will appear after a provisioned device publishes its first signed sample.")</p>
             </div>
         </section>
     </div>
