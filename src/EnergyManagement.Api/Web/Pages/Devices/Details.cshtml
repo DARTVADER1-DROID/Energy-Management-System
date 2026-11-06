@@ -49,6 +49,30 @@
             </div>
         }
     </section>
+}\n\n@if (Model.CanManageDevice && Model.Device.IsActive && Model.CanRotateDeviceCredential)
+{
+    <section class="panel mt-5 p-6">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+                <p class="eyebrow">Credential lifecycle</p>
+                <h3 class="mt-1 text-lg font-semibold">Rotate device credential</h3>
+                <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Create a replacement secret without immediately invalidating the current one. The device must send a valid signed request using the new secret within 24 hours. That request confirms the rotation and revokes the previous secret. If confirmation never arrives, the new secret expires and the old one remains active.</p>
+            </div>
+            <form method="post" asp-page-handler="RotateCredential" asp-route-deviceCode="@Model.Device.DeviceCode"
+                  onsubmit="return confirm('Generate a replacement credential? The device must start using it within 24 hours to complete rotation.');">
+                <button type="submit" class="secondary-button">Generate replacement secret</button>
+            </form>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Model.RotatedDeviceSecret))
+        {
+            <div class="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-950/30">
+                <p class="text-sm font-semibold text-amber-950 dark:text-amber-100">Store the new device secret securely</p>
+                <p class="mt-1 text-xs leading-5 text-amber-900 dark:text-amber-200">This secret is displayed only once. Install it in the device's secure configuration before the expiry time. The current secret remains valid until the device successfully authenticates with this replacement.</p>
+                <code class="mt-4 block break-all rounded-lg bg-white px-4 py-3 text-sm font-bold text-slate-950 dark:bg-slate-900 dark:text-white">@Model.RotatedDeviceSecret</code>
+                <p class="mt-3 text-xs text-amber-900 dark:text-amber-200">Rotation expires: @Model.RotationExpiresAtUtc?.ToLocalTime().ToString("dd MMM yyyy, HH:mm:ss") local time</p>
+            </div>
+        }
+    </section>
 }\n\n<div class="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
     <article class="metric-card"><p class="metric-label">Connectivity</p><p class="mt-3 text-lg font-semibold">@(Model.Device.LastSeenAtUtc is null ? "No check-in yet" : "Last seen recorded")</p><p class="metric-foot">Current online state unavailable</p></article>
     <article class="metric-card"><p class="metric-label">Electrical setup</p><p class="mt-3 text-lg font-semibold">@Model.Device.ElectricalConfiguration</p><p class="metric-foot">Configured supply type</p></article>
