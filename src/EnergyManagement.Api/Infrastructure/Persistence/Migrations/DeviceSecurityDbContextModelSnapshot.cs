@@ -52,12 +52,9 @@ public sealed class DeviceSecurityDbContextModelSnapshot : ModelSnapshot
             entity.Property<DateTimeOffset?>("RevokedAtUtc").HasColumnType("timestamp with time zone");
             entity.HasKey("Id");
             entity.HasIndex("DeviceId", "RevokedAtUtc");
-            entity.HasIndex("DeviceId", "IX_device_credentials_DeviceId_Current")
+            entity.HasIndex("DeviceId", "IsPendingRotation")
                 .IsUnique()
-                .HasFilter("\"IsPendingRotation\" = FALSE AND \"RevokedAtUtc\" IS NULL");
-            entity.HasIndex("DeviceId", "IX_device_credentials_DeviceId")
-                .IsUnique()
-                .HasFilter("\"IsPendingRotation\" = TRUE AND \"RevokedAtUtc\" IS NULL");
+                .HasFilter("\"RevokedAtUtc\" IS NULL");
             entity.ToTable("device_credentials");
         });
 
