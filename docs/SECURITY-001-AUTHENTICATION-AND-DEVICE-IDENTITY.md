@@ -108,7 +108,9 @@ Implemented on `feat/household-device-security`:
 - HMAC-SHA-256 device request authentication, timestamp freshness, body hashing, constant-time signature verification, per-device nonce replay protection, heartbeat endpoint, and device/IP rate limiting.
 - Dual-key credential rotation with a 24-hour pending-key expiry. The first valid request signed with the new key confirms adoption and revokes the previous key; expiry preserves the previous key.
 - One-time provisioning/rotation responses are marked no-store/no-cache.
-- Integration coverage includes invitation acceptance, authorization boundaries, device provisioning, single-use codes, valid/invalid HMAC requests, replay rejection, rate limiting, credential rotation, and expiry fallback.
+- Credential revocation and rotation are revalidated under database row locks before a device request is accepted, preventing a stale pre-transaction credential read from authorizing a request after revocation.
+- Persistent device-security audit events record provisioning-code issuance, initial provisioning, rotation initiation/confirmation and emergency revocation without recording secret material. Household administrators can inspect the latest 20 events in the device console.
+- Integration coverage includes invitation acceptance, authorization boundaries, device provisioning, single-use codes, valid/invalid HMAC requests, replay rejection, rate limiting, credential rotation, expiry fallback, credential lifecycle audit persistence, and administrator-only audit display.
 
 Still pending:
 - ESP32 firmware implementation for serial provisioning, temporary local Wi-Fi portal, NTP/SNTP gating, NVS credential storage, and HMAC request signing.
