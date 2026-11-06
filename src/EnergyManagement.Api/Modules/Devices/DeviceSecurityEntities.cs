@@ -94,3 +94,39 @@ public sealed class DeviceRequestNonce
     public string Nonce { get; private set; } = string.Empty;
     public DateTimeOffset CreatedAtUtc { get; private set; }
 }
+
+
+public sealed class DeviceSecurityAuditEvent
+{
+    private DeviceSecurityAuditEvent() { }
+
+    public DeviceSecurityAuditEvent(
+        int deviceId,
+        int? actorUserId,
+        string eventType,
+        string details)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(deviceId);
+        if (actorUserId.HasValue)
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(actorUserId.Value);
+        ArgumentException.ThrowIfNullOrWhiteSpace(eventType);
+        ArgumentException.ThrowIfNullOrWhiteSpace(details);
+        if (eventType.Length > 80)
+            throw new ArgumentOutOfRangeException(nameof(eventType));
+        if (details.Length > 256)
+            throw new ArgumentOutOfRangeException(nameof(details));
+
+        DeviceId = deviceId;
+        ActorUserId = actorUserId;
+        EventType = eventType;
+        Details = details;
+        CreatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    public long Id { get; private set; }
+    public int DeviceId { get; private set; }
+    public int? ActorUserId { get; private set; }
+    public string EventType { get; private set; } = string.Empty;
+    public string Details { get; private set; } = string.Empty;
+    public DateTimeOffset CreatedAtUtc { get; private set; }
+}
