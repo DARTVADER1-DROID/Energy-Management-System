@@ -71,10 +71,26 @@ builder.Services.ConfigureApplicationCookie(options =>
         if (identity is not null)
         {
             var now = DateTimeOffset.UtcNow.ToString("O");
-            if (!identity.HasClaim(claim => claim.Type == "ems_session_started"))
-                identity.AddClaim(new Claim("ems_session_started", now));
-            if (!identity.HasClaim(claim => claim.Type == "ems_recent_auth"))
+            var currentPrincipal = context.HttpContext.User;
+            var currentSessionStarted = currentPrincipal.FindFirst("ems_session_started")?.Value;
+            var currentRecentAuth = currentPrincipal.FindFirst("ems_recent_auth")?.Value;
+            var currentUserIsAuthenticated = currentPrincipal.Identity?.IsAuthenticated == true;
+            var recentAuthenticationWasVerified =
+                context.HttpContext.Items.ContainsKey("ems_recent_auth_verified");
+
+            var oldSessionClaim = identity.FindFirst("ems_session_started");
+            if (oldSessionClaim is not null)
+                identity.RemoveClaim(oldSessionClaim);
+            identity.AddClaim(new Claim("ems_session_started", currentSessionStarted ?? now));
+
+            var oldRecentClaim = identity.FindFirst("ems_recent_auth");
+            if (oldRecentClaim is not null)
+                identity.RemoveClaim(oldRecentClaim);
+
+            if (recentAuthenticationWasVerified || !currentUserIsAuthenticated)
                 identity.AddClaim(new Claim("ems_recent_auth", now));
+            else if (currentRecentAuth is not null)
+                identity.AddClaim(new Claim("ems_recent_auth", currentRecentAuth));
 
             var previousActivity = identity.FindFirst("ems_last_activity");
             if (previousActivity is not null)

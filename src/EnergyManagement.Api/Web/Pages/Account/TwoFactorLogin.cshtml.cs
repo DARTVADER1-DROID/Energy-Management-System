@@ -31,12 +31,14 @@ public sealed class TwoFactorLoginModel(
                 await recoveryCodeService.RedeemAsync(pendingUser.Id, Input.RecoveryCode))
             {
                 await HttpContext.SignOutAsync(IdentityConstants.TwoFactorUserIdScheme);
+                HttpContext.Items["ems_recent_auth_verified"] = true;
                 await signInManager.SignInAsync(pendingUser, isPersistent: false);
                 return LocalRedirect(ReturnUrl);
             }
         }
         else
         {
+            HttpContext.Items["ems_recent_auth_verified"] = true;
             var result = await signInManager.TwoFactorAuthenticatorSignInAsync(
                 Input.Code.Replace(" ", string.Empty).Replace("-", string.Empty),
                 isPersistent: false,

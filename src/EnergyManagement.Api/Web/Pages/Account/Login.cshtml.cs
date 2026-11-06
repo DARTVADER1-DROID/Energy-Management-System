@@ -25,11 +25,9 @@ public sealed class LoginModel(
         ReturnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : "/";
         if (!ModelState.IsValid) return Page();
 
+        HttpContext.Items["ems_recent_auth_verified"] = true;
         var result = await signInManager.PasswordSignInAsync(
-            Input.Email.Trim(),
-            Input.Password,
-            isPersistent: false,
-            lockoutOnFailure: true);
+            Input.Email.Trim(), Input.Password, isPersistent: false, lockoutOnFailure: true);
 
         if (result.Succeeded)
         {
@@ -45,7 +43,8 @@ public sealed class LoginModel(
         if (result.RequiresTwoFactor)
             return RedirectToPage("/Account/TwoFactorLogin", new { returnUrl = ReturnUrl });
 
-        ModelState.AddModelError(string.Empty, "The email or password is incorrect, or the account is not yet eligible to sign in.");
+        ModelState.AddModelError(string.Empty,
+            "The email or password is incorrect, or the account is not yet eligible to sign in.");
         return Page();
     }
 

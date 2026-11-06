@@ -25,19 +25,16 @@ public sealed class ReauthenticateModel(
     public async Task<IActionResult> OnPostAsync(string? returnUrl = null)
     {
         ReturnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl! : "/";
-        if (!ModelState.IsValid)
-            return Page();
+        if (!ModelState.IsValid) return Page();
 
         var user = await userManager.GetUserAsync(User);
-        if (user is null)
-            return Challenge();
+        if (user is null) return Challenge();
 
+        HttpContext.Items["ems_recent_auth_verified"] = true;
         var result = await signInManager.PasswordSignInAsync(
             user.UserName!, Password, isPersistent: false, lockoutOnFailure: true);
 
-        if (result.Succeeded)
-            return LocalRedirect(ReturnUrl);
-
+        if (result.Succeeded) return LocalRedirect(ReturnUrl);
         if (result.RequiresTwoFactor)
             return RedirectToPage("/Account/TwoFactorLogin", new { returnUrl = ReturnUrl });
 
