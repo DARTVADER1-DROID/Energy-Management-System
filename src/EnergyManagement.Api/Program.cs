@@ -9,4 +9,6 @@ app.MapHealthEndpoints();
 app.Run();
 
 // Exposed for future integration tests using WebApplicationFactory.
-public partial class Program;
+public partial class Program
+{
+}
