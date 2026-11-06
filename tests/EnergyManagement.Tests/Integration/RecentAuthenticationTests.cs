@@ -124,6 +124,17 @@ public sealed class RecentAuthenticationTests(PostgreSqlFixture postgres) : IAsy
     }
 
     [Fact]
+    public async Task AccountPagesIncludeSecurityHeaders()
+    {
+        var response = await _client.GetAsync("/Account/Login");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("no-referrer", response.Headers.GetValues("Referrer-Policy").Single());
+        Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").Single());
+        Assert.Equal("DENY", response.Headers.GetValues("X-Frame-Options").Single());
+    }
+
+    [Fact]
     public async Task ReauthenticationPagePromptsForPassword()
     {
         var response = await _client.GetAsync("/Account/Reauthenticate");
