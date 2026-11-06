@@ -20,7 +20,8 @@ public sealed class EnergyManagementApiFactory(string connectionString)
             configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:EnergyManagement"] = connectionString,
-                ["EMS_PUBLIC_BASE_URL"] = "https://ems.example.test"
+                ["EMS_PUBLIC_BASE_URL"] = "https://ems.example.test",
+                ["EMS_DEVICE_CREDENTIAL_ENCRYPTION_KEY"] = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
             });
         });
 
