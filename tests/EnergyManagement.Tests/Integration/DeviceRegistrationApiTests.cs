@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using EnergyManagement.Api.Infrastructure.Persistence;
 using EnergyManagement.Api.Infrastructure.IdentityPersistence;
 using EnergyManagement.Api.Modules.Identity;
+using Microsoft.AspNetCore.Identity;
 using EnergyManagement.Api.Modules.Devices;
 using EnergyManagement.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -84,7 +85,14 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
             var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
             identityDb.HouseholdMemberships.Add(new HouseholdMembership(
                 2, householdId, HouseholdRole.HouseholdMember));
-            await identityDb.SaveChangesAsync();
+            identityDb.Roles.AddRange(
+            new IdentityRole<int>("Administrator") { Id = 1, NormalizedName = "ADMINISTRATOR" },
+            new IdentityRole<int>("Household Member") { Id = 2, NormalizedName = "HOUSEHOLD MEMBER" },
+            new IdentityRole<int>("Read-only Viewer") { Id = 3, NormalizedName = "READ-ONLY VIEWER" });
+        identityDb.UserRoles.AddRange(
+            new IdentityUserRole<int> { UserId = 1, RoleId = 1 },
+            new IdentityUserRole<int> { UserId = 2, RoleId = 2 });
+        await identityDb.SaveChangesAsync();
         }
 
         using var listRequest = new HttpRequestMessage(HttpMethod.Get, "/api/devices");
@@ -340,7 +348,8 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
                 Id = 1,
                 UserName = "integration-test-admin@example.test",
                 Email = "integration-test-admin@example.test",
-                EmailConfirmed = true
+                EmailConfirmed = true,
+                TwoFactorEnabled = true
             },
             new ApplicationUser
             {
