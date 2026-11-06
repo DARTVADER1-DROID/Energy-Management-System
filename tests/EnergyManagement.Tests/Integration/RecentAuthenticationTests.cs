@@ -149,6 +149,28 @@ public sealed class RecentAuthenticationTests(PostgreSqlFixture postgres) : IAsy
         Assert.Contains("Password", html);
     }
 
+    [Fact]
+    public async Task MfaEnrollmentRequiresRecentAuthenticationAndDisablesCaching()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/Account/EnableMfa");
+        request.Headers.Add("X-Test-No-Recent-Auth", "true");
+
+        using var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains("/Account/Reauthenticate", response.Headers.Location?.ToString());
+        Assert.Contains("no-store", response.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
+    public async Task MfaEnrollmentPageIsNotCacheable()
+    {
+        using var response = await _client.GetAsync("/Account/EnableMfa");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("no-store", response.Headers.CacheControl?.ToString());
+    }
+
     public async Task DisposeAsync()
     {
         _client.Dispose();
