@@ -54,6 +54,8 @@ public sealed class HouseholdInvitationTests(PostgreSqlFixture postgres) : IAsyn
             new IdentityRole<int>("Household Member") { Id = 2, NormalizedName = "HOUSEHOLD MEMBER" },
             new IdentityRole<int>("Read-only Viewer") { Id = 3, NormalizedName = "READ-ONLY VIEWER" });
         await identityDb.SaveChangesAsync();
+        await identityDb.Database.ExecuteSqlRawAsync(
+            """SELECT setval(pg_get_serial_sequence('users', 'Id'), (SELECT MAX("Id") FROM users), true);""");
 
         var registration = scope.ServiceProvider.GetRequiredService<DeviceRegistrationService>();
         var household = await registration.CreateHouseholdAsync("Invitation Test Home", CancellationToken.None);
