@@ -1,5 +1,7 @@
 # Energy Management System
 
+See the [project changelog](docs/CHANGELOG.md) for merged features and verified project updates.
+
 A residential energy monitoring and management platform, developed incrementally.
 
 ## Current development
