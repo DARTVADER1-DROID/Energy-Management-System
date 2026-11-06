@@ -120,6 +120,7 @@ public sealed class RecentAuthenticationTests(PostgreSqlFixture postgres) : IAsy
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Recovery codes remaining", html);
         Assert.Contains("Regenerate recovery codes", html);
+        Assert.Contains("Change password", html);
     }
 
     [Fact]

@@ -84,6 +84,31 @@
 }
 
 <section class="panel mt-5 p-6">
+    <p class="eyebrow">Password</p>
+    <h3 class="mt-1 text-lg font-semibold">Change password</h3>
+    <p class="mt-2 text-sm text-slate-500">Use your current password and choose a new password of at least 12 characters. Changing it signs out existing sessions.</p>
+    <form method="post" asp-page-handler="ChangePassword" class="mt-5 grid gap-4 md:grid-cols-3">
+        <div>
+            <label asp-for="CurrentPassword" class="field-label">Current password</label>
+            <input asp-for="CurrentPassword" autocomplete="current-password" class="control-input mt-1 w-full" />
+            <span asp-validation-for="CurrentPassword" class="text-xs text-rose-600"></span>
+        </div>
+        <div>
+            <label asp-for="NewPassword" class="field-label">New password</label>
+            <input asp-for="NewPassword" autocomplete="new-password" class="control-input mt-1 w-full" />
+            <span asp-validation-for="NewPassword" class="text-xs text-rose-600"></span>
+        </div>
+        <div>
+            <label asp-for="ConfirmNewPassword" class="field-label">Confirm new password</label>
+            <input asp-for="ConfirmNewPassword" autocomplete="new-password" class="control-input mt-1 w-full" />
+            <span asp-validation-for="ConfirmNewPassword" class="text-xs text-rose-600"></span>
+        </div>
+        <div asp-validation-summary="ModelOnly" class="text-sm text-rose-600 md:col-span-3"></div>
+        <div class="md:col-span-3"><button type="submit" class="primary-button">Change password</button></div>
+    </form>
+</section>
+
+<section class="panel mt-5 p-6">
     <p class="eyebrow">Session protection</p>
     <h3 class="mt-1 text-lg font-semibold">Automatic sign-out</h3>
     <p class="mt-2 text-sm leading-6 text-slate-500">Your session expires after 15 minutes of inactivity and has an eight-hour maximum lifetime. Sessions are not persistent across browser restarts.</p>
