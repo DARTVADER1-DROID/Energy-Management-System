@@ -137,6 +137,83 @@ public sealed class DeviceAuthenticationService(
             deviceCode, secret, "HMAC-SHA256", "X-EMS-Timestamp", "X-EMS-Nonce", "X-EMS-Signature");
     }
 
+    public async Task<DeviceCredentialRotationResult> CreateCredentialRotationAsync(
+        string deviceCode,
+        int administratorUserId,
+        HouseholdAccessService householdAccess,
+        CancellationToken cancellationToken = default)
+    {
+        var device = await energyDb.Devices.SingleOrDefaultAsync(
+            item => item.DeviceCode == deviceCode, cancellationToken)
+            ?? throw new KeyNotFoundException("The selected device was not found.");
+
+        if (!await householdAccess.IsMemberAsync(
+            administratorUserId, device.HouseholdId, cancellationToken))
+            throw new KeyNotFoundException("The selected device was not found.");
+
+        if (!await householdAccess.IsAdministratorAsync(
+            administratorUserId, device.HouseholdId, cancellationToken))
+            throw new UnauthorizedAccessException("Only a household administrator can rotate device credentials.");
+
+        if (!device.IsActive)
+            throw new InvalidOperationException("A deactivated device cannot rotate credentials.");
+
+        var now = DateTimeOffset.UtcNow;
+        await securityDb.Credentials
+            .Where(item => item.DeviceId == device.Id &&
+                item.IsPendingRotation && item.RevokedAtUtc == null)
+            .ExecuteUpdateAsync(setters =>
+                setters.SetProperty(item => item.RevokedAtUtc, now), cancellationToken);
+
+        var currentCredentials = await securityDb.Credentials
+            .Where(item => item.DeviceId == device.Id &&
+                !item.IsPendingRotation && item.RevokedAtUtc == null)
+            .ToArrayAsync(cancellationToken);
+        if (currentCredentials.Length != 1)
+            throw new InvalidOperationException(
+                currentCredentials.Length == 0
+                    ? "This device has not been provisioned yet."
+                    : "The device has an inconsistent credential state. Revoke credentials and provision it again.");
+
+        var secretBytes = RandomNumberGenerator.GetBytes(32);
+        var secret = WebEncoders.Base64UrlEncode(secretBytes);
+        var secretHash = Convert.ToHexString(SHA256.HashData(secretBytes));
+        var encryptionKey = GetEncryptionKey();
+        string protectedSecret;
+        try
+        {
+            protectedSecret = Protect(secretBytes, encryptionKey);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(encryptionKey);
+            CryptographicOperations.ZeroMemory(secretBytes);
+        }
+
+        var expiresAtUtc = now.AddHours(24);
+        var pendingCredential = new DeviceCredential(
+            device.Id, secretHash, protectedSecret,
+            isPendingRotation: true, rotationExpiresAtUtc: expiresAtUtc);
+        securityDb.Credentials.Add(pendingCredential);
+        try
+        {
+            await securityDb.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception) when (
+            exception.GetBaseException() is PostgresException postgres &&
+            postgres.SqlState == PostgresErrorCodes.UniqueViolation)
+        {
+            securityDb.Entry(pendingCredential).State = EntityState.Detached;
+            throw new InvalidOperationException(
+                "A credential rotation was started concurrently. Refresh the page and try again.");
+        }
+
+        logger.LogInformation(
+            "Credential rotation was initiated for device {DeviceCode}.", deviceCode);
+        return new DeviceCredentialRotationResult(
+            deviceCode, secret, "HMAC-SHA256", expiresAtUtc);
+    }
+
     public async Task<Device?> AuthenticateRequestAsync(
         HttpContext context,
         CancellationToken cancellationToken = default)
@@ -170,13 +247,6 @@ public sealed class DeviceAuthenticationService(
         var device = await energyDb.Devices.SingleOrDefaultAsync(
             item => item.DeviceCode == deviceCode && item.IsActive, cancellationToken);
         if (device is null)
-            return null;
-
-        var credential = await securityDb.Credentials
-            .Where(item => item.DeviceId == device.Id && item.RevokedAtUtc == null)
-            .OrderByDescending(item => item.CreatedAtUtc)
-            .FirstOrDefaultAsync(cancellationToken);
-        if (credential is null)
             return null;
 
         byte[] suppliedSignature;
@@ -218,36 +288,64 @@ public sealed class DeviceAuthenticationService(
             nonce,
             bodyHashHex);
 
-        byte[] signingSecret;
-        var encryptionKey = GetEncryptionKey();
-        try
-        {
-            signingSecret = Unprotect(credential.ProtectedSigningKey, encryptionKey);
-        }
-        catch (CryptographicException exception)
-        {
-            logger.LogError(exception, "Unable to unprotect the signing key for device {DeviceCode}.", deviceCode);
-            return null;
-        }
-        finally
-        {
-            CryptographicOperations.ZeroMemory(encryptionKey);
-        }
+        var credentials = await securityDb.Credentials.AsNoTracking()
+            .Where(item => item.DeviceId == device.Id && item.RevokedAtUtc == null &&
+                (!item.IsPendingRotation || item.RotationExpiresAtUtc > now))
+            .OrderByDescending(item => item.CreatedAtUtc)
+            .ToArrayAsync(cancellationToken);
 
-        var actualSecretHash = SHA256.HashData(signingSecret);
-        var storedSecretHash = Convert.FromHexString(credential.SecretHash);
-        if (!CryptographicOperations.FixedTimeEquals(actualSecretHash, storedSecretHash))
+        DeviceCredential? matchedCredential = null;
+        foreach (var credential in credentials)
         {
+            byte[] signingSecret;
+            var encryptionKey = GetEncryptionKey();
+            try
+            {
+                signingSecret = Unprotect(credential.ProtectedSigningKey, encryptionKey);
+            }
+            catch (CryptographicException exception)
+            {
+                logger.LogError(exception,
+                    "Unable to unprotect a signing key for device {DeviceCode}.", deviceCode);
+                continue;
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(encryptionKey);
+            }
+
+            var actualSecretHash = SHA256.HashData(signingSecret);
+            byte[] storedSecretHash;
+            try
+            {
+                storedSecretHash = Convert.FromHexString(credential.SecretHash);
+            }
+            catch (FormatException)
+            {
+                CryptographicOperations.ZeroMemory(signingSecret);
+                continue;
+            }
+
+            if (!CryptographicOperations.FixedTimeEquals(actualSecretHash, storedSecretHash))
+            {
+                CryptographicOperations.ZeroMemory(signingSecret);
+                continue;
+            }
+
+            var expectedSignature = HMACSHA256.HashData(
+                signingSecret, Encoding.UTF8.GetBytes(canonicalRequest));
             CryptographicOperations.ZeroMemory(signingSecret);
-            return null;
+            if (CryptographicOperations.FixedTimeEquals(expectedSignature, suppliedSignature))
+            {
+                matchedCredential = credential;
+                break;
+            }
         }
 
-        var expectedSignature = HMACSHA256.HashData(
-            signingSecret, Encoding.UTF8.GetBytes(canonicalRequest));
-        CryptographicOperations.ZeroMemory(signingSecret);
-        if (!CryptographicOperations.FixedTimeEquals(expectedSignature, suppliedSignature))
+        if (matchedCredential is null)
             return null;
 
+        await using var transaction = await securityDb.Database.BeginTransactionAsync(cancellationToken);
         await securityDb.RequestNonces
             .Where(item => item.DeviceId == device.Id && item.CreatedAtUtc < now.Subtract(NonceRetention))
             .ExecuteDeleteAsync(cancellationToken);
@@ -261,10 +359,40 @@ public sealed class DeviceAuthenticationService(
             exception.GetBaseException() is PostgresException postgres &&
             postgres.SqlState == PostgresErrorCodes.UniqueViolation)
         {
+            await transaction.RollbackAsync(cancellationToken);
             securityDb.ChangeTracker.Clear();
             return null;
         }
 
+        if (matchedCredential.IsPendingRotation)
+        {
+            var confirmed = await securityDb.Credentials
+                .Where(item => item.Id == matchedCredential.Id &&
+                    item.DeviceId == device.Id && item.IsPendingRotation &&
+                    item.RevokedAtUtc == null && item.RotationExpiresAtUtc > now)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(item => item.IsPendingRotation, false)
+                    .SetProperty(item => item.ConfirmedAtUtc, now), cancellationToken);
+
+            if (confirmed != 1)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                securityDb.ChangeTracker.Clear();
+                return null;
+            }
+
+            await securityDb.Credentials
+                .Where(item => item.DeviceId == device.Id &&
+                    item.Id != matchedCredential.Id && item.RevokedAtUtc == null)
+                .ExecuteUpdateAsync(setters =>
+                    setters.SetProperty(item => item.RevokedAtUtc, now), cancellationToken);
+
+            logger.LogInformation(
+                "Device {DeviceCode} confirmed its rotated credential; previous credentials were revoked.",
+                deviceCode);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
         device.UpdateLastSeen(now);
         await energyDb.SaveChangesAsync(cancellationToken);
         return device;
