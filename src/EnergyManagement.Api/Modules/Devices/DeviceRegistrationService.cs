@@ -1,4 +1,3 @@
-using System.Data;
 using EnergyManagement.Api.Infrastructure.Persistence;
 using EnergyManagement.Api.Modules.Households;
 using Microsoft.EntityFrameworkCore;
@@ -54,15 +53,28 @@ public sealed class DeviceRegistrationService(EnergyManagementDbContext dbContex
         RegisterDeviceRequest request,
         CancellationToken cancellationToken)
     {
-        await using var transaction = await dbContext.Database.BeginTransactionAsync(
-            IsolationLevel.Serializable,
-            cancellationToken);
+        // The UPDATE obtains a PostgreSQL row lock and increments the counter
+        // atomically. Concurrent registrations therefore cannot read the same
+        // device number. The counter update and device insert share a transaction.
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        var deviceNumber = await dbContext.Database
+            .SqlQuery<int>($"""
+                UPDATE "households"
+                SET "NextDeviceNumber" = "NextDeviceNumber" + 1
+                WHERE "Id" = {householdId}
+                RETURNING "NextDeviceNumber" - 1 AS "Value"
+                """)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (deviceNumber == 0)
+        {
+            throw new HouseholdNotFoundException(householdId);
+        }
 
         var household = await dbContext.Households
-            .SingleOrDefaultAsync(item => item.Id == householdId, cancellationToken)
-            ?? throw new HouseholdNotFoundException(householdId);
+            .SingleAsync(item => item.Id == householdId, cancellationToken);
 
-        var deviceNumber = household.AllocateDeviceNumber();
         var device = new Device(
             household,
             request.Name,
