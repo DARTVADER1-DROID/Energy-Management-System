@@ -101,8 +101,16 @@ public sealed class RecentAuthenticationTests(PostgreSqlFixture postgres) : IAsy
     }
 
     [Fact]
-    public async Task HouseholdMemberCannotSeeDeviceDeactivationControl()
+    public async Task HouseholdMemberCannotSeeDeviceDeactivationControlOrSecurityAudit()
     {
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var service = scope.ServiceProvider.GetRequiredService<DeviceAuthenticationService>();
+            var access = scope.ServiceProvider.GetRequiredService<HouseholdAccessService>();
+            var code = await service.CreateProvisioningCodeAsync(_deviceCode, 1, access);
+            await service.ExchangeProvisioningCodeAsync(_deviceCode, code.Code);
+        }
+
         using var request = new HttpRequestMessage(HttpMethod.Get, $"/Devices/{_deviceCode}");
         request.Headers.Add("X-Test-User-Id", "2");
         request.Headers.Add("X-Test-Role", "Household Member");
@@ -111,6 +119,8 @@ public sealed class RecentAuthenticationTests(PostgreSqlFixture postgres) : IAsy
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.DoesNotContain("Deactivate registration", html);
+        Assert.DoesNotContain("ProvisioningCodeCreated", html);
+        Assert.DoesNotContain("DeviceProvisioned", html);
     }
 
     [Fact]
