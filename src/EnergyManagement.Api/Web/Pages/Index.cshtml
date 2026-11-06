@@ -116,8 +116,15 @@ else
                 <div class="flex items-center justify-between"><span class="text-sm text-slate-500">Ever reported</span><span class="font-semibold">@Model.Snapshot.DevicesSeen</span></div>
             </div>
             <div class="mt-7 rounded-xl bg-amber-50 p-4 dark:bg-amber-950/30">
-                <p class="text-sm font-semibold text-amber-900 dark:text-amber-200">@(Model.Snapshot.TelemetryDevices > 0 ? "Telemetry reporting" : "Telemetry not connected")</p>
-                <p class="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-300">@(Model.Snapshot.TelemetryDevices > 0 ? "@Model.Snapshot.TelemetryDevices device(s) have submitted signed measurement samples." : "Live measurements will appear after a provisioned device publishes its first signed sample.")</p>
+                <p class="text-sm font-semibold text-amber-900 dark:text-amber-200">@(Model.Snapshot.TelemetryDevices > 0 ? "Telemetry data available" : "Telemetry not connected")</p>
+                @if (Model.Snapshot.TelemetryDevices > 0)
+                {
+                    <p class="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-300">@Model.Snapshot.TelemetryDevices device(s) have submitted signed measurement samples. This does not imply that they are currently online.</p>
+                }
+                else
+                {
+                    <p class="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-300">Live measurements will appear after a provisioned device publishes its first signed sample.</p>
+                }
             </div>
         </section>
     </div>
