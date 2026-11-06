@@ -132,6 +132,9 @@ public sealed class RecentAuthenticationTests(PostgreSqlFixture postgres) : IAsy
         Assert.Equal("no-referrer", response.Headers.GetValues("Referrer-Policy").Single());
         Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").Single());
         Assert.Equal("DENY", response.Headers.GetValues("X-Frame-Options").Single());
+        Assert.Equal("no-store, no-cache, max-age=0", response.Headers.GetValues("Cache-Control").Single());
+        Assert.Equal("no-cache", response.Headers.GetValues("Pragma").Single());
+        Assert.Equal("0", response.Headers.GetValues("Expires").Single());
     }
 
     [Fact]
