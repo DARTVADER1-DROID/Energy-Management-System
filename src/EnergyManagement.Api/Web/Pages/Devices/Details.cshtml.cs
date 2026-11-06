@@ -11,6 +11,7 @@ namespace EnergyManagement.Api.Web.Pages.Devices;
 public sealed class DetailsModel(
     DashboardReadService dashboardReadService,
     EnergyManagementDbContext energyDb,
+    DeviceSecurityDbContext deviceSecurityDb,
     HouseholdAccessService householdAccess,
     DeviceAuthenticationService deviceAuthenticationService) : PageModel
 {
@@ -21,6 +22,7 @@ public sealed class DetailsModel(
     public bool CanRotateDeviceCredential { get; private set; }
     public string? RotatedDeviceSecret { get; private set; }
     public DateTimeOffset? RotationExpiresAtUtc { get; private set; }
+    public IReadOnlyList<DeviceSecurityAuditSummary> SecurityEvents { get; private set; } = [];
 
     public async Task<IActionResult> OnGetAsync(string deviceCode, CancellationToken cancellationToken)
     {
@@ -34,6 +36,16 @@ public sealed class DetailsModel(
             userId, device.HouseholdId, cancellationToken);
         CanRotateDeviceCredential = CanManageDevice &&
             await deviceAuthenticationService.HasActiveCredentialAsync(device.Id, cancellationToken);
+        if (CanManageDevice)
+        {
+            SecurityEvents = await deviceSecurityDb.AuditEvents.AsNoTracking()
+                .Where(item => item.DeviceId == device.Id)
+                .OrderByDescending(item => item.CreatedAtUtc)
+                .Take(20)
+                .Select(item => new DeviceSecurityAuditSummary(
+                    item.EventType, item.Details, item.CreatedAtUtc))
+                .ToArrayAsync(cancellationToken);
+        }
         return Page();
     }
 
@@ -163,3 +175,7 @@ public sealed class DetailsModel(
         return RedirectToPage(new { deviceCode });
     }
 }
+
+
+public sealed record DeviceSecurityAuditSummary(
+    string EventType, string Details, DateTimeOffset CreatedAtUtc);
