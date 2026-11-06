@@ -93,6 +93,13 @@ public static class DeviceEndpoints
         {
             return TypedResults.NotFound(exception.Message);
         }
+        catch (ArgumentException exception)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["thresholds"] = [exception.Message]
+            });
+        }
     }
 
     private static async Task<Ok<IReadOnlyList<DeviceResponse>>> ListDevicesAsync(
@@ -162,43 +169,6 @@ public static class DeviceEndpoints
             errors["description"] = ["Description must not exceed 1000 characters."];
         }
 
-        var thresholds = request.Thresholds;
-        if (thresholds is not null)
-        {
-            ValidateNonNegative(errors, nameof(thresholds.MinimumVoltage), thresholds.MinimumVoltage);
-            ValidateNonNegative(errors, nameof(thresholds.MaximumVoltage), thresholds.MaximumVoltage);
-            ValidateNonNegative(errors, nameof(thresholds.MaximumCurrent), thresholds.MaximumCurrent);
-            ValidateNonNegative(errors, nameof(thresholds.MaximumInstantaneousPower), thresholds.MaximumInstantaneousPower);
-            ValidateNonNegative(errors, nameof(thresholds.MaximumDailyEnergy), thresholds.MaximumDailyEnergy);
-            ValidateNonNegative(errors, nameof(thresholds.MaximumTemperature), thresholds.MaximumTemperature);
-
-            if (thresholds.MinimumVoltage is not null &&
-                thresholds.MaximumVoltage is not null &&
-                thresholds.MinimumVoltage >= thresholds.MaximumVoltage)
-            {
-                errors["thresholds.minimumVoltage"] = ["Minimum voltage must be lower than maximum voltage."];
-            }
-
-            var hasThreshold = thresholds.MinimumVoltage is not null ||
-                               thresholds.MaximumVoltage is not null ||
-                               thresholds.MaximumCurrent is not null ||
-                               thresholds.MaximumInstantaneousPower is not null ||
-                               thresholds.MaximumDailyEnergy is not null ||
-                               thresholds.MaximumTemperature is not null;
-
-            if (hasThreshold && thresholds.WarningPersistenceSeconds is null)
-            {
-                errors["thresholds.warningPersistenceSeconds"] =
-                    ["A warning persistence duration is required when any threshold is configured."];
-            }
-
-            if (thresholds.WarningPersistenceSeconds is <= 0 or > 86400)
-            {
-                errors["thresholds.warningPersistenceSeconds"] =
-                    ["Warning persistence duration must be between 1 and 86400 seconds."];
-            }
-        }
-
         return errors;
     }
 
@@ -214,16 +184,6 @@ public static class DeviceEndpoints
         }
     }
 
-    private static void ValidateNonNegative(
-        IDictionary<string, string[]> errors,
-        string field,
-        decimal? value)
-    {
-        if (value < 0)
-        {
-            errors[$"thresholds.{field}"] = ["Threshold values cannot be negative."];
-        }
-    }
 }
 
 public sealed record HouseholdResponse(int Id, string HouseholdCode, string Name);
@@ -238,7 +198,7 @@ public sealed record DeviceResponse(
     string InstallationLocation,
     ElectricalConfiguration ElectricalConfiguration,
     string? Description,
-    DeviceThresholds Thresholds,
+    DeviceThresholdsResponse Thresholds,
     bool IsActive,
     DateTimeOffset RegisteredAtUtc,
     DateTimeOffset? LastSeenAtUtc)
@@ -253,7 +213,14 @@ public sealed record DeviceResponse(
         device.InstallationLocation,
         device.ElectricalConfiguration,
         device.Description,
-        device.Thresholds,
+        new DeviceThresholdsResponse(
+            device.Thresholds.MinimumVoltage,
+            device.Thresholds.MaximumVoltage,
+            device.Thresholds.MaximumCurrent,
+            device.Thresholds.MaximumInstantaneousPower,
+            device.Thresholds.MaximumDailyEnergy,
+            device.Thresholds.MaximumTemperature,
+            device.Thresholds.WarningPersistenceSeconds),
         device.IsActive,
         device.RegisteredAtUtc,
         device.LastSeenAtUtc);
