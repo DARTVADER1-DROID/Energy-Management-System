@@ -111,7 +111,8 @@ public sealed class DeviceAuthenticationService(
 
         var now = DateTimeOffset.UtcNow;
         var codeHash = Hash(provisioningCode);
-        await using var transaction = await securityDb.Database.BeginTransactionAsync(cancellationToken);
+        await using var transaction = await securityDb.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable, cancellationToken);
 
         var code = await securityDb.ProvisioningCodes.SingleOrDefaultAsync(item =>
             item.DeviceId == device.Id && item.CodeHash == codeHash &&
@@ -174,7 +175,8 @@ public sealed class DeviceAuthenticationService(
             administratorUserId, device.HouseholdId, cancellationToken))
             throw new UnauthorizedAccessException("Only a household administrator can revoke device credentials.");
 
-        await using var transaction = await securityDb.Database.BeginTransactionAsync(cancellationToken);
+        await using var transaction = await securityDb.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable, cancellationToken);
         var now = DateTimeOffset.UtcNow;
         var revokedCount = await securityDb.Credentials
             .Where(item => item.DeviceId == device.Id && item.RevokedAtUtc == null)
@@ -426,7 +428,8 @@ public sealed class DeviceAuthenticationService(
         if (matchedCredential is null)
             return null;
 
-        await using var transaction = await securityDb.Database.BeginTransactionAsync(cancellationToken);
+        await using var transaction = await securityDb.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable, cancellationToken);
         await securityDb.RequestNonces
             .Where(item => item.DeviceId == device.Id && item.CreatedAtUtc < now.Subtract(NonceRetention))
             .ExecuteDeleteAsync(cancellationToken);
