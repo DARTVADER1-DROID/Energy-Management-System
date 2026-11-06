@@ -11,7 +11,13 @@
         <h2 class="page-heading">Energy at a glance</h2>
         <p class="mt-1 text-sm text-slate-500">A consolidated view of household energy operations.</p>
     </div>
-    <span class="status-pill status-neutral"><span class="status-dot"></span> SSR dashboard</span>
+    <div class="flex items-center gap-3">
+        @if (User.IsInRole("Administrator"))
+        {
+            <a asp-page="/Households/Create" class="primary-button">＋ Create household</a>
+        }
+        <span class="status-pill status-neutral"><span class="status-dot"></span> SSR dashboard</span>
+    </div>
 </div>
 
 @if (Model.Snapshot.SelectedHousehold is null)
@@ -19,8 +25,15 @@
     <section class="panel mt-8 p-10 text-center">
         <div class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-blue-50 text-2xl text-blue-600 dark:bg-blue-950">⌂</div>
         <h3 class="mt-4 text-lg font-semibold">No household registered</h3>
-        <p class="mx-auto mt-2 max-w-md text-sm text-slate-500">Create a household through the existing API to begin managing energy devices.</p>
-        <p class="mt-4 text-xs text-slate-400">Household registration UI will be added in a subsequent increment.</p>
+        <p class="mx-auto mt-2 max-w-md text-sm text-slate-500">Create a household to begin registering devices and managing energy operations.</p>
+        @if (User.IsInRole("Administrator"))
+        {
+            <a asp-page="/Households/Create" class="primary-button mt-5 inline-flex">Create your first household</a>
+        }
+        else
+        {
+            <p class="mt-4 text-xs text-slate-400">Ask your household administrator to invite you to a household.</p>
+        }
     </section>
 }
 else
