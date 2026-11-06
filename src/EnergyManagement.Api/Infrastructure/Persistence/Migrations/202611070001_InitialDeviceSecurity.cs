@@ -53,6 +53,12 @@ public sealed class InitialDeviceSecurity : Migration
             constraints: table => table.PrimaryKey("PK_device_request_nonces", x => x.Id));
 
         migrationBuilder.CreateIndex("IX_device_provisioning_codes_CodeHash", "device_provisioning_codes", "CodeHash", unique: true);
+        migrationBuilder.CreateIndex(
+            name: "IX_device_provisioning_codes_DeviceId",
+            table: "device_provisioning_codes",
+            column: "DeviceId",
+            unique: true,
+            filter: "\"UsedAtUtc\" IS NULL AND \"RevokedAtUtc\" IS NULL");
         migrationBuilder.CreateIndex("IX_device_provisioning_codes_DeviceId_ExpiresAtUtc", "device_provisioning_codes", new[] { "DeviceId", "ExpiresAtUtc" });
         migrationBuilder.CreateIndex(
             name: "IX_device_credentials_DeviceId",
