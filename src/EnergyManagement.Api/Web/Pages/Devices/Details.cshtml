@@ -7,6 +7,10 @@
 {
     <div class="mb-5 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">@status</div>
 }
+@if (TempData["ErrorMessage"] is string error)
+{
+    <div class="mb-5 rounded-lg bg-rose-50 p-3 text-sm text-rose-800 dark:bg-rose-950/40 dark:text-rose-200">@error</div>
+}
 <div class="flex flex-wrap items-start justify-between gap-4">
     <div><p class="eyebrow">Device console · @Model.Device.DeviceCode</p><h2 class="page-heading">@Model.Device.Name</h2><p class="mt-1 text-sm text-slate-500">@Model.Device.HardwareModel · Firmware @Model.Device.FirmwareVersion</p></div>
     <div class="flex flex-wrap items-center gap-2">
@@ -21,7 +25,31 @@
         <span class="status-pill @(Model.Device.IsActive ? "status-neutral" : "status-muted")">@(Model.Device.IsActive ? "Active registration" : "Deactivated")</span>
     </div>
 </div>
-<div class="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+@if (Model.CanManageDevice && Model.Device.IsActive)
+{
+    <section class="panel mt-6 p-6">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+                <p class="eyebrow">Device identity</p>
+                <h3 class="mt-1 text-lg font-semibold">Secure device provisioning</h3>
+                <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Generate a single-use provisioning code for this registered ESP32. The code expires after 10 minutes and can be exchanged through either the serial setup utility or the temporary local Wi-Fi portal.</p>
+            </div>
+            <form method="post" asp-page-handler="Provision" asp-route-deviceCode="@Model.Device.DeviceCode"
+                  onsubmit="return confirm('Generate a new provisioning code? Any previous unused code for this device will be invalidated.');">
+                <button type="submit" class="primary-button">Generate provisioning code</button>
+            </form>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Model.ProvisioningCode))
+        {
+            <div class="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-950/30">
+                <p class="text-sm font-semibold text-amber-950 dark:text-amber-100">Copy this code now</p>
+                <p class="mt-1 text-xs text-amber-900 dark:text-amber-200">It is displayed only once. Do not share it with anyone who should not provision this device.</p>
+                <code class="mt-4 block break-all rounded-lg bg-white px-4 py-3 text-lg font-bold tracking-wider text-slate-950 dark:bg-slate-900 dark:text-white">@Model.ProvisioningCode</code>
+                <p class="mt-3 text-xs text-amber-900 dark:text-amber-200">Expires: @Model.ProvisioningCodeExpiresAtUtc?.ToLocalTime().ToString("dd MMM yyyy, HH:mm:ss") local time</p>
+            </div>
+        }
+    </section>
+}\n\n<div class="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
     <article class="metric-card"><p class="metric-label">Connectivity</p><p class="mt-3 text-lg font-semibold">@(Model.Device.LastSeenAtUtc is null ? "No check-in yet" : "Last seen recorded")</p><p class="metric-foot">Current online state unavailable</p></article>
     <article class="metric-card"><p class="metric-label">Electrical setup</p><p class="mt-3 text-lg font-semibold">@Model.Device.ElectricalConfiguration</p><p class="metric-foot">Configured supply type</p></article>
     <article class="metric-card"><p class="metric-label">Installation</p><p class="mt-3 text-lg font-semibold">@Model.Device.InstallationLocation</p><p class="metric-foot">Household H@Model.Device.HouseholdId.ToString("000")</p></article>
