@@ -9,6 +9,7 @@ public sealed class DeviceSecurityDbContext(
     public DbSet<DeviceProvisioningCode> ProvisioningCodes => Set<DeviceProvisioningCode>();
     public DbSet<DeviceCredential> Credentials => Set<DeviceCredential>();
     public DbSet<DeviceRequestNonce> RequestNonces => Set<DeviceRequestNonce>();
+    public DbSet<DeviceSecurityAuditEvent> AuditEvents => Set<DeviceSecurityAuditEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,6 +49,15 @@ public sealed class DeviceSecurityDbContext(
             entity.HasIndex(nonce => new { nonce.DeviceId, nonce.Nonce }).IsUnique();
             entity.HasIndex(nonce => nonce.CreatedAtUtc);
             entity.Property(nonce => nonce.Nonce).HasMaxLength(64).IsRequired();
+        });
+
+        modelBuilder.Entity<DeviceSecurityAuditEvent>(entity =>
+        {
+            entity.ToTable("device_security_audit_events");
+            entity.HasKey(auditEvent => auditEvent.Id);
+            entity.HasIndex(auditEvent => new { auditEvent.DeviceId, auditEvent.CreatedAtUtc });
+            entity.Property(auditEvent => auditEvent.EventType).HasMaxLength(80).IsRequired();
+            entity.Property(auditEvent => auditEvent.Details).HasMaxLength(256).IsRequired();
         });
     }
 }
