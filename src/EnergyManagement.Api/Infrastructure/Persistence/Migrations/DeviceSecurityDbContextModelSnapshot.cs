@@ -33,6 +33,7 @@ public sealed class DeviceSecurityDbContextModelSnapshot : ModelSnapshot
             entity.Property<DateTimeOffset?>("RevokedAtUtc").HasColumnType("timestamp with time zone");
             entity.HasKey("Id");
             entity.HasIndex("CodeHash").IsUnique();
+            entity.HasIndex("DeviceId").IsUnique().HasFilter("\"UsedAtUtc\" IS NULL AND \"RevokedAtUtc\" IS NULL");
             entity.HasIndex("DeviceId", "ExpiresAtUtc");
             entity.ToTable("device_provisioning_codes");
         });
