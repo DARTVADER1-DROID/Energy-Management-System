@@ -1,0 +1,90 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+    ViewData["Households"] = Model.Snapshot.Households;
+    ViewData["SelectedHouseholdId"] = Model.Snapshot.SelectedHousehold?.Id;
+}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+        <p class="eyebrow">Overview</p>
+        <h2 class="page-heading">Energy at a glance</h2>
+        <p class="mt-1 text-sm text-slate-500">A consolidated view of household energy operations.</p>
+    </div>
+    <span class="status-pill status-neutral"><span class="status-dot"></span> SSR dashboard</span>
+</div>
+
+@if (Model.Snapshot.SelectedHousehold is null)
+{
+    <section class="panel mt-8 p-10 text-center">
+        <div class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-blue-50 text-2xl text-blue-600 dark:bg-blue-950">⌂</div>
+        <h3 class="mt-4 text-lg font-semibold">No household registered</h3>
+        <p class="mx-auto mt-2 max-w-md text-sm text-slate-500">Create a household through the existing API to begin managing energy devices.</p>
+        <p class="mt-4 text-xs text-slate-400">Household registration UI will be added in a subsequent increment.</p>
+    </section>
+}
+else
+{
+    <div class="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <article class="metric-card">
+            <div class="metric-label">Registered devices</div>
+            <div class="metric-value">@Model.Snapshot.TotalDevices</div>
+            <p class="metric-foot">In @Model.Snapshot.SelectedHousehold.Name</p>
+        </article>
+        <article class="metric-card">
+            <div class="metric-label">Active devices</div>
+            <div class="metric-value">@Model.Snapshot.ActiveDevices</div>
+            <p class="metric-foot">Not deactivated</p>
+        </article>
+        <article class="metric-card">
+            <div class="metric-label">Devices reporting</div>
+            <div class="metric-value">@Model.Snapshot.DevicesSeen</div>
+            <p class="metric-foot">At least one recorded check-in</p>
+        </article>
+        <article class="metric-card">
+            <div class="metric-label">Latest device check-in</div>
+            <div class="metric-value metric-value-small">@(Model.Snapshot.LatestSeenAtUtc?.ToLocalTime().ToString("dd MMM, HH:mm") ?? "—")</div>
+            <p class="metric-foot">No assumed online state</p>
+        </article>
+    </div>
+
+    <div class="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(300px,1fr)]">
+        <section class="panel p-6">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="eyebrow">Live energy</p>
+                    <h3 class="mt-1 text-lg font-semibold">Electrical measurements</h3>
+                </div>
+                <span class="status-pill status-neutral">Awaiting telemetry</span>
+            </div>
+            <div class="mt-7 grid gap-4 sm:grid-cols-2">
+                @foreach (var metric in new[] { ("Instantaneous power", "kW"), ("Voltage", "V"), ("Current", "A"), ("Energy today", "kWh") })
+                {
+                    <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+                        <p class="text-sm text-slate-500">@metric.Item1</p>
+                        <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-400">— <span class="text-sm font-medium">@metric.Item2</span></p>
+                        <p class="mt-1 text-xs text-slate-400">No telemetry received</p>
+                    </div>
+                }
+            </div>
+            <p class="mt-5 text-xs leading-5 text-slate-500">Measurements will appear when device telemetry ingestion is implemented. Missing readings are intentionally shown as unavailable, not zero.</p>
+        </section>
+
+        <section class="panel p-6">
+            <div class="flex items-start justify-between">
+                <div><p class="eyebrow">Operations</p><h3 class="mt-1 text-lg font-semibold">Device fleet</h3></div>
+                <a asp-page="/Devices/Index" asp-route-householdId="@Model.Snapshot.SelectedHousehold.Id" class="text-sm font-semibold text-blue-600 hover:text-blue-700">View devices →</a>
+            </div>
+            <div class="mt-6 space-y-4">
+                <div class="flex items-center justify-between"><span class="text-sm text-slate-500">Registered</span><span class="font-semibold">@Model.Snapshot.TotalDevices</span></div>
+                <div class="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"><div class="h-full rounded-full bg-blue-600" style="width:@(Model.Snapshot.TotalDevices == 0 ? 0 : 100)%"></div></div>
+                <div class="flex items-center justify-between"><span class="text-sm text-slate-500">Active registrations</span><span class="font-semibold">@Model.Snapshot.ActiveDevices</span></div>
+                <div class="flex items-center justify-between"><span class="text-sm text-slate-500">Ever reported</span><span class="font-semibold">@Model.Snapshot.DevicesSeen</span></div>
+            </div>
+            <div class="mt-7 rounded-xl bg-amber-50 p-4 dark:bg-amber-950/30">
+                <p class="text-sm font-semibold text-amber-900 dark:text-amber-200">Telemetry not connected</p>
+                <p class="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-300">Device connectivity and live measurements will be populated by the upcoming telemetry pipeline.</p>
+            </div>
+        </section>
+    </div>
+}

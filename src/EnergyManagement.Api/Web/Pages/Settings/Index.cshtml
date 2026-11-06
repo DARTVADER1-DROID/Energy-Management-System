@@ -1,0 +1,16 @@
+@page
+@model Settings.IndexModel
+@{
+    ViewData["Title"] = "Settings";
+}
+<div><p class="eyebrow">Management</p><h2 class="page-heading">Settings</h2><p class="mt-1 text-sm text-slate-500">Application preferences and household configuration.</p></div>
+<section class="panel mt-7 p-6">
+    <h3 class="font-semibold">Appearance</h3>
+    <p class="mt-1 text-sm text-slate-500">Choose light or dark mode, or follow your device preference.</p>
+    <div class="mt-4 flex flex-wrap gap-2">
+        <button type="button" class="secondary-button" data-set-theme="light">Light</button>
+        <button type="button" class="secondary-button" data-set-theme="dark">Dark</button>
+        <button type="button" class="secondary-button" data-set-theme="system">System default</button>
+    </div>
+    <p class="mt-5 text-xs text-slate-400">More household and device settings will be added as their backend capabilities become available.</p>
+</section>
