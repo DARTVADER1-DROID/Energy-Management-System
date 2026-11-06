@@ -62,6 +62,10 @@
                   onsubmit="return confirm('Generate a replacement credential? The device must start using it within 24 hours to complete rotation.');">
                 <button type="submit" class="secondary-button">Generate replacement secret</button>
             </form>
+            <form method="post" asp-page-handler="RevokeCredentials" asp-route-deviceCode="@Model.Device.DeviceCode"
+                  onsubmit="return confirm('Immediately revoke every active and pending device credential? The ESP32 will lose access until it is provisioned again.');">
+                <button type="submit" class="secondary-button text-rose-700 dark:text-rose-300">Revoke credentials</button>
+            </form>
         </div>
         @if (!string.IsNullOrWhiteSpace(Model.RotatedDeviceSecret))
         {
