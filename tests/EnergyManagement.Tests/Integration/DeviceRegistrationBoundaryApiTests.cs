@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using EnergyManagement.Api.Infrastructure.Persistence;
+using EnergyManagement.Api.Infrastructure.IdentityPersistence;
+using EnergyManagement.Api.Modules.Identity;
 using EnergyManagement.Api.Modules.Devices;
 using EnergyManagement.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -23,6 +25,17 @@ public sealed class DeviceRegistrationBoundaryApiTests(PostgreSqlFixture postgre
         var db = scope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
         await db.Database.EnsureDeletedAsync();
         await db.Database.MigrateAsync();
+
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        await identityDb.Database.MigrateAsync();
+        identityDb.Users.Add(new ApplicationUser
+        {
+            Id = 1,
+            UserName = "boundary-admin@example.test",
+            Email = "boundary-admin@example.test",
+            EmailConfirmed = true
+        });
+        await identityDb.SaveChangesAsync();
     }
 
     [Fact]
