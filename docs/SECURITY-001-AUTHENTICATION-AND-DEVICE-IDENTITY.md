@@ -53,18 +53,22 @@ Authorization must be enforced in endpoint/service code, not only by hiding UI c
 - The ESP32 exchanges the code over HTTPS for a unique device secret.
 - Support both serial provisioning and a temporary local Wi-Fi setup portal. Both use the same backend provisioning contract.
 - The setup portal closes after successful provisioning or timeout.
-- Backend stores only a cryptographic hash of device secrets; firmware stores the secret in standard ESP32 NVS for this initial release. Flash extraction remains a documented physical-access risk.
+- The backend stores a SHA-256 verifier and an AES-GCM-protected copy of the device secret. The plaintext secret is returned only during provisioning/rotation and is never persisted in plaintext.
+- Configure `EMS_DEVICE_CREDENTIAL_ENCRYPTION_KEY` as base64 for exactly 32 random bytes. Keep it stable and secret across deployments; loss or replacement makes stored device credentials unusable.
+- Firmware stores the secret in standard ESP32 NVS for this initial release. Flash extraction remains a documented physical-access risk.
 - Device credentials are never shared between devices or with human accounts.
 
 ## 5. Device request authentication
 
 - Sign every device request with HMAC-SHA-256 using the device-specific secret.
-- Canonical request input includes HTTP method, normalized path, timestamp, unique nonce, and SHA-256 body digest.
-- Verify signature using constant-time comparison.
-- Enforce a bounded timestamp skew and atomically reject reused nonces. Nonce retention must cover the accepted timestamp window.
-- Require HTTPS. Reject unauthenticated, stale, malformed, replayed, revoked, inactive, or cross-device requests.
+- Current canonical input is the uppercase HTTP method, path plus query string, Unix timestamp in seconds, unique nonce, and uppercase hexadecimal SHA-256 body digest, separated by newline characters.
+- Send `X-EMS-Device`, `X-EMS-Timestamp`, `X-EMS-Nonce`, and `X-EMS-Signature` headers. The signature is 64 hexadecimal characters.
+- Verify signatures using constant-time comparison and verify the decrypted secret against its stored SHA-256 verifier.
+- Current timestamp tolerance is 60 seconds. Nonces must be 16–64 URL-safe characters, are unique per device, and are retained for at least ten minutes. Reuse is rejected atomically.
+- Request bodies are limited to 1 MiB for HMAC verification.
+- The API applies HTTPS redirection. Device firmware must use HTTPS and must never downgrade to HTTP.
 - Synchronize device time using NTP/SNTP. A device must have valid synchronized time before signing requests; do not fall back to an untrusted local clock or backend-time shortcut.
-- Authentication failures are rate-limited per device and source IP. They do not automatically revoke or permanently lock the device. Security events are recorded for Administrator review.
+- Device authentication endpoints are rate-limited per source IP and device. Failures do not automatically revoke or permanently lock the device.
 
 ## 6. Device capabilities and command transport
 
@@ -81,13 +85,12 @@ Command delivery initially uses HTTPS polling at a fixed five-second interval. F
 
 ## 7. Device credential rotation
 
-- Administrator can initiate rotation.
-- Backend creates a replacement credential while the current credential remains valid.
+- An Administrator with recent authentication can initiate rotation from the device console or API.
+- Backend creates a replacement credential while the current credential remains valid. The replacement secret is shown once and expires after 24 hours.
 - Both credentials are temporarily accepted during rotation.
-- Device must authenticate with the replacement and explicitly confirm successful adoption.
-- Only after confirmation does the backend revoke the previous credential.
-- If confirmation does not arrive before rotation expiry, discard the pending replacement and retain the existing credential.
-- Emergency revocation remains available to an Administrator.
+- A valid device request signed with the replacement credential confirms adoption. The backend then revokes the previous credential within the same database transaction that accepts the nonce.
+- If confirmation does not arrive before expiry, the pending credential is ignored and the existing credential remains usable.
+- A new rotation attempt invalidates any previous pending replacement. Emergency revocation and a complete credential lifecycle UI remain follow-up work.
 
 ## 8. Current implementation status
 
@@ -97,11 +100,20 @@ Implemented on `feat/household-device-security`:
 - Secure application cookies with a 15-minute inactivity timeout and an eight-hour absolute session limit.
 - Administrator bootstrap through deployment environment secrets.
 - Household membership persistence, administrator-issued invitations, single-use invitation acceptance, membership role changes, and last-administrator protection.
-- Account security profile, household user management, administrator-assisted MFA recovery, member removal, household-scoped audit history, role-aware device registration UI, clean anonymous account pages, and five-minute recent-authentication checks for household/device administration.
-- Integration coverage for invitation acceptance and authorization, anonymous API rejection, administrator MFA enforcement, household role restrictions, and cross-household isolation.
+- Account security profile, password change with recent authentication, recovery-code regeneration, household user management, administrator-assisted MFA recovery, member removal, and household-scoped audit history.
+- Role-aware device registration/deactivation UI, account security pages, device provisioning UI, and five-minute recent-authentication checks for sensitive household/device operations.
+- Backend device provisioning-code issuance and exchange: administrator-scoped, single-use codes expire after ten minutes and only their hashes are stored.
+- Device credentials are returned once; the backend stores a SHA-256 verifier and AES-GCM-protected secret, not plaintext.
+- HMAC-SHA-256 device request authentication, timestamp freshness, body hashing, constant-time signature verification, per-device nonce replay protection, heartbeat endpoint, and device/IP rate limiting.
+- Dual-key credential rotation with a 24-hour pending-key expiry. The first valid request signed with the new key confirms adoption and revokes the previous key; expiry preserves the previous key.
+- One-time provisioning/rotation responses are marked no-store/no-cache.
+- Integration coverage includes invitation acceptance, authorization boundaries, device provisioning, single-use codes, valid/invalid HMAC requests, replay rejection, rate limiting, credential rotation, and expiry fallback.
 
 Still pending:
-- Full ESP32 provisioning, HMAC authentication, replay protection, and credential rotation.
+- ESP32 firmware implementation for serial provisioning, temporary local Wi-Fi portal, NTP/SNTP gating, NVS credential storage, and HMAC request signing.
+- Device telemetry ingestion, diagnostics, command polling, acknowledgements, and execution-result reporting.
+- A full administrator credential-revocation workflow and richer device credential audit UI.
+- Production HTTPS/proxy validation and end-to-end tests with a physical ESP32.
 
 
 ## 9. Production and staging release gates
