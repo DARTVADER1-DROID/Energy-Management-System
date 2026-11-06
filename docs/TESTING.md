@@ -1,32 +1,57 @@
-# Feature 001 test suite
+# Automated test suite
 
 The test project validates the household and device registration domain, HTTP API,
 PostgreSQL persistence, and concurrent device-number allocation.
 
-## Prerequisites
+## Run locally (recommended)
+
+### Prerequisites
 
 - .NET 10 SDK
-- PostgreSQL 17 running locally
-- A test database with these credentials, or a custom connection string supplied through
-  the `EMS_TEST_CONNECTION_STRING` environment variable
-
-Default local test connection:
-
-```
-Host=localhost;Port=5432;Database=energy_management_tests;Username=test_user;Password=test_password
-```
-
-## Run all tests
+- Docker Desktop with Docker Compose
+- PowerShell
 
 From the repository root:
 
-```bash
-dotnet test tests/EnergyManagement.Tests/EnergyManagement.Tests.csproj
+```powershell
+.\scripts\test.ps1
+```
+
+The script starts PostgreSQL 17 using `docker-compose.test.yml`, waits for its
+health check, sets `EMS_TEST_CONNECTION_STRING`, and runs the test project in Release
+configuration. `dotnet test` performs restore and build automatically. The database
+container is stopped and removed afterward.
+
+To leave PostgreSQL running for debugging, use:
+
+```powershell
+.\scripts\test.ps1 -KeepDatabase
+```
+
+The default host port is 55432. If that port is occupied, choose another:
+
+```powershell
+$env:EMS_TEST_POSTGRES_PORT = "55433"
+.\scripts\test.ps1
+Remove-Item Env:EMS_TEST_POSTGRES_PORT
+```
+
+The script temporarily overrides `EMS_TEST_CONNECTION_STRING` for the test run and
+restores the caller's previous value afterward. The database uses disposable local
+development credentials and must not be reused for production data.
+
+## Run manually (without the helper script)
+
+If PostgreSQL 17 is already available, supply a test connection string and run:
+
+```powershell
+$env:EMS_TEST_CONNECTION_STRING = "Host=localhost;Port=5432;Database=energy_management_tests;Username=test_user;Password=test_password"
+dotnet test tests/EnergyManagement.Tests/EnergyManagement.Tests.csproj --configuration Release
 ```
 
 The tests apply the real EF Core migration against PostgreSQL; they do not use EF Core's
-in-memory provider as a substitute for PostgreSQL. GitHub Actions provisions an isolated
-PostgreSQL 17 service container for every workflow run.
+in-memory provider as a substitute. GitHub Actions provisions an isolated PostgreSQL 17
+service container for every workflow run.
 
 ## Test coverage
 

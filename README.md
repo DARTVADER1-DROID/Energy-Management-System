@@ -8,10 +8,32 @@ A residential energy monitoring and management platform, developed incrementally
 - Backend: .NET 10 modular monolith
 - Persistence: PostgreSQL with EF Core
 
-## Test suite
+## Run the test suite locally
 
-See [Feature 001 test instructions](docs/TESTING.md) for prerequisites, coverage, and
-the command to run the unit and PostgreSQL integration tests.
+Requirements: .NET 10 SDK, Docker Desktop with Docker Compose, and PowerShell.
+
+From the repository root, run:
+
+```powershell
+.\scripts\test.ps1
+```
+
+The script starts an isolated PostgreSQL 17 test database, runs the test project in
+Release configuration (including restore and build), and stops the database afterward.
+No separately installed PostgreSQL server is required.
+
+To keep the database running for debugging:
+
+```powershell
+.\scripts\test.ps1 -KeepDatabase
+```
+
+The default host port is 55432. Set `EMS_TEST_POSTGRES_PORT` before running the script
+to use another available port. The script temporarily sets
+`EMS_TEST_CONNECTION_STRING` for the test process and restores its previous value.
+
+See [test coverage and details](docs/TESTING.md) and the
+[development workflow](docs/DEVELOPMENT.md).
 
 ## Safety and deployment note
 
