@@ -8,8 +8,7 @@ namespace EnergyManagement.Api.Web.Pages.Households;
 
 public sealed class UsersModel(
     DashboardReadService dashboardReadService,
-    HouseholdInvitationService invitationService,
-    MfaAdministrativeRecoveryService mfaRecoveryService) : PageModel
+    HouseholdInvitationService invitationService) : PageModel
 {
     [BindProperty]
     public int HouseholdId { get; set; }
@@ -97,31 +96,6 @@ public sealed class UsersModel(
         {
             TempData["ErrorMessage"] = exception.Message;
         }
-        return RedirectToPage(new { householdId });
-    }
-
-    public async Task<IActionResult> OnPostResetMfaAsync(
-        int householdId, int userId, CancellationToken cancellationToken)
-    {
-        if (!User.HasRecentAuthentication())
-        {
-            var returnUrl = Url.Page("/Households/Users", new { householdId });
-            return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
-        }
-
-        try
-        {
-            await mfaRecoveryService.ResetAsync(
-                householdId, userId, User.GetUserId(), cancellationToken);
-            TempData["StatusMessage"] =
-                "MFA was reset. The user must sign in and enroll a new authenticator.";
-        }
-        catch (Exception exception) when (
-            exception is InvalidOperationException or UnauthorizedAccessException)
-        {
-            TempData["ErrorMessage"] = exception.Message;
-        }
-
         return RedirectToPage(new { householdId });
     }
 
