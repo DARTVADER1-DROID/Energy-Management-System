@@ -32,41 +32,6 @@
         </dl>
     </section>
 
-    <section class="panel p-6">
-        <p class="eyebrow">Multi-factor authentication</p>
-        <h3 class="mt-1 text-lg font-semibold">Authenticator app</h3>
-        @if (Model.TwoFactorEnabled)
-        {
-            <span class="status-pill status-success mt-4">Enabled</span>
-            <p class="mt-3 text-sm text-slate-500">Your account requires an authenticator code during sign-in.</p>
-            <div class="mt-5 rounded-xl bg-slate-50 p-4 dark:bg-slate-800/60">
-                <p class="text-sm font-semibold">Recovery codes remaining</p>
-                <p class="mt-1 text-2xl font-semibold">@Model.RecoveryCodesRemaining <span class="text-sm font-normal text-slate-500">of 10</span></p>
-                @if (Model.RecoveryCodesRemaining <= 2)
-                {
-                    <p class="mt-2 text-xs text-amber-700 dark:text-amber-300">Only a few recovery codes remain. Store your original codes securely and contact your household administrator if you have lost access.</p>
-                }
-                else
-                {
-                    <p class="mt-2 text-xs text-slate-500">Each recovery code can be used once. Keep unused codes somewhere private and secure.</p>
-                }
-            </div>
-            <form method="post" asp-page-handler="RegenerateRecoveryCodes" class="mt-4"
-                  onsubmit="return confirm('Regenerate all recovery codes? Previously issued codes will stop working.');">
-                <button type="submit" class="secondary-button">Regenerate recovery codes</button>
-            </form>
-        }
-        else
-        {
-            <span class="status-pill status-warning mt-4">Not enabled</span>
-            <p class="mt-3 text-sm text-slate-500">Use an authenticator app to add a second sign-in factor.</p>
-            @if (Model.IsAdministrator)
-            {
-                <p class="mt-3 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">Administrator accounts must enable MFA before accessing protected areas of the system.</p>
-            }
-            <a asp-page="/Account/EnableMfa" class="primary-button mt-5 inline-flex">Set up authenticator</a>
-        }
-    </section>
 </div>
 
 @if (Model.GeneratedRecoveryCodes.Count > 0)
