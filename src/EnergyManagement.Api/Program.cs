@@ -123,7 +123,7 @@ builder.Services.ConfigureApplicationCookie(options =>
             .GetRequiredService<UserManager<ApplicationUser>>();
 
         // The application cookie event replaces Identity's default validator.
-        // Check the persisted stamp here so MFA resets and role changes revoke
+        // Check the persisted stamp here so account-security changes and role changes revoke
         // existing cookies immediately rather than waiting for a sliding interval.
         var user = userId is null ? null : await userManager.FindByIdAsync(userId);
         var currentStamp = user is null ? null : await userManager.GetSecurityStampAsync(user);
