@@ -32,9 +32,10 @@ class FirmwareContractTests(unittest.TestCase):
         self.assertIn("v.currentAmps<=10000", PZEM)
 
     def test_queue_is_bounded_and_does_not_evict_oldest(self):
-        self.assertIn("MAX_PENDING_SAMPLES = 12", CLIENT)
+        self.assertIn("MAX_PENDING_SAMPLES = 8", CLIENT)
         self.assertIn("Queue capacity reached; retaining existing samples", CLIENT)
         self.assertIn('p.putString("items",encoded)', CLIENT)
+        self.assertIn("Permanently rejected HTTP 400", CLIENT)
 
     def test_duplicate_telemetry_is_idempotent(self):
         self.assertIn("status==HTTP_CODE_CONFLICT", CLIENT)
