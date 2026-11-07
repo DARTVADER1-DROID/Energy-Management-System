@@ -81,8 +81,10 @@ test("frontend script safely initializes when optional wizard and navigation ele
     assert.doesNotThrow(() => boot());
 });
 
-test("purple brand tokens and readable muted status colours are defined", () => {
+test("purple brand tokens and readable muted text colours are defined for both themes", () => {
     const css = fs.readFileSync(path.join(__dirname, "../../src/EnergyManagement.Api/Web/Styles/tailwind.css"), "utf8");
     assert.match(css, /--color-blue-600:\s*#7c3aed/i);
     assert.match(css, /status-muted[\s\S]*text-slate-600[\s\S]*dark:text-slate-300/);
+    assert.match(css, /html:not\(\.dark\)[\s\S]*\.text-slate-500\s*\{\s*color:\s*#475569/i);
+    assert.match(css, /html\.dark[\s\S]*\.text-slate-500\s*\{\s*color:\s*#cbd5e1/i);
 });
