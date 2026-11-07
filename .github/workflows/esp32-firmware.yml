@@ -3,7 +3,7 @@ name: ESP32 Arduino firmware
 on:
   push:
     paths:
-      - "firmware/esp32-arduino/**"
+      - "firmware/esp32-arduino/**"\n      - "src/EnergyManagement.Api/Modules/Devices/**"\n      - "tests/EnergyManagement.Tests/Integration/DeviceAuthenticationTests.cs"\n      - "src/EnergyManagement.Api/Modules/Devices/**"\n      - "tests/EnergyManagement.Tests/Integration/DeviceAuthenticationTests.cs"
       - ".github/workflows/esp32-firmware.yml"
   pull_request:
     paths:
@@ -27,7 +27,7 @@ jobs:
       - name: Run firmware contract and edge-case regression tests
         run: python -m unittest discover -s firmware/esp32-arduino/tests -v
 
-      - name: Install Arduino CLI
+      - name: Build and run native C++ firmware edge tests\n        run: |\n          g++ -std=c++17 -Wall -Wextra -Werror -pedantic firmware/esp32-arduino/tests/native/test_firmware_core.cpp -o /tmp/ems-firmware-tests\n          /tmp/ems-firmware-tests\n\n      - name: Install Arduino CLI
         run: |
           mkdir -p "$HOME/.local/bin"
           curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR="$HOME/.local/bin" sh
