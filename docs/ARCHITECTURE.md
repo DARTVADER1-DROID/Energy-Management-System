@@ -37,7 +37,6 @@ The source tree is authoritative. Documentation does not imply a separate micros
 ## Edge firmware
 
 The main sketch is in firmware/esp32-arduino/EMS_ESP32:
-
 - PZEM-004T v3.x acquisition through the PZEM004Tv30 library.
 - Wi-Fi station connectivity and fresh NTP synchronization.
 - HTTPS-only device provisioning with trusted root CA validation.
