@@ -75,7 +75,7 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
     }
 
     [Fact]
-    public async Task AdministratorCanProvisionDeviceAndExchangeCodeOnlyOnce()
+    public async Task AdministratorCanProvisionDeviceAndRecoverLostExchangeResponseIdempotently()
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         var service = scope.ServiceProvider.GetRequiredService<DeviceAuthenticationService>();
@@ -104,8 +104,51 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
             new[] { "ProvisioningCodeCreated", "DeviceProvisioned" },
             initialAuditEvents);
 
+        // Simulate a lost provisioning response / reboot after the server committed.
+        // Retrying the same code within its original validity window must return the
+        // same active secret, not create another credential.
+        var recovered = await service.ExchangeProvisioningCodeAsync(_deviceCode, code.Code);
+        Assert.Equal(result.DeviceSecret, recovered.DeviceSecret);
+        Assert.Single(await securityDb.Credentials.ToArrayAsync());
+        Assert.Contains("DeviceProvisioningRecovered",
+            await securityDb.AuditEvents.Select(item => item.EventType).ToArrayAsync());
+    }
+
+    [Fact]
+    public async Task ProvisioningRecoveryTokenCannotBeUsedAfterOriginalExpiry()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var service = scope.ServiceProvider.GetRequiredService<DeviceAuthenticationService>();
+        var access = scope.ServiceProvider.GetRequiredService<HouseholdAccessService>();
+        var securityDb = scope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
+        var code = await service.CreateProvisioningCodeAsync(_deviceCode, 1, access);
+        await service.ExchangeProvisioningCodeAsync(_deviceCode, code.Code);
+
+        await securityDb.ProvisioningCodes
+            .Where(item => item.DeviceId > 0)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(
+                item => item.ExpiresAtUtc, DateTimeOffset.UtcNow.AddMinutes(-1)));
+
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.ExchangeProvisioningCodeAsync(_deviceCode, code.Code));
+    }
+
+    [Fact]
+    public async Task IssuingReplacementProvisioningCodeRevokesUsedRecoveryToken()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var service = scope.ServiceProvider.GetRequiredService<DeviceAuthenticationService>();
+        var access = scope.ServiceProvider.GetRequiredService<HouseholdAccessService>();
+        var firstCode = await service.CreateProvisioningCodeAsync(_deviceCode, 1, access);
+        await service.ExchangeProvisioningCodeAsync(_deviceCode, firstCode.Code);
+        await service.RevokeCredentialsAsync(_deviceCode, 1, access);
+
+        var replacementCode = await service.CreateProvisioningCodeAsync(_deviceCode, 1, access);
+        Assert.NotEqual(firstCode.Code, replacementCode.Code);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.ExchangeProvisioningCodeAsync(_deviceCode, firstCode.Code));
+        var replacement = await service.ExchangeProvisioningCodeAsync(_deviceCode, replacementCode.Code);
+        Assert.False(string.IsNullOrWhiteSpace(replacement.DeviceSecret));
     }
 
     [Fact]

@@ -1,72 +1,71 @@
 # Render staging deployment
 
-## Scope
+## Purpose and status
 
-The initial Render environment is a staging deployment for synthetic/test data only. It is not an approved production environment and must not be connected to real household devices or used for real household data.
+The root render.yaml defines a temporary staging environment for synthetic/test data. It is not production infrastructure. Do not connect real household electrical equipment or store important personal/operational data in this environment.
 
-The application now includes account authentication, MFA, household membership and role-based authorization, device provisioning, HMAC-SHA-256 device request authentication, replay protection, credential rotation/revocation, and signed telemetry ingestion. The staging web service is internet-reachable and remains a test environment only. Use synthetic data, do not connect real electrical equipment, and do not treat cloud telemetry or alerts as protective controls.
+## Blueprint resources
 
-## Infrastructure
+- Docker-based ASP.NET Core .NET 10 web service: energy-management-staging.
+- PostgreSQL database: energy-management-staging-db.
+- Singapore region; free plans; one web instance.
+- Internal database connection mapped to ConnectionStrings__EnergyManagement.
+- Readiness path: /health/ready.
+- Service tracks deploy/render-staging and deploys after linked checks pass.
 
-The root `render.yaml` defines:
-
-- One Docker-based ASP.NET Core .NET 10 web service: `energy-management-staging`.
-- One Render PostgreSQL database: `energy-management-staging-db`.
-- Singapore region for both resources.
-- Free compute plans for temporary staging.
-- Render's internal database connection string, supplied as `ConnectionStrings__EnergyManagement`.
-- HTTP readiness checks at `/health/ready`.
-- Automatic deployments only after the linked GitHub checks pass.
-- A single web instance.
-
-Render's free PostgreSQL plan has 1 GB of storage and expires after 30 days. Treat the database as disposable. Do not store data that must be retained; export any test data you need before expiry. See [Render's Postgres plan documentation](https://render.com/docs/postgresql-refresh).
-
-The free web service may spin down when idle. First requests after inactivity can be delayed.
+Free services can spin down, and the free database is disposable/limited-duration. Confirm current Render plan limits in the Render dashboard before relying on them.
 
 ## Container build
 
 The Dockerfile:
-
-1. Builds Tailwind CSS using Node.js 22.
-2. Publishes the ASP.NET Core application with the .NET 10 SDK.
-3. Runs the published app on the .NET 10 ASP.NET runtime.
+1. Builds Tailwind CSS using Node 22.
+2. Restores and publishes the .NET 10 application.
+3. Runs the app on the .NET 10 ASP.NET runtime as a non-root application user.
 4. Listens on port 10000.
 
-The application reads its database connection from `ConnectionStrings__EnergyManagement`, which ASP.NET Core maps to `ConnectionStrings:EnergyManagement`.
+## Environment configuration
+
+The Blueprint sets ASPNETCORE_ENVIRONMENT=Production, ASPNETCORE_URLS=http://0.0.0.0:10000 and Database__ApplyMigrationsOnStartup=true for this staging environment.
+
+Initial administrator bootstrap variables:
+- EMS_BOOTSTRAP_ADMIN_EMAIL
+- EMS_BOOTSTRAP_ADMIN_PASSWORD
+- EMS_BOOTSTRAP_HOUSEHOLD_NAME
+
+The bootstrap password must meet the application's configured Identity policy. Remove bootstrap email/password values after the initial administrator has been created. Do not leave bootstrap credentials configured indefinitely.
+
+Device credential encryption:
+- EMS_DEVICE_CREDENTIAL_ENCRYPTION_KEY must be a base64 value decoding to exactly 32 bytes.
+- Generate a unique cryptographically random key and store it only as a secret environment variable.
+- Preserve it securely across deploys and backups. Replacing it without a supported re-encryption/rotation process can make stored device credentials unreadable.
+
+Email invitations and password reset require the configured SMTP settings and the public HTTPS base URL EMS_PUBLIC_BASE_URL. Check the current service configuration and application options before assuming email delivery is active.
 
 ## Database migrations
 
-The application supports opt-in startup migrations through `Database:ApplyMigrationsOnStartup`. The staging Blueprint sets this to `true`, so the energy, identity, and device-security EF Core migration sets are applied before the app begins serving requests. The bootstrapper then ensures the application roles exist and can create the initial administrator and household when the bootstrap variables are supplied.
+Startup migration is enabled in this staging Blueprint. The application applies its EF Core migration sets before serving. This convenience is staging-only. Production should use a controlled migration/release procedure, backup and restore plan, and compatibility review.
 
-This is intentionally disabled by default in other environments. Production must use a controlled migration/release process and account for compatibility between old and new application versions.
+## Deployment checklist
 
-## Required staging secrets and first administrator
-
-Configure these environment variables on the Render web service before the first authenticated staging session:
-
-- `EMS_BOOTSTRAP_ADMIN_EMAIL`: email address for the initial staging administrator.
-- `EMS_BOOTSTRAP_ADMIN_PASSWORD`: initial password (minimum 12 characters, including uppercase, lowercase, digit, and non-alphanumeric character).
-- `EMS_BOOTSTRAP_HOUSEHOLD_NAME`: initial household display name.
-- `EMS_DEVICE_CREDENTIAL_ENCRYPTION_KEY`: base64-encoded cryptographic key that decodes to exactly 32 bytes. Generate a unique random value and keep it in Render's secret environment settings. Do not commit it to the repository or reuse a test key.
-
-The bootstrapper creates the administrator only when the installation contains no users. Once the administrator and household have been created, remove the bootstrap email/password variables from the service environment and redeploy; do not leave bootstrap credentials configured indefinitely. If no bootstrap account is configured, the login page can load but there will be no initial user able to sign in.
-
-The device encryption key is required when provisioning device credentials. Changing it after credentials have been stored makes previously encrypted device signing keys unreadable, so preserve it across deploys and backups.
-
-## Deployment workflow
-
-The staging Blueprint is linked to `deploy/render-staging`. It is configured to deploy only after the repository's GitHub checks pass. Changes are proposed through pull requests; do not merge or approve infrastructure changes without reviewing the PR and Render Blueprint plan.
+1. Review the Blueprint diff and service/database plan.
+2. Confirm required secrets are configured in Render, never in Git.
+3. Confirm the database connection is the Render internal connection string.
+4. Confirm the service's public URL, HTTPS termination and forwarded-header behavior.
+5. Confirm /health/ready passes and /health/live responds.
+6. Verify bootstrap account creation and remove bootstrap secrets.
+7. Verify SMTP delivery if invitations/password reset are in scope.
+8. Inspect logs for startup/migration errors without exposing secrets.
+9. Verify the deployed commit SHA and CI checks correspond to the intended release.
 
 ## Production prerequisites
 
-Before any production release:
+- Independent application and device-security review.
+- Verified TLS/proxy/cookie/CSRF/rate-limit configuration.
+- Durable PostgreSQL plan, backups, restore drills and retention policy.
+- Controlled migrations, monitoring, alerting, incident response and rollback.
+- Secret rotation and device credential lifecycle runbooks.
+- Firmware provisioning, signed publish, queue/recovery and physical-device testing.
+- Hardware calibration, environmental/soak testing and qualified electrical sign-off.
+- Implement durable alert evaluation, historical analytics and notification delivery if these are required operationally.
 
-- Complete an independent security review of authentication, MFA, household authorization, device provisioning, HMAC authentication, and credential rotation.
-- Complete ESP32 firmware provisioning, secure credential storage, signed publishing, command polling, and offline queue behavior.
-- Review and protect all future device-control endpoints; keep time-critical fault handling and protective shutdown local to the device.
-- Validate proxy/TLS forwarding, secure cookies, CSRF protections, rate limiting, secret rotation, backups, and recovery under the actual production topology.
-- Establish persistent paid PostgreSQL, backups, restore drills, and a data-retention policy.
-- Establish a controlled database migration/release procedure.
-- Verify logging, monitoring, incident response, and rollback compatibility.
-- Complete physical-device end-to-end validation and electrical safety review before connecting ESP32 devices to real equipment.
-- Implement durable alert evaluation, notification delivery, historical telemetry charts, and command workflows before treating the dashboard as an operational monitoring system.
+A successful Render deploy or health check is not proof of production readiness or electrical safety.

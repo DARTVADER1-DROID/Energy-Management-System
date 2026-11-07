@@ -1,0 +1,14 @@
+flowchart TD
+  A["Administrator signs in"] --> B["Select household and reauthenticate"]
+  B --> C["Create invitation with email and role"]
+  C --> D["Generate random token; persist SHA-256 hash"]
+  D --> E["Send HTTPS invitation link by email"]
+  E --> F{"Recipient opens link within 24 hours?"}
+  F -->|No / expired / revoked| G["Reject invitation"]
+  F -->|Yes| H{"Account already exists?"}
+  H -->|No| I["Create account with password"]
+  H -->|Yes| J["Require sign-in as invited email"]
+  I --> K["Consume token and create membership"]
+  J --> K
+  K --> L["Record security audit event"]
+  L --> M["Household access follows assigned role"]

@@ -52,7 +52,7 @@ public sealed class DeviceAuthenticationService(
             IsolationLevel.Serializable, cancellationToken);
         var now = DateTimeOffset.UtcNow;
         await securityDb.ProvisioningCodes
-            .Where(code => code.DeviceId == device.Id && code.UsedAtUtc == null && code.RevokedAtUtc == null)
+            .Where(code => code.DeviceId == device.Id && code.RevokedAtUtc == null)
             .ExecuteUpdateAsync(setters =>
                 setters.SetProperty(code => code.RevokedAtUtc, now), cancellationToken);
 
@@ -117,12 +117,57 @@ public sealed class DeviceAuthenticationService(
         await using var transaction = await securityDb.Database.BeginTransactionAsync(
             IsolationLevel.Serializable, cancellationToken);
 
-        var code = await securityDb.ProvisioningCodes.SingleOrDefaultAsync(item =>
+        var code = await securityDb.ProvisioningCodes.AsNoTracking().SingleOrDefaultAsync(item =>
             item.DeviceId == device.Id && item.CodeHash == codeHash &&
-            item.UsedAtUtc == null && item.RevokedAtUtc == null && item.ExpiresAtUtc > now,
+            item.RevokedAtUtc == null && item.ExpiresAtUtc > now,
             cancellationToken);
         if (code is null)
             throw new InvalidOperationException("The provisioning request is invalid or expired.");
+
+        // A consumed code remains a narrowly scoped recovery token until its original
+        // ten-minute expiry. This makes a lost HTTP response or ESP32 power loss
+        // recoverable without creating another credential or revealing any other key.
+        if (code.UsedAtUtc.HasValue)
+        {
+            var currentCredential = await securityDb.Credentials.AsNoTracking().SingleOrDefaultAsync(item =>
+                item.DeviceId == device.Id && !item.IsPendingRotation &&
+                item.RevokedAtUtc == null && item.CreatedAtUtc >= code.UsedAtUtc.Value,
+                cancellationToken);
+            if (currentCredential is null)
+                throw new InvalidOperationException("The provisioning request is invalid or expired.");
+
+            var recoveryKey = GetEncryptionKey();
+            byte[] recoveredSecret;
+            try
+            {
+                recoveredSecret = Unprotect(currentCredential.ProtectedSigningKey, recoveryKey);
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(recoveryKey);
+            }
+
+            try
+            {
+                var expectedHash = Convert.FromHexString(currentCredential.SecretHash);
+                var actualHash = SHA256.HashData(recoveredSecret);
+                if (!CryptographicOperations.FixedTimeEquals(expectedHash, actualHash))
+                    throw new InvalidOperationException("The provisioning request is invalid or expired.");
+
+                securityDb.AuditEvents.Add(new DeviceSecurityAuditEvent(
+                    device.Id, null, "DeviceProvisioningRecovered",
+                    "Device recovered its current credential using the original provisioning code within its validity window."));
+                await securityDb.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+                return new DeviceProvisioningResult(
+                    deviceCode, WebEncoders.Base64UrlEncode(recoveredSecret),
+                    "HMAC-SHA256", "X-EMS-Timestamp", "X-EMS-Nonce", "X-EMS-Signature");
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(recoveredSecret);
+            }
+        }
 
         if (await securityDb.Credentials.AnyAsync(
             item => item.DeviceId == device.Id && item.RevokedAtUtc == null, cancellationToken))
@@ -190,14 +235,13 @@ public sealed class DeviceAuthenticationService(
                 setters.SetProperty(item => item.RevokedAtUtc, now), cancellationToken);
 
         await securityDb.ProvisioningCodes
-            .Where(item => item.DeviceId == device.Id &&
-                item.UsedAtUtc == null && item.RevokedAtUtc == null)
+            .Where(item => item.DeviceId == device.Id && item.RevokedAtUtc == null)
             .ExecuteUpdateAsync(setters =>
                 setters.SetProperty(item => item.RevokedAtUtc, now), cancellationToken);
 
         securityDb.AuditEvents.Add(new DeviceSecurityAuditEvent(
             device.Id, administratorUserId, "CredentialsRevoked",
-            $"{revokedCount} active credential(s) and unused provisioning codes revoked."));
+            $"{revokedCount} active credential(s) and active provisioning recovery code(s) revoked."));
         await securityDb.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         logger.LogWarning(
@@ -236,6 +280,10 @@ public sealed class DeviceAuthenticationService(
         await using var transaction = await securityDb.Database.BeginTransactionAsync(
             IsolationLevel.Serializable, cancellationToken);
         var now = DateTimeOffset.UtcNow;
+        await securityDb.ProvisioningCodes
+            .Where(item => item.DeviceId == device.Id && item.RevokedAtUtc == null)
+            .ExecuteUpdateAsync(setters =>
+                setters.SetProperty(item => item.RevokedAtUtc, now), cancellationToken);
         await securityDb.Credentials
             .Where(item => item.DeviceId == device.Id &&
                 item.IsPendingRotation && item.RevokedAtUtc == null)

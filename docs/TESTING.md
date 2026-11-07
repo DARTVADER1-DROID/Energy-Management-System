@@ -1,114 +1,68 @@
-# Automated test suite
+# Testing and continuous integration
 
-The test project validates the household and device registration domain, HTTP API,
-PostgreSQL persistence, and concurrent device-number allocation.
+## Test layers
 
-## Run locally (recommended)
+| Layer | Tool / location | What it checks |
+|---|---|---|
+| .NET domain | xUnit, tests/EnergyManagement.Tests/Domain | Household/device invariants, metadata, thresholds and lifecycle rules. |
+| .NET integration | xUnit + PostgreSQL 17, tests/EnergyManagement.Tests/Integration | HTTP behavior, Identity/security, provisioning, signed device auth, telemetry persistence and household boundaries. |
+| Frontend | Node built-in test runner, tests/frontend | Client-side resilience and theme behavior. |
+| Firmware portable logic | C++17, firmware/esp32-arduino/tests/native | Numeric validation, energy-counter normalization, retry/backoff and queue edge cases. |
+| Firmware contracts | Python unittest, firmware/esp32-arduino/tests | Cross-check firmware/API assumptions and contract invariants. |
+| Firmware compile | Arduino CLI + ESP32 core 3.3.12 | Main firmware and dependency-free diagnostic compile for generic ESP32 target. |
+| Container build | Docker | Production Docker image build. |
 
-### Prerequisites
+## Run .NET integration suite locally
 
-- .NET 10 SDK
-- Docker Desktop with Docker Compose
-- PowerShell
-
-From the repository root:
+Requirements: .NET 10 SDK, Docker Desktop with Compose, PowerShell.
 
 ```powershell
 .\scripts\test.ps1
 ```
 
-The script starts PostgreSQL 17 using `docker-compose.test.yml`, waits for its
-health check, sets `EMS_TEST_CONNECTION_STRING`, and runs the test project in Release
-configuration. `dotnet test` performs restore and build automatically. The database
-container is stopped and removed afterward.
+The helper starts PostgreSQL 17 on host port 55432, waits for readiness, supplies EMS_TEST_CONNECTION_STRING to the test process and removes the container afterward. Use -KeepDatabase to retain it for debugging. Set EMS_TEST_POSTGRES_PORT to change the host port.
 
-To leave PostgreSQL running for debugging, use:
-
-```powershell
-.\scripts\test.ps1 -KeepDatabase
-```
-
-The default host port is 55432. If that port is occupied, choose another:
-
-```powershell
-$env:EMS_TEST_POSTGRES_PORT = "55433"
-.\scripts\test.ps1
-Remove-Item Env:EMS_TEST_POSTGRES_PORT
-```
-
-The script temporarily overrides `EMS_TEST_CONNECTION_STRING` for the test run and
-restores the caller's previous value afterward. The database uses disposable local
-development credentials and must not be reused for production data.
-
-## Run manually (without the helper script)
-
-If PostgreSQL 17 is already available, supply a test connection string and run:
+Manual run against a dedicated disposable PostgreSQL 17 database:
 
 ```powershell
 $env:EMS_TEST_CONNECTION_STRING = "Host=localhost;Port=5432;Database=energy_management_tests;Username=test_user;Password=test_password"
 dotnet test tests/EnergyManagement.Tests/EnergyManagement.Tests.csproj --configuration Release
 ```
 
-The tests apply the real EF Core migration against PostgreSQL; they do not use EF Core's
-in-memory provider as a substitute. GitHub Actions provisions an isolated PostgreSQL 17
-service container for every workflow run.
+The integration suite applies actual EF Core migrations. It intentionally resets test state; never point it at production or a data-bearing database.
 
-## Test coverage
+## Run frontend tests
 
-### Domain
+```bash
+npm install
+npm run test:frontend
+npm run build
+```
 
-- Household name validation, trimming and maximum-length boundaries
-- Device construction, required metadata and positive device-number invariants
-- Device identity, initial state and registration timestamp
-- Optional description normalisation
-- Metadata update validation and threshold replacement/clearing
-- Single-phase and three-phase configuration
-- Soft deactivation and stable device identity
-- Last-seen timestamp UTC validation and monotonic ordering
-- Optional thresholds and optional temperature
-- Negative thresholds, invalid voltage ranges, and invalid warning persistence
-- Required persistence duration when a warning threshold is configured
+## Run firmware portable tests
 
-### API and persistence
+```bash
+python -m unittest discover -s firmware/esp32-arduino/tests -v
+g++ -std=c++17 -Wall -Wextra -Werror -pedantic firmware/esp32-arduino/tests/native/test_firmware_core.cpp -o /tmp/ems-firmware-tests
+/tmp/ems-firmware-tests
+```
 
-- Household creation, trimming, generated code, Location header and validation
-- Household listing and deterministic ordering
-- Device registration, metadata persistence, and generated identifiers
-- Required-field validation and maximum-length boundaries
-- Unsupported electrical configuration and threshold boundary validation
-- Missing household/device and invalid request handling
-- Invalid registration does not consume a device number
-- Device listing across households and by household filter
-- Soft deactivation is idempotent and inactive devices remain retrievable/listed
-- Optional temperature threshold remains optional
+Arduino compilation is performed by the GitHub Actions firmware workflow. It installs Arduino CLI 1.2.2, ESP32 Arduino core 3.3.12, ArduinoJson 7.4.3 and PZEM004Tv30 1.2.1, then compiles both the main firmware and bench diagnostic.
 
-### Concurrency
+## CI workflows
 
-- Twenty simultaneous registrations through independent dependency-injection scopes
-- Unique, sequential identifiers under concurrent registration
-- Persisted device count verified after concurrent registration
-- Deactivated identifiers are not reused
-- Device numbering is independent per household
+### .NET tests
 
-## Latest validation
+.github/workflows/dotnet-tests.yml runs on pushes to main and supported feature/build/deploy/fix branches and pull requests targeting main. It provisions PostgreSQL 17, runs frontend tests, builds Tailwind, runs .NET tests and builds the Docker image.
 
-The expanded Feature 001 suite completed successfully in GitHub Actions on 6 November 2026:
+### ESP32 firmware
 
-- **97 passed**
-- **0 failed**
-- **0 skipped**
-- **9 seconds** test execution time
-- .NET 10 with PostgreSQL 17
+.github/workflows/esp32-firmware.yml runs for firmware and related device/telemetry contract changes, plus manual dispatch. It runs Python contract tests, native C++ edge-case tests and Arduino CLI compilation.
 
-See [the successful workflow run](https://github.com/DARTVADER1-DROID/Energy-Management-System/actions/runs/42248843753)
-and the [comprehensive test-suite document](FEATURE-001-TEST-SUITE.md) for detailed
-coverage, scope exclusions and maintenance expectations.
+## Interpreting results
 
-## Known scope boundaries
+A green CI run verifies only the checks executed for that exact commit SHA. A workflow that is queued or in progress is not a pass. Documentation-only commits may not trigger every workflow. Always inspect the run's commit SHA and each job's status before reporting validation.
 
-Authentication and role-based authorization are not implemented yet, so the tests do not
-assert administrator/member/viewer access rules. The API must not be exposed publicly
-until authentication, authorization, and secure device provisioning are implemented.
+## Physical validation not covered by CI
 
-These tests do not validate physical electrical protection, firmware behavior, telemetry,
-or warning evaluation. Dashboard warning thresholds are not protection settings.
+CI does not test a physical ESP32, USB cable/serial driver, Wi-Fi network, PZEM UART, metering accuracy, TLS behavior through the live Render proxy, NVS power-loss behavior on the actual board, mains isolation, protective devices or electrical safety. Complete the [hardware commissioning](../firmware/esp32-arduino/HARDWARE_COMMISSIONING.md) and [production acceptance](../firmware/esp32-arduino/PRODUCTION_ACCEPTANCE.md) procedures before production consideration.

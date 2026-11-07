@@ -1,157 +1,27 @@
-# Feature 001 — Comprehensive Regression Test Suite
+# Feature 001 — Registration regression coverage
 
-**Status:** Implemented and CI-validated  
-**Feature under test:** Household and Device Registration / Identity Management  
-**Test framework:** xUnit on .NET 10  
-**Persistence under test:** PostgreSQL 17 with the application's EF Core migrations
+This document preserves the original registration test scope as a focused reference. For the current full test strategy, commands, CI workflows and validation interpretation, see [TESTING.md](TESTING.md).
 
-## 1. Purpose
+## Covered behaviors
 
-This test suite protects the first functional increment of the Energy Management System: creating households, registering monitoring devices, assigning stable identifiers, maintaining device metadata and lifecycle state, and storing those records in PostgreSQL.
+- Household name validation, normalization and generated identifiers.
+- Device creation, required metadata, stable identity and lifecycle.
+- Optional descriptions and metadata updates.
+- Single-phase and three-phase electrical configuration.
+- Threshold configuration boundaries and clearing.
+- Device registration API validation and HTTP responses.
+- Device listing, filtering, pagination and deactivation.
+- Concurrent per-household device-number allocation and non-reuse after deactivation.
+- PostgreSQL-backed EF Core migrations and persistence behavior.
 
-The suite is intentionally layered. Domain tests verify business invariants without HTTP or database dependencies. API integration tests exercise the public HTTP boundary using the application test host. PostgreSQL-backed tests verify real persistence and concurrent identifier allocation.
+## Test implementation
 
-The suite grew from the original 38-test baseline to 102 passing test cases. The additional boundary and invariant tests are regression protection, not a change to the production feature's behaviour.
+The xUnit project is tests/EnergyManagement.Tests. Domain tests live under Domain; API and persistence tests live under Integration; shared host and PostgreSQL fixtures live under Infrastructure. Integration tests use PostgreSQL rather than relying on an in-memory provider for relational semantics.
 
-## 2. Test organisation
+## Historical validation
 
-Tests are kept in the existing `tests/EnergyManagement.Tests` project and grouped by concern:
+The original Feature 001 milestone reported 102 passing tests in a specific CI run. That number is historical and is not a statement about the current test count or current branch head. Always inspect the latest GitHub Actions runs for the exact commit being reviewed.
 
-| Location | Responsibility |
-|---|---|
-| `Domain/HouseholdTests.cs` | Household domain invariants |
-| `Domain/DeviceTests.cs` | Device creation, metadata and lifecycle behaviour |
-| `Domain/DeviceThresholdTests.cs` | Threshold value and configuration rules |
-| `Domain/DeviceInvariantTests.cs` | Additional boundary and invariant regression cases |
-| `Integration/DeviceRegistrationApiTests.cs` | Core household/device HTTP workflows |
-| `Integration/DeviceRegistrationBoundaryApiTests.cs` | HTTP validation boundaries, status codes and edge cases |
-| `Integration/DeviceRegistrationConcurrencyTests.cs` | Concurrent allocation and identifier non-reuse |
-| `Infrastructure/` | PostgreSQL fixture and ASP.NET Core test host |
+## Scope boundary
 
-The integration tests use the actual PostgreSQL provider and apply the repository's EF Core migrations. An in-memory EF provider is not used as a substitute for relational behaviour.
-
-## 3. Coverage
-
-### 3.1 Household domain and API
-
-- Required household name validation and whitespace trimming.
-- Maximum household-name length and its accepted boundary.
-- Household creation response, generated household code and resource location.
-- Listing households in deterministic identifier order and retrieving a household by ID.
-- Invalid household requests return a client error.
-
-### 3.2 Device domain invariants
-
-- Device construction requires a household and valid required metadata.
-- Device numbers must be positive.
-- Initial active state, generated device code and registration timestamp.
-- Optional descriptions are trimmed and blank descriptions become null.
-- Deactivation is idempotent and does not change the device identity.
-- Last-seen timestamps accept UTC values, reject non-zero offsets, and cannot move backwards.
-- Metadata updates validate required values before replacing existing metadata.
-- Threshold settings can be replaced or cleared.
-- Both single-phase and three-phase configurations are represented.
-
-### 3.3 Device registration API and validation boundaries
-
-- Successful registration persists metadata and returns the generated device code.
-- Unknown households and unknown device codes return not found.
-- Required metadata rejects blank values.
-- Metadata fields accept their configured maximum lengths and reject values above them.
-- Optional descriptions accept the maximum supported length and reject oversized values.
-- Unsupported electrical-configuration enum values are rejected.
-- Negative threshold values and invalid minimum/maximum voltage relationships are rejected.
-- Warning persistence duration rejects zero, negative and over-limit values, and accepts its lower and upper bounds.
-- Temperature remains optional when other thresholds are configured.
-- Invalid registration requests do not consume a device number.
-- Device listing supports household filtering, bounded pagination and page metadata headers.
-- Deactivation is idempotent; inactive devices remain retrievable and visible in the device list.
-
-### 3.4 Identifier allocation and concurrency
-
-- Household identifiers are generated by the backend.
-- Device identifiers are sequential within each household.
-- Different households maintain independent device-number sequences.
-- Twenty registrations are issued concurrently through independent dependency-injection scopes.
-- The resulting device codes are unique and form a complete sequential range.
-- All concurrently registered devices are verified in PostgreSQL after the requests complete.
-- Deactivated device numbers are not reused.
-
-## 4. Test isolation and database behaviour
-
-The PostgreSQL test fixture supplies a dedicated test connection string. Integration test setup resets the test database and applies migrations before executing its cases. The xUnit PostgreSQL collection serialises tests that share this database, preventing parallel test classes from racing while resetting shared state.
-
-The local helper script starts a disposable PostgreSQL 17 container. GitHub Actions provisions its own PostgreSQL service container for each workflow run. Do not point this suite at a production or data-bearing database: tests intentionally delete and recreate the configured test database.
-
-## 5. Run the suite
-
-From the repository root on Windows with the .NET 10 SDK, Docker Desktop / Docker Compose and PowerShell installed:
-
-```powershell
-.\scripts\test.ps1
-```
-
-Keep the PostgreSQL container running for inspection:
-
-```powershell
-.\scripts\test.ps1 -KeepDatabase
-```
-
-The default host port is 55432. Override it if needed:
-
-```powershell
-$env:EMS_TEST_POSTGRES_PORT = "55433"
-.\scripts\test.ps1
-Remove-Item Env:EMS_TEST_POSTGRES_PORT
-```
-
-For a manually managed PostgreSQL 17 instance, set `EMS_TEST_CONNECTION_STRING` and run:
-
-```powershell
-dotnet test tests/EnergyManagement.Tests/EnergyManagement.Tests.csproj --configuration Release
-```
-
-See [TESTING.md](TESTING.md) for the complete local and CI workflow.
-
-## 6. Latest recorded validation
-
-The expanded suite was run by GitHub Actions on 6 November 2026 after the review fixes:
-
-| Result | Value |
-|---|---:|
-| Total | 102 |
-| Passed | 102 |
-| Failed | 0 |
-| Skipped | 0 |
-| Test execution duration | 10 seconds |
-| Target framework | .NET 10 |
-| Database | PostgreSQL 17 |
-
-- Workflow run: [42253875877](https://github.com/DARTVADER1-DROID/Energy-Management-System/actions/runs/42253875877)
-- Test-suite expansion commit: [41257f6541a4d2972bdf7c80a286d90fc2910ebb](https://github.com/DARTVADER1-DROID/Energy-Management-System/commit/41257f6541a4d2972bdf7c80a286d90fc2910ebb)
-
-These figures describe that specific CI run; rerun the workflow after subsequent changes rather than treating this result as a guarantee for future commits.
-
-## 7. Explicit exclusions
-
-The test suite does not claim to validate functionality that Feature 001 does not implement:
-
-- Authentication, household membership or role-based authorization.
-- Device authentication, secure provisioning or credential rotation.
-- Telemetry ingestion, heartbeat HTTP endpoints or last-seen updates over the network.
-- Threshold evaluation, alert generation or notification delivery.
-- Firmware execution, physical electrical protection, contactors or hardware behaviour.
-- Automatic device discovery.
-
-The administrator-only registration rule remains a product requirement, not an enforced security boundary in this increment. Do not expose the API to an untrusted network or production internet until authentication, authorization, secure provisioning and the associated security controls are implemented and tested.
-
-## 8. Maintenance expectations
-
-When changing Feature 001:
-
-1. Add or update domain tests for changed business invariants.
-2. Add API integration tests for request validation, response contracts and HTTP status behaviour.
-3. Add PostgreSQL integration coverage when persistence, migrations, transactions or allocation logic changes.
-4. Include concurrency tests for any change to device-number allocation.
-5. Keep test names behaviour-oriented and test cases independent of execution order.
-6. Run the full suite before merging; investigate failures rather than weakening assertions to obtain a green build.
+The original registration milestone did not include authentication or authorization. Those capabilities were added in later increments. Current security behavior is described in [SECURITY-001](SECURITY-001-AUTHENTICATION-AND-DEVICE-IDENTITY.md).

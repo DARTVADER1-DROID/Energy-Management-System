@@ -1,0 +1,20 @@
+flowchart LR
+  subgraph Edge["Edge device"]
+    Sensor["PZEM-004T v3.x"]
+    Firmware["ESP32 Arduino C++\nWi-Fi / NTP / NVS"]
+    Queue[("NVS offline queue\nmax 8 samples")]
+    Sensor --> Firmware
+    Firmware <--> Queue
+  end
+  subgraph Cloud["Render staging / ASP.NET Core .NET 10"]
+    API["Minimal API endpoints\nIdentity + device auth + telemetry"]
+    Pages["Razor Pages\nDashboard and administration"]
+    Services["Domain and application services"]
+    DB[("PostgreSQL\nEF Core")]
+    API --> Services
+    Pages --> Services
+    Services <--> DB
+  end
+  Browser["User browser"] --> Pages
+  Firmware -- "HTTPS + HMAC\nprovision / heartbeat / telemetry" --> API
+  API -. "No control channel in current scope" .- Firmware

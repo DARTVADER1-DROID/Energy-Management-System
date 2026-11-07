@@ -1,0 +1,25 @@
+flowchart TD
+  A["Boot ESP32"] --> B["Connect Wi-Fi"]
+  B -->|Unavailable| B1["Retry connection"] --> B
+  B -->|Connected| C["Force fresh NTP synchronization"]
+  C -->|Invalid clock| C1["Block signed traffic; retry"] --> B
+  C -->|Valid clock| D{"Device credential in NVS?"}
+  D -->|No| E["Exchange one-time provisioning code over HTTPS"]
+  E -->|Failure| E1["Exponential backoff 30 s to 30 min"] --> B
+  E -->|Success| F["Persist credential in NVS"]
+  D -->|Yes| G["Initialize signed telemetry client"]
+  F --> G
+  G --> H["At telemetry interval: flush queued samples"]
+  H --> I["Read PZEM"]
+  I --> J{"Reading valid and in bounds?"}
+  J -->|No| K["Discard invalid reading"]
+  J -->|Yes| L["Normalize cumulative energy and build sample"]
+  L --> M["Send HTTPS + HMAC"]
+  M -->|Accepted or duplicate| N["Mark delivered"]
+  M -->|Transient failure| O["Persist sample in bounded queue"]
+  M -->|Permanent payload rejection| P["Drop permanently invalid sample"]
+  N --> Q["Heartbeat on configured interval"]
+  K --> Q
+  O --> Q
+  P --> Q
+  Q --> H
