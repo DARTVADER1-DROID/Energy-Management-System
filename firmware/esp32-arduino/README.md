@@ -58,7 +58,7 @@ PZEM measurement wiring can expose lethal mains voltage. Mains wiring, CT placem
 
 - The queue holds 8 samples (approximately four minutes at the default 30-second interval). It is bounded to protect device storage. Longer outages can overflow it; the newest sample is rejected rather than deleting older pending samples.
 - The backend accepts capture timestamps no older than seven days. Extended offline periods therefore require operator review; queued samples can become too old for ingestion.
-- A meter reset is detected when its reported cumulative energy falls below the last saved raw counter. The prior total is retained as an offset, but energy consumed during the interval in which the meter was reset cannot be reconstructed.
+- A meter reset is detected when its reported cumulative energy falls below the last saved raw counter. The prior checkpointed total is retained as an offset; the NVS checkpoint can be up to five minutes old, and energy consumed during the reset gap cannot be reconstructed.
 - The queue and energy metadata use Preferences/NVS. Flash encryption, secure boot provisioning, and physical flash-extraction protection are deliberately not changed in this work.
 - A successful CI compile and source-level regression suite do not replace physical hardware-in-loop testing or prove PZEM measurement accuracy.
 
