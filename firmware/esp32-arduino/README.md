@@ -1,81 +1,79 @@
-# EMS ESP32 firmware (Arduino IDE / C++)
+# ESP32 Arduino firmware
 
-Monitoring-only firmware for an ESP32-WROOM-class board and PZEM-004T v3.x. It integrates with the EMS provisioning, HMAC authentication, heartbeat, and version-1 telemetry APIs.
+## Scope
 
-## Included
+Monitoring-only Arduino C++ firmware for an ESP32-WROOM-32-class board and PZEM-004T v3.x. It integrates with EMS device provisioning, HMAC authentication, heartbeat and telemetry schema v1.
 
-- Wi-Fi station connection and NTP time synchronization; signed requests fail closed when time is invalid.
-- HTTPS-only provisioning with CA validation and exponential retry backoff (30 seconds to 30 minutes).
-- Device credential persisted in ESP32 NVS. Optional credential rotation: paste the one-time replacement secret from the EMS device details page into `EMS_ROTATED_DEVICE_SECRET`; firmware persists it before the first signed heartbeat so the backend cannot revoke the old key before the new key is durable.
-- HMAC-SHA256 heartbeat and telemetry with a 128-bit random nonce and UUIDv4 sample IDs.
-- PZEM voltage, current, active power, cumulative energy, frequency, and power-factor readings.
-- Numeric validation against the backend's telemetry bounds before transmission.
-- Bounded persistent offline queue: up to 8 complete telemetry payloads, retaining their original sample IDs and capture timestamps. Retries use fresh HMAC timestamps/nonces. HTTP 409 is treated as an already-accepted duplicate. When full, the queue retains existing samples and rejects the newest sample.
-- HTTP/TLS/authentication diagnostics without logging secrets or signatures.
-- Cumulative meter-counter reset detection and an offset to keep the reported total monotonic across detected resets.
+**Not implemented:** relay/contactor actuation, remote switching, protective trips, cloud commands or local electrical protection state machines. The firmware is not a certified protective device.
 
-## Arduino IDE setup
+## Features
 
-1. Install Espressif Systems' ESP32 board package through Boards Manager.
-2. Select the matching ESP32-WROOM / ESP32 Dev Module board and serial port.
-3. Install ArduinoJson 7.4.3 and PZEM004Tv30 1.2.1 (Jakub Mandula) through Library Manager.
-4. Copy `EMS_ESP32/Config.example.h` to `EMS_ESP32/Config.h`.
-5. Fill in Wi-Fi credentials, API base URL, registered device code, one-time provisioning code, and trusted HTTPS root CA PEM.
-6. Open `EMS_ESP32/EMS_ESP32.ino`, compile, and upload.
+- Wi-Fi station connection with retry.
+- Fresh NTP synchronization; signed requests fail closed when time is invalid.
+- HTTPS-only provisioning with trusted root CA validation and exponential retry backoff from 30 seconds to 30 minutes.
+- Device credential persisted in ESP32 Preferences/NVS.
+- Optional credential rotation; replacement is persisted before the first signed heartbeat so the backend cannot revoke the old key before the new key is durable.
+- HMAC-SHA-256 heartbeat and telemetry with 128-bit request nonce and UUIDv4 sample ID.
+- Numeric validation against backend telemetry bounds.
+- Cumulative energy normalization across meter counter reset/wrap conditions.
+- Persistent offline queue capped at eight complete payloads. Original sample IDs and capture timestamps are retained; retries use fresh HMAC timestamps/nonces.
+- HTTP 409 duplicate sample is treated as already accepted.
+- Queue overflow retains older pending samples and rejects the newest sample.
+- Diagnostics avoid logging device secrets and signatures.
 
-Never commit `Config.h`. The firmware blocks HTTPS requests if a trusted CA is absent; do not use `setInsecure()`.
+## Hardware and pin assumptions
+
+- Target: original ESP32 / ESP32-WROOM-32 family; Arduino FQBN used in CI: esp32:esp32:esp32.
+- PZEM UART pins default to GPIO16 (ESP32 RX) and GPIO17 (ESP32 TX).
+- Confirm the actual board/module and pinout before wiring. Do not assume these pins map identically on ESP32-S2/S3/C3/C6 variants.
+- PZEM-004T v3.x is required for real meter readings. Without the PZEM, use the separate USB bench diagnostic.
+
+## Dependencies
+
+CI currently pins Arduino CLI 1.2.2, Espressif ESP32 Arduino core 3.3.12, ArduinoJson 7.4.3 and PZEM004Tv30 1.2.1.
+
+## Configure
+
+1. Copy Config.example.h to Config.h in the EMS_ESP32 sketch directory.
+2. Set Wi-Fi SSID/password, HTTPS EMS API base URL, registered device code, one-time provisioning code and trusted root CA certificate.
+3. Keep Config.h local; it is ignored by Git. Never commit credentials.
+4. Confirm the CA certificate validates the service certificate chain.
+5. Set pin numbers and intervals only after confirming the board and meter interface.
+
+## Arduino IDE
+
+1. Install Espressif ESP32 board support.
+2. Select ESP32 Dev Module provisionally for a typical ESP32-WROOM-32 board.
+3. Install ArduinoJson 7.4.3 and PZEM004Tv30 1.2.1.
+4. Open EMS_ESP32.ino and compile/upload.
+5. Open Serial Monitor at 115200 baud.
+
+For a first USB-only test, open ESP32_Bench_Diagnostic/ESP32_Bench_Diagnostic.ino. See its README. That diagnostic requires only the ESP32 Arduino core and does not connect to Wi-Fi or drive GPIO outputs.
 
 ## Provisioning and recovery
 
-1. Register a device in the EMS web application under the intended household.
-2. Generate its single-use provisioning code (valid for 10 minutes).
-3. Add device code and provisioning code to local `Config.h`.
-4. Flash and open Serial Monitor at 115200 baud.
-5. Allow Wi-Fi and NTP synchronization. The sketch exchanges the code at `POST /api/device-auth/provision`.
-6. The returned device secret is stored in NVS. Remove the one-time code from local configuration after successful provisioning.
+1. Register the device in the EMS household.
+2. Request a provisioning code from the device details page (administrator access and recent authentication may be required).
+3. Add device code and one-time provisioning code to local Config.h.
+4. Connect the ESP32 to Wi-Fi and allow fresh NTP synchronization.
+5. The sketch exchanges the code at POST /api/device-auth/provision over validated HTTPS.
+6. The returned secret is stored in NVS. Remove the one-time code from local configuration after successful provisioning.
+7. Confirm a signed heartbeat updates device last-seen.
 
-**Power-loss recovery:** the backend now makes the provisioning exchange idempotent for the original code's remaining validity window. If the server created the credential but the ESP32 lost power or the HTTP response before saving it, the device can retry the same code and receive the same active credential. The recovery code expires at its original 10-minute deadline. If that deadline has passed, an administrator must revoke the orphaned credential and issue a fresh provisioning code. Issuing a new code revokes older recovery tokens, including already-used ones.
+The backend supports bounded recovery for a provisioning exchange whose response was lost before the ESP32 saved the credential. Recovery is limited to the original code validity window. If that expires, an administrator must revoke any orphaned credential and issue a new code.
 
-## Credential rotation
+## Queue limits and energy behavior
 
-1. Open the device details page and initiate credential rotation.
-2. Copy the replacement secret once.
-3. Set `EMS_ROTATED_DEVICE_SECRET` in local `Config.h`.
-4. Flash/restart. Firmware stores the replacement first, then sends an authenticated heartbeat. The backend adopts the replacement on that request and revokes the old key.
-5. After successful rotation, clear the replacement secret from `Config.h`; the active key remains in NVS.
+- Eight queued samples maximum (about four minutes at the default 30-second sample interval).
+- Queue overflow rejects the newest sample and retains existing samples.
+- Backend rejects samples older than seven days; extended offline periods require operator review.
+- NVS queue and energy metadata are persistent, but flash encryption, secure boot provisioning and physical flash-extraction protection have not been changed and are explicitly out of scope.
+- Power-loss and long-duration flash-wear behavior still require physical hardware validation.
 
-If the replacement is expired or rejected, firmware restores the previously stored key. Do not revoke the old credential manually before the replacement has been confirmed.
+## Testing
 
-## UART wiring and meter compatibility
+CI runs Python contract tests, native C++17 edge-case tests and Arduino CLI compilation for both main firmware and the bench diagnostic. CI compilation does not prove sensor accuracy, board pin compatibility or electrical safety.
 
-For common PZEM-004T v3.x TTL boards, default ESP32 UART pins are GPIO16 (RX2) and GPIO17 (TX2), configurable in Config.h. Cross-connect meter TX to ESP32 RX and meter RX to ESP32 TX. Use suitable level compatibility/isolation for the exact board. Confirm the PZEM revision and interface before wiring; older revisions differ and are not supported by the V3 library.
+## Safety
 
-## Electrical safety
-
-PZEM measurement wiring can expose lethal mains voltage. Mains wiring, CT placement, fusing, enclosure, clearances, and contactor/relay selection require a qualified electrician. Never connect mains to ESP32 GPIO. This firmware is not a certified protective relay or safety controller. Relay outputs, remote switching, protective trip logic, and command polling are intentionally absent.
-
-## Queue and energy-counter limitations
-
-- The queue holds 8 samples (approximately four minutes at the default 30-second interval). It is bounded to protect device storage. Longer outages can overflow it; the newest sample is rejected rather than deleting older pending samples.
-- The backend accepts capture timestamps no older than seven days. Extended offline periods therefore require operator review; queued samples can become too old for ingestion.
-- A meter reset is detected when its reported cumulative energy falls below the last saved raw counter. The prior checkpointed total is retained as an offset; the NVS checkpoint can be up to five minutes old, and energy consumed during the reset gap cannot be reconstructed.
-- The queue and energy metadata use Preferences/NVS. Flash encryption, secure boot provisioning, and physical flash-extraction protection are deliberately not changed in this work.
-- A successful CI compile and source-level regression suite do not replace physical hardware-in-loop testing or prove PZEM measurement accuracy.
-
-## Validation and production gate
-
-The GitHub Actions workflow pins ESP32 core 3.3.12, ArduinoJson 7.4.3, and PZEM004Tv30 1.2.1. It runs Python backend/firmware contract checks, native C++17 edge-case tests, the backend .NET suite, and an Arduino CLI compile.
-
-Run host tests locally from the repository root:
-
-```sh
-python -m unittest discover -s firmware/esp32-arduino/tests -v
-g++ -std=c++17 -Wall -Wextra -Werror -pedantic firmware/esp32-arduino/tests/native/test_firmware_core.cpp -o /tmp/ems-firmware-tests
-/tmp/ems-firmware-tests
-```
-
-See [PRODUCTION_ACCEPTANCE.md](PRODUCTION_ACCEPTANCE.md) for the complete hardware-in-the-loop test matrix and release gates. A successful CI compile and source-level regression suite do not replace physical hardware-in-loop testing or prove PZEM measurement accuracy. The firmware must remain supervised monitoring-only until the hardware acceptance matrix is completed.
-
-## Flashing
-
-Use a USB data cable and the board USB-to-UART interface. Select the serial port and click Upload. If auto-reset fails, hold BOOT while upload begins and release when the IDE starts connecting. Serial Monitor: 115200 baud.
+Use USB/approved low-voltage power for initial board checks. Do not connect mains, PZEM mains conductors, CT circuits, relays or loads based on this README. All mains-related installation and testing must be performed by a qualified electrician using properly rated isolation and protective equipment. Cloud telemetry and warning thresholds are not protection.
