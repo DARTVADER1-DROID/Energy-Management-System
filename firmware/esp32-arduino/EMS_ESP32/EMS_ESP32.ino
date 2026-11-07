@@ -5,6 +5,7 @@
 #include <Preferences.h>
 #include <ArduinoJson.h>
 #include <time.h>
+#include <sys/time.h>
 #include "Config.h"
 #include "PzemReader.h"
 #include "TelemetryClient.h"
@@ -30,6 +31,9 @@ bool connectWiFi(){
   return WiFi.status()==WL_CONNECTED;
 }
 bool synchronizeClock(){
+  // Reset potentially stale/future RTC state so success requires a fresh NTP update.
+  struct timeval resetTime = {};
+  if(settimeofday(&resetTime,nullptr)!=0){Serial.println("[ntp] Unable to reset clock for fresh synchronization.");return false;}
   configTime(0,0,NTP_SERVER_1,NTP_SERVER_2);
   const unsigned long started=millis();
   while(time(nullptr)<1700000000&&millis()-started<NTP_SYNC_TIMEOUT_MS)delay(250);
