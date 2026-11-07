@@ -2,7 +2,7 @@
 
 ## Status
 
-The server-side schema-v1 ingestion and history query paths are implemented. The ESP32 Arduino client now includes PZEM acquisition, HTTPS provisioning, signed publishing and a bounded persistent queue. Physical PZEM hardware, calibration, production proxy behavior and end-to-end commissioning remain unverified.
+The server-side schema-v1 ingestion and history query paths are implemented. The ESP32 Arduino client includes PZEM acquisition, HTTPS provisioning, signed publishing and a bounded persistent queue. Physical PZEM hardware, calibration, production proxy behavior and end-to-end commissioning remain unverified.
 
 ## Schema v1
 
@@ -54,7 +54,7 @@ POST /api/device-telemetry uses the device HMAC authentication pipeline. Headers
 - X-EMS-Nonce
 - X-EMS-Signature
 
-The HMAC-SHA-256 canonical input binds method, exact path/query, timestamp, nonce and SHA-256 body digest. Device state, credential status, timestamp freshness and nonce uniqueness are validated. Device requests are rate-limited. The firmware requires a valid NTP clock and trusted root CA; it does not disable TLS validation.
+The HMAC-SHA-256 canonical input binds method, exact path/query, timestamp, nonce and SHA-256 body digest. Device state, credential status, signature, timestamp freshness and nonce uniqueness are validated. Device requests are rate-limited. Firmware requires a valid NTP clock and trusted root CA; it does not disable TLS validation.
 
 ## Validation and persistence
 
