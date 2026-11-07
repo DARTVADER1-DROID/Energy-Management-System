@@ -6,6 +6,7 @@ class TelemetryClient {
   TelemetryClient(const char* baseUrl, const char* deviceCode, const String& encodedSecret, const char* rootCa);
   bool publish(const PzemReading& reading);
   bool heartbeat();
+  bool flushPending() { return flushQueue(); }
   int lastStatus() const { return lastHttpStatus; }
  private:
   String baseUrl, deviceCode, encodedSecret;
