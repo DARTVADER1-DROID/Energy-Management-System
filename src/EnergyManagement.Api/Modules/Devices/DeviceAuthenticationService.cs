@@ -241,7 +241,7 @@ public sealed class DeviceAuthenticationService(
 
         securityDb.AuditEvents.Add(new DeviceSecurityAuditEvent(
             device.Id, administratorUserId, "CredentialsRevoked",
-            $"{revokedCount} active credential(s) and unused provisioning codes revoked."));
+            $"{revokedCount} active credential(s) and active provisioning recovery code(s) revoked."));
         await securityDb.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         logger.LogWarning(
