@@ -52,7 +52,7 @@ public sealed class DeviceAuthenticationService(
             IsolationLevel.Serializable, cancellationToken);
         var now = DateTimeOffset.UtcNow;
         await securityDb.ProvisioningCodes
-            .Where(code => code.DeviceId == device.Id && code.UsedAtUtc == null && code.RevokedAtUtc == null)
+            .Where(code => code.DeviceId == device.Id && code.RevokedAtUtc == null)
             .ExecuteUpdateAsync(setters =>
                 setters.SetProperty(code => code.RevokedAtUtc, now), cancellationToken);
 
