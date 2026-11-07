@@ -41,9 +41,9 @@ void scheduleProvisionRetry(){
   Serial.printf("[provision] Retry delayed; next attempt in %lu seconds.\n",nextProvisionAttemptMs>millis()?(nextProvisionAttemptMs-millis())/1000:0);
 }
 bool provisionDevice(){
-  if(strlen(EMS_PROVISIONING_CODE)==0||strlen(EMS_ROOT_CA_CERT)==0||
+  if(!ems::isHttpsBaseUrl(EMS_API_BASE_URL)||strlen(EMS_PROVISIONING_CODE)==0||strlen(EMS_ROOT_CA_CERT)==0||
      strstr(EMS_ROOT_CA_CERT,"PASTE_TRUSTED_ROOT_CA")!=nullptr){
-    Serial.println("[provision] Missing provisioning code or trusted CA.");return false;
+    Serial.println("[provision] HTTPS API URL, provisioning code, or trusted CA missing/invalid.");return false;
   }
   WiFiClientSecure client; client.setCACert(EMS_ROOT_CA_CERT); HTTPClient http;
   if(!http.begin(client,String(EMS_API_BASE_URL)+"/api/device-auth/provision")){Serial.println("[provision] HTTPS initialization failed.");return false;}
