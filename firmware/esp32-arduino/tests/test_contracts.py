@@ -1,6 +1,5 @@
 import hashlib
 import hmac
-import re
 import unittest
 from pathlib import Path
 
@@ -13,11 +12,10 @@ class FirmwareContractTests(unittest.TestCase):
     def test_hmac_canonicalization_matches_backend_contract(self):
         method, path, timestamp, nonce, body = "POST", "/api/device-telemetry", "1794050000", "0123456789ABCDEF", '{"schemaVersion":1}'
         body_hash = hashlib.sha256(body.encode()).hexdigest().upper()
-        canonical = "\\n".join((method, path, timestamp, nonce, body_hash)).encode()
-        secret = bytes(range(32))
-        expected = hmac.new(secret, canonical, hashlib.sha256).hexdigest().upper()
+        canonical = "\n".join((method, path, timestamp, nonce, body_hash)).encode()
+        expected = hmac.new(bytes(range(32)), canonical, hashlib.sha256).hexdigest().upper()
         self.assertEqual(len(expected), 64)
-        self.assertIn('method+"\\\\n"+path+"\\\\n"+timestamp+"\\\\n"+nonce+"\\\\n"+hash', CLIENT)
+        self.assertIn('method+"\n"+path+"\n"+timestamp+"\n"+nonce+"\n"+hash', CLIENT)
 
     def test_nonce_and_sample_id_strength(self):
         self.assertIn("esp_random()", CLIENT)
