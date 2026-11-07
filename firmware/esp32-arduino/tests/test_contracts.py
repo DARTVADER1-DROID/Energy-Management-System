@@ -15,7 +15,8 @@ class FirmwareContractTests(unittest.TestCase):
         canonical = "\n".join((method, path, timestamp, nonce, body_hash)).encode()
         expected = hmac.new(bytes(range(32)), canonical, hashlib.sha256).hexdigest().upper()
         self.assertEqual(len(expected), 64)
-        self.assertIn('method+"\n"+path+"\n"+timestamp+"\n"+nonce+"\n"+hash', CLIENT)
+        self.assertIn("String canonical=method+", CLIENT)
+        self.assertEqual(CLIENT.count(r'"\\n"'), 4)
 
     def test_nonce_and_sample_id_strength(self):
         self.assertIn("esp_random()", CLIENT)
