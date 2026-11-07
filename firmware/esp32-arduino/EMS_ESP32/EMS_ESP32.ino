@@ -42,7 +42,7 @@ void scheduleProvisionRetry(){
 }
 bool provisionDevice(){
   if(!ems::isHttpsBaseUrl(EMS_API_BASE_URL)||strlen(EMS_PROVISIONING_CODE)==0||
-     strstr(EMS_ROOT_CA_CERT,"PASTE_TRUSTED_ROOT_CA")!=nullptr){
+     strncmp(EMS_ROOT_CA_CERT + sizeof("-----BEGIN CERTIFICATE-----\\n") - 1,\n       "PASTE_TRUSTED_ROOT_CA_CERTIFICATE_HERE", sizeof("PASTE_TRUSTED_ROOT_CA_CERTIFICATE_HERE") - 1) == 0){
     Serial.println("[provision] HTTPS API URL, provisioning code, or trusted CA missing/invalid.");return false;
   }
   WiFiClientSecure client; client.setCACert(EMS_ROOT_CA_CERT); HTTPClient http;
