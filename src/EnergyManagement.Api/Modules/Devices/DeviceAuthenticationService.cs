@@ -235,8 +235,7 @@ public sealed class DeviceAuthenticationService(
                 setters.SetProperty(item => item.RevokedAtUtc, now), cancellationToken);
 
         await securityDb.ProvisioningCodes
-            .Where(item => item.DeviceId == device.Id &&
-                item.UsedAtUtc == null && item.RevokedAtUtc == null)
+            .Where(item => item.DeviceId == device.Id && item.RevokedAtUtc == null)
             .ExecuteUpdateAsync(setters =>
                 setters.SetProperty(item => item.RevokedAtUtc, now), cancellationToken);
 
@@ -281,6 +280,10 @@ public sealed class DeviceAuthenticationService(
         await using var transaction = await securityDb.Database.BeginTransactionAsync(
             IsolationLevel.Serializable, cancellationToken);
         var now = DateTimeOffset.UtcNow;
+        await securityDb.ProvisioningCodes
+            .Where(item => item.DeviceId == device.Id && item.RevokedAtUtc == null)
+            .ExecuteUpdateAsync(setters =>
+                setters.SetProperty(item => item.RevokedAtUtc, now), cancellationToken);
         await securityDb.Credentials
             .Where(item => item.DeviceId == device.Id &&
                 item.IsPendingRotation && item.RevokedAtUtc == null)
