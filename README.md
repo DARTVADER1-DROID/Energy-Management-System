@@ -8,7 +8,7 @@ A residential energy monitoring and management platform, developed incrementally
 
 - Backend: .NET 10 modular monolith with ASP.NET Core Minimal APIs and server-rendered Razor Pages.
 - Persistence: PostgreSQL with EF Core and module-owned migrations.
-- Identity and access: account authentication, MFA, household membership/roles, invitations, administrator controls and recent-authentication gates.
+- Identity and access: email/password authentication, household membership/roles, invitations, administrator controls and recent-authentication gates. MFA is currently disabled for all accounts.
 - Device security: single-use provisioning codes, per-device HMAC-SHA-256 credentials, timestamp/nonce replay protection, credential rotation/revocation and security audit history.
 - Telemetry: versioned flexible envelope, signed ingestion, JSONB persistence, per-device sample deduplication and household-scoped history queries.
 - Dashboard: latest persisted household measurements for power, voltage, current and cumulative energy.
