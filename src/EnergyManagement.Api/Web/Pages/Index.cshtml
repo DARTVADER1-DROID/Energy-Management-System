@@ -5,20 +5,22 @@
     ViewData["Households"] = Model.Snapshot.Households;
     ViewData["SelectedHouseholdId"] = Model.Snapshot.SelectedHousehold?.Id;
 }
-<div class="flex flex-wrap items-end justify-between gap-4">
-    <div>
-        <p class="eyebrow">Overview</p>
-        <h2 class="page-heading">Energy at a glance</h2>
-        <p class="mt-1 text-sm text-slate-500">A consolidated view of household energy operations.</p>
+<section class="dashboard-hero">
+    <div class="flex flex-wrap items-end justify-between gap-5">
+        <div class="max-w-2xl">
+            <p class="eyebrow">Household overview</p>
+            <h2 class="page-heading">Energy at a glance</h2>
+            <p class="mt-2 text-sm leading-6">A clear view of your connected energy infrastructure, device activity and latest electrical measurements.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+            @if (User.IsInRole("Administrator"))
+            {
+                <a asp-page="/Households/Create" class="hero-action">＋ Create household</a>
+            }
+            <span class="status-pill border border-white/20 bg-white/10 text-white">Workspace overview</span>
+        </div>
     </div>
-    <div class="flex items-center gap-3">
-        @if (User.IsInRole("Administrator"))
-        {
-            <a asp-page="/Households/Create" class="primary-button">＋ Create household</a>
-        }
-        <span class="status-pill status-neutral"><span class="status-dot"></span> SSR dashboard</span>
-    </div>
-</div>
+</section>
 
 @if (Model.Snapshot.SelectedHousehold is null)
 {
@@ -38,24 +40,24 @@
 }
 else
 {
-    <div class="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <article class="metric-card">
-            <div class="metric-label">Registered devices</div>
+            <div class="flex items-center justify-between"><div class="metric-label">Registered devices</div><span class="metric-icon" aria-hidden="true">▦</span></div>
             <div class="metric-value">@Model.Snapshot.TotalDevices</div>
             <p class="metric-foot">In @Model.Snapshot.SelectedHousehold.Name</p>
         </article>
         <article class="metric-card">
-            <div class="metric-label">Active devices</div>
+            <div class="flex items-center justify-between"><div class="metric-label">Active devices</div><span class="metric-icon" aria-hidden="true">◉</span></div>
             <div class="metric-value">@Model.Snapshot.ActiveDevices</div>
             <p class="metric-foot">Not deactivated</p>
         </article>
         <article class="metric-card">
-            <div class="metric-label">Devices reporting</div>
+            <div class="flex items-center justify-between"><div class="metric-label">Devices reporting</div><span class="metric-icon" aria-hidden="true">⌁</span></div>
             <div class="metric-value">@Model.Snapshot.DevicesSeen</div>
             <p class="metric-foot">At least one recorded check-in</p>
         </article>
         <article class="metric-card">
-            <div class="metric-label">Latest device check-in</div>
+            <div class="flex items-center justify-between"><div class="metric-label">Latest device check-in</div><span class="metric-icon" aria-hidden="true">◷</span></div>
             <div class="metric-value metric-value-small">@(Model.Snapshot.LatestSeenAtUtc?.ToLocalTime().ToString("dd MMM, HH:mm") ?? "—")</div>
             <p class="metric-foot">No assumed online state</p>
         </article>
@@ -111,7 +113,7 @@ else
             </div>
             <div class="mt-6 space-y-4">
                 <div class="flex items-center justify-between"><span class="text-sm text-slate-500">Registered</span><span class="font-semibold">@Model.Snapshot.TotalDevices</span></div>
-                <div class="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"><div class="h-full rounded-full bg-blue-600" style="width:@(Model.Snapshot.TotalDevices == 0 ? 0 : 100)%"></div></div>
+                <div class="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" role="progressbar" aria-label="Active device registrations" aria-valuemin="0" aria-valuemax="@Model.Snapshot.TotalDevices" aria-valuenow="@Model.Snapshot.ActiveDevices"><div class="h-full rounded-full bg-blue-600 transition-all" style="width:@(Model.Snapshot.TotalDevices == 0 ? 0 : Math.Clamp((decimal)Model.Snapshot.ActiveDevices / Model.Snapshot.TotalDevices * 100m, 0m, 100m))%"></div></div>
                 <div class="flex items-center justify-between"><span class="text-sm text-slate-500">Active registrations</span><span class="font-semibold">@Model.Snapshot.ActiveDevices</span></div>
                 <div class="flex items-center justify-between"><span class="text-sm text-slate-500">Ever reported</span><span class="font-semibold">@Model.Snapshot.DevicesSeen</span></div>
             </div>
