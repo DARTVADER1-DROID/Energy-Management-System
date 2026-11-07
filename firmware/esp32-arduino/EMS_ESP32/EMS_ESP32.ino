@@ -90,14 +90,18 @@ void normalizeCumulativeEnergy(PzemReading& reading){
 void tryCredentialRotation(){
   const String replacement=EMS_ROTATED_DEVICE_SECRET;
   if(replacement.length()==0||replacement==deviceSecret)return;
-  Serial.println("[rotation] Testing replacement credential with authenticated heartbeat.");
-  TelemetryClient candidate(EMS_API_BASE_URL,EMS_DEVICE_CODE,replacement,EMS_ROOT_CA_CERT);
-  if(!candidate.heartbeat()){Serial.println("[rotation] Replacement key not yet accepted; keeping current credential.");return;}
+  // Persist before first use: the backend adopts and revokes the old key on the first
+  // successful request signed by the replacement credential.
   if(!preferences.begin("ems-device",false))return;
   size_t saved=preferences.putString("secret",replacement);preferences.end();
-  if(saved==0){Serial.println("[rotation] Replacement accepted but NVS write failed; current runtime will retain old key.");return;}
-  deviceSecret=replacement;
-  delete telemetry;telemetry=nullptr;
+  if(saved==0){Serial.println("[rotation] Could not persist replacement; old credential remains active.");return;}
+  TelemetryClient candidate(EMS_API_BASE_URL,EMS_DEVICE_CODE,replacement,EMS_ROOT_CA_CERT);
+  if(!candidate.heartbeat()){
+    if(preferences.begin("ems-device",false)){preferences.putString("secret",deviceSecret);preferences.end();}
+    Serial.println("[rotation] Replacement not accepted; restored previous credential.");
+    return;
+  }
+  deviceSecret=replacement;delete telemetry;telemetry=nullptr;
   Serial.println("[rotation] Replacement credential confirmed and stored.");
 }
 void createTelemetryClient(){
