@@ -8,6 +8,7 @@
 #include "Config.h"
 #include "PzemReader.h"
 #include "TelemetryClient.h"
+#include "FirmwareCore.h"
 
 namespace {
 Preferences preferences;
@@ -16,8 +17,8 @@ TelemetryClient* telemetry=nullptr;
 String deviceSecret, previousDeviceSecret;
 bool rotationPending=false,rotationRejected=false;
 unsigned long lastTelemetryMs=0,lastHeartbeatMs=0,lastRotationAttemptMs=0;
-unsigned long nextProvisionAttemptMs=0,provisionBackoffMs=30000UL;
-float energyOffsetWh=0,lastRawEnergyWh=-1;
+unsigned long nextProvisionAttemptMs=0,provisionBackoffMs=ems::kInitialProvisionBackoffMs;
+ems::EnergyCounterState energyCounter;
 unsigned long lastMeterPersistMs=0;
 
 bool connectWiFi(){
@@ -36,7 +37,7 @@ bool synchronizeClock(){
 }
 void scheduleProvisionRetry(){
   nextProvisionAttemptMs=millis()+provisionBackoffMs;
-  provisionBackoffMs=min(provisionBackoffMs*2UL,1800000UL);
+  provisionBackoffMs=ems::nextProvisionBackoff(provisionBackoffMs);
   Serial.printf("[provision] Retry delayed; next attempt in %lu seconds.\n",nextProvisionAttemptMs>millis()?(nextProvisionAttemptMs-millis())/1000:0);
 }
 bool provisionDevice(){
@@ -72,26 +73,25 @@ void loadCredential(){
 void persistMeterState(bool force){
   if(!force&&millis()-lastMeterPersistMs<300000UL)return;
   if(!preferences.begin("ems-meter",false))return;
-  preferences.putFloat("offsetWh",energyOffsetWh);
-  if(lastRawEnergyWh>=0)preferences.putFloat("lastRawWh",lastRawEnergyWh);
+  preferences.putDouble("offsetWh",energyCounter.offsetWh);
+  if(energyCounter.initialized)preferences.putDouble("lastRawWh",energyCounter.lastRawWh);
   preferences.end();lastMeterPersistMs=millis();
 }
 void normalizeCumulativeEnergy(PzemReading& reading){
-  const float raw=reading.energyWattHours;
-  bool reset=false;
-  if(lastRawEnergyWh<0){
+  if(!energyCounter.initialized){
     if(preferences.begin("ems-meter",true)){
-      energyOffsetWh=preferences.getFloat("offsetWh",0);
-      lastRawEnergyWh=preferences.getFloat("lastRawWh",-1);
+      energyCounter.offsetWh=preferences.getDouble("offsetWh",0);
+      energyCounter.lastRawWh=preferences.getDouble("lastRawWh",-1);
       preferences.end();
+      energyCounter.initialized=energyCounter.lastRawWh>=0;
     }
   }
-  if(lastRawEnergyWh>=0&&raw+1.0f<lastRawEnergyWh){
-    energyOffsetWh+=lastRawEnergyWh;reset=true;
-    Serial.println("[pzem] Meter energy counter reset detected; preserving prior cumulative total. Energy during reset gap cannot be reconstructed.");
-  }
-  lastRawEnergyWh=raw;reading.energyWattHours=raw+energyOffsetWh;
-  if(reset)persistMeterState(true);else persistMeterState(false);
+  double totalWh=0;
+  bool reset=ems::normalizeEnergy(reading.energyWattHours,energyCounter,totalWh);
+  reading.energyWattHours=static_cast<float>(totalWh);
+  // Persist every sample so a reset after a power interruption loses at most
+  // one telemetry interval, rather than the previous five-minute checkpoint.
+  persistMeterState(reset || millis()-lastMeterPersistMs>=TELEMETRY_INTERVAL_MS);
 }
 void tryCredentialRotation(){
   lastRotationAttemptMs=millis();
@@ -145,7 +145,7 @@ void setup(){
   if(!connectWiFi()){Serial.println("[boot] Wi-Fi unavailable; background retry enabled.");return;}
   if(!synchronizeClock()){Serial.println("[ntp] Clock sync failed; authenticated traffic disabled until sync.");return;}
   if(deviceSecret.length()==0){
-    if(provisionDevice())provisionBackoffMs=30000UL;
+    if(provisionDevice())provisionBackoffMs=ems::kInitialProvisionBackoffMs;
     else scheduleProvisionRetry();
   }else tryCredentialRotation();
   createTelemetryClient();
