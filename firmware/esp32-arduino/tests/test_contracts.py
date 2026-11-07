@@ -58,7 +58,7 @@ class FirmwareContractTests(unittest.TestCase):
         self.assertIn("isHttpsBaseUrl(baseUrl.c_str())", CLIENT)
         self.assertIn("client.setCACert(rootCa)", CLIENT)
         self.assertNotIn("setInsecure", CLIENT + MAIN)
-        self.assertIn("if(now<1700000000)", CLIENT)
+        self.assertIn("if(now<1700000000)", CLIENT)\n        self.assertIn("settimeofday(&resetTime,nullptr)", MAIN)
 
     def test_provisioning_retry_has_exponential_cap(self):
         self.assertIn("ems::nextProvisionBackoff(provisionBackoffMs)", MAIN)
