@@ -28,9 +28,9 @@
         const toggle = document.getElementById("theme-toggle");
         if (toggle) {
             const dark = root.dataset.theme === "dark";
-            toggle.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
-            toggle.setAttribute("title", dark ? "Switch to light theme" : "Switch to dark theme");
-            const icon = toggle.querySelector("[aria-hidden]");
+            toggle.setAttribute?.("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
+            toggle.setAttribute?.("title", dark ? "Switch to light theme" : "Switch to dark theme");
+            const icon = toggle.querySelector?.("[aria-hidden]");
             if (icon) icon.textContent = dark ? "☀" : "◐";
         }
     };
