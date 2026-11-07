@@ -36,6 +36,7 @@ class FirmwareContractTests(unittest.TestCase):
         self.assertIn("Queue capacity reached; retaining existing samples", CLIENT)
         self.assertIn('p.putString("items",encoded)', CLIENT)
         self.assertIn("Permanently rejected HTTP 400", CLIENT)
+        self.assertIn("flushPending", MAIN)
 
     def test_duplicate_telemetry_is_idempotent(self):
         self.assertIn("status==HTTP_CODE_CONFLICT", CLIENT)
