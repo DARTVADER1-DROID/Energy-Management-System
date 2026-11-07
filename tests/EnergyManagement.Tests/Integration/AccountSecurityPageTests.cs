@@ -33,7 +33,7 @@ public sealed class AccountSecurityPageTests(PostgreSqlFixture postgres) : IAsyn
             UserName = "account-security@example.test",
             Email = "account-security@example.test",
             EmailConfirmed = true,
-            TwoFactorEnabled = true
+            TwoFactorEnabled = false
         });
         await identityDb.SaveChangesAsync();
     }
@@ -47,8 +47,9 @@ public sealed class AccountSecurityPageTests(PostgreSqlFixture postgres) : IAsyn
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Account security", html);
         Assert.Contains("account-security@example.test", html);
-        Assert.Contains("Authenticator app", html);
-        Assert.Contains("Recovery codes remaining", html);
+        Assert.Contains("Change password", html);
+        Assert.DoesNotContain("Authenticator app", html);
+        Assert.DoesNotContain("Recovery codes remaining", html);
         Assert.Contains("15 minutes of inactivity", html);
     }
 

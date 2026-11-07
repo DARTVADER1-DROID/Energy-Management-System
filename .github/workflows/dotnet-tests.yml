@@ -2,7 +2,7 @@ name: .NET tests
 
 on:
   push:
-    branches: [main, "feat/**", "build/**", "deploy/**"]
+    branches: [main, "feat/**", "build/**", "deploy/**", "fix/**"]
   pull_request:
     branches: [main]
 
@@ -30,14 +30,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Install frontend tooling
+        run: npm install --no-audit --no-fund
+      - name: Test frontend resilience and theme behaviour
+        run: npm run test:frontend
       - name: Build Tailwind assets
-        run: |
-          npm install
-          npm run build
+        run: npm run build
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      - name: Run tests
+      - name: Run .NET tests
         run: dotnet test tests/EnergyManagement.Tests/EnergyManagement.Tests.csproj --configuration Release
       - name: Build production Docker image
         run: docker build --pull --tag energy-management-ems:ci .

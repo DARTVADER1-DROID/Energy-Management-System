@@ -21,10 +21,14 @@ RUN dotnet publish src/EnergyManagement.Api/EnergyManagement.Api.csproj \
     --no-restore \
     --output /app/publish
 
-# Keep the final image small: only the .NET 10 runtime and published application.
+# Install the GSSAPI runtime library used by Npgsql's optional GSS/Kerberos negotiation.
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
-WORKDIR /app
+USER root
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends libgssapi-krb5-2 \
+    && rm -rf /var/lib/apt/lists/*
 
+WORKDIR /app
 ENV ASPNETCORE_URLS=http://+:10000
 EXPOSE 10000
 
