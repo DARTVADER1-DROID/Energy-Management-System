@@ -1,0 +1,20 @@
+sequenceDiagram
+  autonumber
+  participant ESP as ESP32 firmware
+  participant API as Telemetry endpoint
+  participant Auth as Device authentication service
+  participant Service as Telemetry service
+  participant DB as PostgreSQL
+
+  ESP->>ESP: Read PZEM and validate measurement bounds
+  ESP->>ESP: Build schema-v1 envelope and sample UUID
+  ESP->>API: HTTPS POST + timestamp / nonce / HMAC signature
+  API->>Auth: Authenticate device request
+  Auth->>DB: Check active device, credential, timestamp and nonce
+  Auth-->>API: Authenticated device identity
+  API->>Service: Validate telemetry envelope
+  Service->>DB: Insert JSONB sample (unique device + sample ID)
+  DB-->>Service: Commit
+  Service-->>API: Accepted
+  API-->>ESP: 202 Accepted
+  Note over ESP,DB: On transport failure, firmware persists the original payload in its bounded NVS queue and retries with fresh request authentication metadata.
