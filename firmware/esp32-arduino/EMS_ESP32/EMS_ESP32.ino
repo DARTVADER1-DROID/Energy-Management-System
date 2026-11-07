@@ -14,7 +14,7 @@ Preferences preferences;
 PzemReader meter(PZEM_RX_PIN,PZEM_TX_PIN);
 TelemetryClient* telemetry=nullptr;
 String deviceSecret, previousDeviceSecret;
-bool rotationPending=false;
+bool rotationPending=false,rotationRejected=false;
 unsigned long lastTelemetryMs=0,lastHeartbeatMs=0,lastRotationAttemptMs=0;
 unsigned long nextProvisionAttemptMs=0,provisionBackoffMs=30000UL;
 float energyOffsetWh=0,lastRawEnergyWh=-1;
@@ -120,8 +120,8 @@ void tryCredentialRotation(){
         preferences.putBool("rotationPending",false);
         preferences.remove("previous");preferences.end();
       }
-      deviceSecret=previousDeviceSecret;rotationPending=false;
-      Serial.println("[rotation] Backend rejected replacement; restored prior key.");
+      deviceSecret=previousDeviceSecret;rotationPending=false;rotationRejected=true;
+      Serial.println("[rotation] Backend rejected replacement; restored prior key. Update or clear the configured replacement secret.");
     }else Serial.println("[rotation] Result uncertain (network/TLS/server); keeping both keys and retrying safely.");
     return;
   }
@@ -154,7 +154,7 @@ void setup(){
 void loop(){
   if(!connectWiFi()){delay(1000);return;}
   if(time(nullptr)<1700000000&&!synchronizeClock()){delay(1000);return;}
-  if(rotationPending&&millis()-lastRotationAttemptMs>=HEARTBEAT_INTERVAL_MS)tryCredentialRotation();
+  if((rotationPending||(!rotationRejected&&strlen(EMS_ROTATED_DEVICE_SECRET)>0&&String(EMS_ROTATED_DEVICE_SECRET)!=deviceSecret))&&millis()-lastRotationAttemptMs>=HEARTBEAT_INTERVAL_MS)tryCredentialRotation();
   if(deviceSecret.length()==0){
     loadCredential();
     if(deviceSecret.length()==0){
