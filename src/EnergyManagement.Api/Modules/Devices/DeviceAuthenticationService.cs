@@ -117,7 +117,7 @@ public sealed class DeviceAuthenticationService(
         await using var transaction = await securityDb.Database.BeginTransactionAsync(
             IsolationLevel.Serializable, cancellationToken);
 
-        var code = await securityDb.ProvisioningCodes.SingleOrDefaultAsync(item =>
+        var code = await securityDb.ProvisioningCodes.AsNoTracking().SingleOrDefaultAsync(item =>
             item.DeviceId == device.Id && item.CodeHash == codeHash &&
             item.RevokedAtUtc == null && item.ExpiresAtUtc > now,
             cancellationToken);
