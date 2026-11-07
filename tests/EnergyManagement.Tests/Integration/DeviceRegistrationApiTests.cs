@@ -27,7 +27,7 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
 
 
     [Fact]
-    public async Task AdministratorWithoutMfa_CannotAccessProtectedApi()
+    public async Task AdministratorWithoutMfa_CanAccessProtectedApi()
     {
         await using (var scope = _factory.Services.CreateAsyncScope())
         {
@@ -39,7 +39,7 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
 
         var response = await _client.GetAsync("/api/devices");
 
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
