@@ -4,10 +4,10 @@
 #include <ArduinoJson.h>
 #include <mbedtls/base64.h>
 #include <mbedtls/md.h>
-#include <mbedtls/sha256.h>
 #include <esp_system.h>
 #include <time.h>
 #include <math.h>
+#include <string.h>
 
 namespace {
 String toUpperHex(const uint8_t* bytes, size_t length) {
@@ -18,7 +18,9 @@ String toUpperHex(const uint8_t* bytes, size_t length) {
 }
 bool sha256Hex(const String& value, String& output) {
   uint8_t digest[32];
-  if (mbedtls_sha256_ret(reinterpret_cast<const unsigned char*>(value.c_str()), value.length(), digest, 0) != 0) return false;
+  const mbedtls_md_info_t* info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+  if (info == nullptr || mbedtls_md(info,
+      reinterpret_cast<const unsigned char*>(value.c_str()), value.length(), digest) != 0) return false;
   output = toUpperHex(digest, sizeof(digest)); return true;
 }
 }
@@ -33,8 +35,12 @@ bool TelemetryClient::decodeSecret(uint8_t* output, size_t& outputLength) const 
     reinterpret_cast<const unsigned char*>(normalized.c_str()), normalized.length()) == 0 && outputLength == 32;
 }
 String TelemetryClient::createNonce() const {
-  char nonce[17]; snprintf(nonce, sizeof(nonce), "%08lX%08lX",
-    (unsigned long)esp_random(), (unsigned long)esp_random()); return String(nonce);
+  // 128 bits of ESP32 hardware RNG output; hex is URL-safe and meets backend length rules.
+  char nonce[33];
+  snprintf(nonce, sizeof(nonce), "%08lX%08lX%08lX%08lX",
+    (unsigned long)esp_random(), (unsigned long)esp_random(),
+    (unsigned long)esp_random(), (unsigned long)esp_random());
+  return String(nonce);
 }
 String TelemetryClient::createSampleId() const {
   uint8_t b[16];
