@@ -41,17 +41,17 @@ void scheduleProvisionRetry(){
   Serial.printf("[provision] Retry delayed; next attempt in %lu seconds.\n",nextProvisionAttemptMs>millis()?(nextProvisionAttemptMs-millis())/1000:0);
 }
 bool provisionDevice(){
-  if(!ems::isHttpsBaseUrl(EMS_API_BASE_URL)||strlen(EMS_PROVISIONING_CODE)==0||strlen(EMS_ROOT_CA_CERT)==0||
+  if(!ems::isHttpsBaseUrl(EMS_API_BASE_URL)||strlen(EMS_PROVISIONING_CODE)==0||
      strstr(EMS_ROOT_CA_CERT,"PASTE_TRUSTED_ROOT_CA")!=nullptr){
     Serial.println("[provision] HTTPS API URL, provisioning code, or trusted CA missing/invalid.");return false;
   }
   WiFiClientSecure client; client.setCACert(EMS_ROOT_CA_CERT); HTTPClient http;
   if(!http.begin(client,String(EMS_API_BASE_URL)+"/api/device-auth/provision")){Serial.println("[provision] HTTPS initialization failed.");return false;}
   http.setTimeout(10000);http.addHeader("Content-Type","application/json");
-  StaticJsonDocument<256> request;request["deviceCode"]=EMS_DEVICE_CODE;request["provisioningCode"]=EMS_PROVISIONING_CODE;
+  JsonDocument request;request["deviceCode"]=EMS_DEVICE_CODE;request["provisioningCode"]=EMS_PROVISIONING_CODE;
   String body;serializeJson(request,body);int status=http.POST(body);String response=http.getString();http.end();
   if(status!=HTTP_CODE_OK){Serial.printf("[provision] HTTP %d; check code validity and device registration.\n",status);return false;}
-  StaticJsonDocument<512> result;
+  JsonDocument result;
   if(deserializeJson(result,response)||!result["deviceSecret"].is<const char*>()){
     Serial.println("[provision] Malformed response; credential was not stored.");return false;
   }
