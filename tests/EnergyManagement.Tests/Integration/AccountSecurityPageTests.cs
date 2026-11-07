@@ -26,15 +26,17 @@ public sealed class AccountSecurityPageTests(PostgreSqlFixture postgres) : IAsyn
 
         var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
         await domainDb.Database.MigrateAsync();
-        await identityDb.Database.MigrateAsync();
+        await identityDb.Database.MigrateAsync("202611060004_MfaRecoveryCodes");
         identityDb.Users.Add(new ApplicationUser
         {
             Id = 1,
             UserName = "account-security@example.test",
             Email = "account-security@example.test",
             EmailConfirmed = true,
+            TwoFactorEnabled = true
         });
         await identityDb.SaveChangesAsync();
+        await identityDb.Database.MigrateAsync();
     }
 
     [Fact]
@@ -50,6 +52,16 @@ public sealed class AccountSecurityPageTests(PostgreSqlFixture postgres) : IAsyn
         Assert.DoesNotContain("Authenticator app", html);
         Assert.DoesNotContain("Recovery codes remaining", html);
         Assert.Contains("15 minutes of inactivity", html);
+    }
+
+    [Fact]
+    public async Task MigrationDisablesMfaForExistingAccounts()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var user = await identityDb.Users.SingleAsync();
+
+        Assert.False(user.TwoFactorEnabled);
     }
 
     [Fact]
