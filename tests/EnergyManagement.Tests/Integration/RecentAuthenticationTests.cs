@@ -124,15 +124,16 @@ public sealed class RecentAuthenticationTests(PostgreSqlFixture postgres) : IAsy
     }
 
     [Fact]
-    public async Task AccountSecurityPageOffersRecoveryCodeRegenerationWhenMfaIsEnabled()
+    public async Task AccountSecurityPageDoesNotOfferMfaSetupOrRecoveryCodes()
     {
         var response = await _client.GetAsync("/Account/Profile");
         var html = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("Recovery codes remaining", html);
-        Assert.Contains("Regenerate recovery codes", html);
         Assert.Contains("Change password", html);
+        Assert.DoesNotContain("Authenticator app", html);
+        Assert.DoesNotContain("Recovery codes remaining", html);
+        Assert.DoesNotContain("Set up authenticator", html);
     }
 
     [Fact]
@@ -160,29 +161,18 @@ public sealed class RecentAuthenticationTests(PostgreSqlFixture postgres) : IAsy
     }
 
     [Fact]
-    public async Task MfaEnrollmentRequiresRecentAuthenticationAndDisablesCaching()
+    public async Task MfaEnrollmentRouteIsDisabledAndRedirectsToAccountProfile()
     {
         using var noRedirectClient = _factory.CreateClient(
             new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
             {
                 AllowAutoRedirect = false
             });
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/Account/EnableMfa");
-        request.Headers.Add("X-Test-No-Recent-Auth", "true");
 
-        using var response = await noRedirectClient.SendAsync(request);
+        using var response = await noRedirectClient.GetAsync("/Account/EnableMfa");
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Contains("/Account/Reauthenticate", response.Headers.Location?.ToString());
-        Assert.Contains("no-store", response.Headers.CacheControl?.ToString());
-    }
-
-    [Fact]
-    public async Task MfaEnrollmentPageIsNotCacheable()
-    {
-        using var response = await _client.GetAsync("/Account/EnableMfa");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("/Account/Profile", response.Headers.Location?.ToString());
         Assert.Contains("no-store", response.Headers.CacheControl?.ToString());
     }
 
