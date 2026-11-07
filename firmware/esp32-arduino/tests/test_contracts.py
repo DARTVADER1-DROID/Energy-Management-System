@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 CLIENT = (ROOT / "esp32-arduino/EMS_ESP32/TelemetryClient.cpp").read_text()
 MAIN = (ROOT / "esp32-arduino/EMS_ESP32/EMS_ESP32.ino").read_text()
-PZEM = (ROOT / "esp32-arduino/EMS_ESP32/PzemReader.cpp").read_text()\nCORE = (ROOT / "esp32-arduino/EMS_ESP32/FirmwareCore.h").read_text()\nAPI = (ROOT / "../../src/EnergyManagement.Api/Modules/Telemetry/TelemetryService.cs").read_text()\nAUTH = (ROOT / "../../src/EnergyManagement.Api/Modules/Devices/DeviceAuthenticationService.cs").read_text()\nCONFIG = (ROOT / "esp32-arduino/EMS_ESP32/Config.example.h").read_text()
+PZEM = (ROOT / "esp32-arduino/EMS_ESP32/PzemReader.cpp").read_text()\nCORE = (ROOT / "esp32-arduino/EMS_ESP32/FirmwareCore.h").read_text()\nAPI = (ROOT / "../src/EnergyManagement.Api/Modules/Telemetry/TelemetryService.cs").read_text()\nAUTH = (ROOT / "../src/EnergyManagement.Api/Modules/Devices/DeviceAuthenticationService.cs").read_text()\nCONFIG = (ROOT / "esp32-arduino/EMS_ESP32/Config.example.h").read_text()
 
 class FirmwareContractTests(unittest.TestCase):
     def test_hmac_canonicalization_matches_backend_contract(self):
