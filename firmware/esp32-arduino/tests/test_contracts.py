@@ -3,10 +3,10 @@ import hmac
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[3]
-CLIENT = (ROOT / "firmware/esp32-arduino/EMS_ESP32/TelemetryClient.cpp").read_text()
-MAIN = (ROOT / "firmware/esp32-arduino/EMS_ESP32/EMS_ESP32.ino").read_text()
-PZEM = (ROOT / "firmware/esp32-arduino/EMS_ESP32/PzemReader.cpp").read_text()
+ROOT = Path(__file__).resolve().parents[2]
+CLIENT = (ROOT / "esp32-arduino/EMS_ESP32/TelemetryClient.cpp").read_text()
+MAIN = (ROOT / "esp32-arduino/EMS_ESP32/EMS_ESP32.ino").read_text()
+PZEM = (ROOT / "esp32-arduino/EMS_ESP32/PzemReader.cpp").read_text()
 
 class FirmwareContractTests(unittest.TestCase):
     def test_hmac_canonicalization_matches_backend_contract(self):
