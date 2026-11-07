@@ -168,7 +168,7 @@ void loop(){
   createTelemetryClient();if(telemetry==nullptr){delay(1000);return;}
   unsigned long now=millis();
   if(now-lastTelemetryMs>=TELEMETRY_INTERVAL_MS){
-    lastTelemetryMs=now;PzemReading reading=meter.read();
+    lastTelemetryMs=now;telemetry->flushPending();PzemReading reading=meter.read();
     if(reading.valid){normalizeCumulativeEnergy(reading);if(!telemetry->publish(reading))Serial.println("[telemetry] Sample queued or rejected; see preceding diagnostic.");}
     else Serial.println("[pzem] Invalid/out-of-range reading; no zero-value substitution.");
   }
