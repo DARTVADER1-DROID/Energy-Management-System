@@ -67,7 +67,7 @@ bool TelemetryClient::signedPost(const char* path,const String& body,int expecte
   if(!ems::isHttpsBaseUrl(baseUrl.c_str())){Serial.println("[tls] API base URL must use HTTPS; request blocked.");return false;}
   if(!rootCa||!*rootCa||strstr(rootCa,"PASTE_TRUSTED_ROOT_CA")){Serial.println("[tls] Trusted CA missing; request blocked.");return false;}
   time_t now=time(nullptr); if(now<1700000000){Serial.println("[ntp] Invalid clock; signed request blocked.");return false;}
-  char ts[16]; snprintf(ts,sizeof(ts),"%lld",(long long)now);
+  char ts[24]; snprintf(ts,sizeof(ts),"%lld",(long long)now);
   String timestamp(ts),nonce=createNonce(),signature;
   if(!createSignature("POST",path,timestamp,nonce,body,signature)){Serial.println("[auth] Could not construct request signature.");return false;}
   WiFiClientSecure client; client.setCACert(rootCa); HTTPClient http;
@@ -89,7 +89,7 @@ bool TelemetryClient::signedPost(const char* path,const String& body,int expecte
 }
 bool TelemetryClient::enqueue(const String& payload) {
   Preferences p; if(!p.begin("ems-queue",false)) return false;
-  String current=p.getString("items","[]"); DynamicJsonDocument doc(12288);
+  String current=p.getString("items","[]"); JsonDocument doc;
   if(deserializeJson(doc,current)){doc.clear();doc.to<JsonArray>();}
   JsonArray a=doc.as<JsonArray>();
   if(!ems::canEnqueue(a.size(),MAX_PENDING_SAMPLES)){p.end();Serial.println("[queue] Queue capacity reached; retaining existing samples and rejecting newest.");return false;}
@@ -132,10 +132,10 @@ bool TelemetryClient::publish(const PzemReading& r) {
     Serial.println("[telemetry] Sample outside backend-supported physical/schema bounds; discarded.");return false;
   }
   flushQueue();
-  StaticJsonDocument<512> doc; doc["schemaVersion"]=1; doc["sampleId"]=createSampleId();
+  JsonDocument doc; doc["schemaVersion"]=1; doc["sampleId"]=createSampleId();
   char capturedAt[25]; time_t now=time(nullptr); struct tm utc;
   gmtime_r(&now,&utc); strftime(capturedAt,sizeof(capturedAt),"%Y-%m-%dT%H:%M:%SZ",&utc);
-  doc["capturedAtUtc"]=capturedAt; JsonObject m=doc.createNestedObject("measurements");
+  doc["capturedAtUtc"]=capturedAt; JsonObject m=doc["measurements"].to<JsonObject>();
   m["voltageVolts"]=r.voltageVolts; m["currentAmps"]=r.currentAmps;
   m["activePowerWatts"]=r.activePowerWatts; m["energyWattHours"]=r.energyWattHours;
   if(isfinite(r.frequencyHertz)&&r.frequencyHertz>=0&&r.frequencyHertz<=1000)m["frequencyHertz"]=r.frequencyHertz;
