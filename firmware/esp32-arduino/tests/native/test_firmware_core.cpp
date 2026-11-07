@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <limits>
 #include <iostream>
+#include <initializer_list>
 
 int main() {
     using namespace ems;
