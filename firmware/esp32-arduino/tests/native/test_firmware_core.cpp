@@ -29,9 +29,9 @@ int main() {
     double total = 0;
     assert(!normalizeEnergy(100.0, state, total) && total == 100.0);
     assert(!normalizeEnergy(101.0, state, total) && total == 101.0);
-    assert(!normalizeEnergy(100.5, state, total) && total == 100.5); // within 1 Wh tolerance
-    assert(normalizeEnergy(2.0, state, total) && total == 103.5);
-    assert(!normalizeEnergy(3.0, state, total) && total == 104.5);
+    assert(!normalizeEnergy(100.5, state, total) && total == 101.0); // jitter cannot decrease cumulative energy
+    assert(normalizeEnergy(2.0, state, total) && total == 103.0);
+    assert(!normalizeEnergy(3.0, state, total) && total == 104.0);
     const double prior = total;
     assert(!normalizeEnergy(-1.0, state, total) && total == prior);
 
