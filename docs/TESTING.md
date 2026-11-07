@@ -47,7 +47,7 @@ g++ -std=c++17 -Wall -Wextra -Werror -pedantic firmware/esp32-arduino/tests/nati
 /tmp/ems-firmware-tests
 ```
 
-Arduino compilation is performed by the GitHub Actions firmware workflow. It installs Arduino CLI 1.2.2, ESP32 Arduino core 3.3.12, ArduinoJson 7.4.3 and PZEM004Tv30 1.2.1, then compiles both the main sketch and the bench diagnostic.
+Arduino compilation is performed by the GitHub Actions firmware workflow. It installs Arduino CLI 1.2.2, ESP32 Arduino core 3.3.12, ArduinoJson 7.4.3 and PZEM004Tv30 1.2.1, then compiles both the main firmware and bench diagnostic.
 
 ## CI workflows
 
