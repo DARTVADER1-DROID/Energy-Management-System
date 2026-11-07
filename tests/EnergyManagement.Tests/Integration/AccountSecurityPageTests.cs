@@ -36,6 +36,7 @@ public sealed class AccountSecurityPageTests(PostgreSqlFixture postgres) : IAsyn
             TwoFactorEnabled = true
         });
         await identityDb.SaveChangesAsync();
+        identityDb.ChangeTracker.Clear();
         await identityDb.Database.MigrateAsync();
     }
 
