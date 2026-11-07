@@ -46,7 +46,7 @@ String TelemetryClient::createNonce() const {
 String TelemetryClient::createSampleId() const {
   uint8_t b[16]; for(size_t i=0;i<16;i+=4){uint32_t r=esp_random();memcpy(b+i,&r,4);}
   b[6]=(b[6]&15)|64; b[8]=(b[8]&63)|128; char id[37];
-  snprintf(id,sizeof(id),"%02x%02x%02x%02x-%02x-%02x-%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+  snprintf(id,sizeof(id),"%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
     b[0],b[1],b[2],b[3],b[4],b[5],b[6],b[7],b[8],b[9],b[10],b[11],b[12],b[13],b[14],b[15]);
   return String(id);
 }
