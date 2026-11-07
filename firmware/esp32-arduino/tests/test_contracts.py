@@ -23,7 +23,7 @@ class FirmwareContractTests(unittest.TestCase):
         canonical = "\n".join((method, path, timestamp, nonce, body_hash)).encode()
         actual = hmac.new(bytes(range(32)), canonical, hashlib.sha256).hexdigest().upper()
         self.assertEqual(actual, "70182E9D2ED0457A0003E5B438521FD9AC9DB1A3453227C9BDDE47C5FF85CFB3")
-        self.assertIn(r'String canonical=method+"\\n"+path+"\\n"+timestamp+"\\n"+nonce+"\\n"+hash', CLIENT)
+        self.assertIn(r'String canonical=method+"\n"+path+"\n"+timestamp+"\n"+nonce+"\n"+hash', CLIENT)
         self.assertIn("mbedtls_md_hmac", CLIENT)
 
     def test_nonce_and_sample_id_strength(self):
