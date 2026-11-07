@@ -64,6 +64,7 @@ bool TelemetryClient::createSignature(const String& method,const String& path,co
 }
 bool TelemetryClient::signedPost(const char* path,const String& body,int expectedStatus) {
   lastHttpStatus=0;
+  if(!ems::isHttpsBaseUrl(baseUrl.c_str())){Serial.println("[tls] API base URL must use HTTPS; request blocked.");return false;}
   if(!rootCa||!*rootCa||strstr(rootCa,"PASTE_TRUSTED_ROOT_CA")){Serial.println("[tls] Trusted CA missing; request blocked.");return false;}
   time_t now=time(nullptr); if(now<1700000000){Serial.println("[ntp] Invalid clock; signed request blocked.");return false;}
   char ts[16]; snprintf(ts,sizeof(ts),"%lld",(long long)now);
