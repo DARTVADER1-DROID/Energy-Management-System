@@ -64,9 +64,6 @@ public sealed class AcceptInvitationModel(
             {
                 await invitationService.AcceptForExistingUserAsync(Input.Token, signedInUser, cancellationToken);
                 await signInManager.RefreshSignInAsync(signedInUser);
-                if (await userManager.IsInRoleAsync(signedInUser, "Administrator") &&
-                    !signedInUser.TwoFactorEnabled)
-                    return RedirectToPage("/Account/EnableMfa");
                 TempData["StatusMessage"] = "You have joined the household.";
                 return RedirectToPage("/Index");
             }
@@ -96,8 +93,6 @@ public sealed class AcceptInvitationModel(
             var newUser = await invitationService.AcceptForNewUserAsync(
                 Input.Token, Password, cancellationToken);
             await signInManager.SignInAsync(newUser, isPersistent: false);
-            if (await userManager.IsInRoleAsync(newUser, "Administrator") && !newUser.TwoFactorEnabled)
-                return RedirectToPage("/Account/EnableMfa");
             TempData["StatusMessage"] = "Your account is ready and you have joined the household.";
             return RedirectToPage("/Index");
         }
