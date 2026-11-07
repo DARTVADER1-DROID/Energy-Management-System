@@ -129,7 +129,7 @@ public sealed class DeviceAuthenticationService(
         // recoverable without creating another credential or revealing any other key.
         if (code.UsedAtUtc.HasValue)
         {
-            var currentCredential = await securityDb.Credentials.SingleOrDefaultAsync(item =>
+            var currentCredential = await securityDb.Credentials.AsNoTracking().SingleOrDefaultAsync(item =>
                 item.DeviceId == device.Id && !item.IsPendingRotation &&
                 item.RevokedAtUtc == null && item.CreatedAtUtc >= code.UsedAtUtc.Value,
                 cancellationToken);
