@@ -15,7 +15,7 @@ PzemReader meter(PZEM_RX_PIN,PZEM_TX_PIN);
 TelemetryClient* telemetry=nullptr;
 String deviceSecret, previousDeviceSecret;
 bool rotationPending=false;
-unsigned long lastTelemetryMs=0,lastHeartbeatMs=0;
+unsigned long lastTelemetryMs=0,lastHeartbeatMs=0,lastRotationAttemptMs=0;
 unsigned long nextProvisionAttemptMs=0,provisionBackoffMs=30000UL;
 float energyOffsetWh=0,lastRawEnergyWh=-1;
 unsigned long lastMeterPersistMs=0;
@@ -94,7 +94,8 @@ void normalizeCumulativeEnergy(PzemReading& reading){
   if(reset)persistMeterState(true);else persistMeterState(false);
 }
 void tryCredentialRotation(){
-  String replacement=rotationPending?deviceSecret:String(EMS_ROTATED_DEVICE_SECRET);
+  lastRotationAttemptMs=millis();
+  String replacement=rotationPending?(deviceSecret==previousDeviceSecret&&strlen(EMS_ROTATED_DEVICE_SECRET)>0?String(EMS_ROTATED_DEVICE_SECRET):deviceSecret):String(EMS_ROTATED_DEVICE_SECRET);
   if(replacement.length()==0||(!rotationPending&&replacement==deviceSecret))return;
   if(!rotationPending){
     if(!preferences.begin("ems-device",false))return;
@@ -147,6 +148,7 @@ void setup(){
 void loop(){
   if(!connectWiFi()){delay(1000);return;}
   if(time(nullptr)<1700000000&&!synchronizeClock()){delay(1000);return;}
+  if(rotationPending&&millis()-lastRotationAttemptMs>=HEARTBEAT_INTERVAL_MS)tryCredentialRotation();
   if(deviceSecret.length()==0){
     loadCredential();
     if(deviceSecret.length()==0){
