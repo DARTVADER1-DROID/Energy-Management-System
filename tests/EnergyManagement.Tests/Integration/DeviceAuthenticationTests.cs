@@ -134,6 +134,24 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
     }
 
     [Fact]
+    public async Task IssuingReplacementProvisioningCodeRevokesUsedRecoveryToken()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var service = scope.ServiceProvider.GetRequiredService<DeviceAuthenticationService>();
+        var access = scope.ServiceProvider.GetRequiredService<HouseholdAccessService>();
+        var firstCode = await service.CreateProvisioningCodeAsync(_deviceCode, 1, access);
+        await service.ExchangeProvisioningCodeAsync(_deviceCode, firstCode.Code);
+        await service.RevokeCredentialsAsync(_deviceCode, 1, access);
+
+        var replacementCode = await service.CreateProvisioningCodeAsync(_deviceCode, 1, access);
+        Assert.NotEqual(firstCode.Code, replacementCode.Code);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.ExchangeProvisioningCodeAsync(_deviceCode, firstCode.Code));
+        var replacement = await service.ExchangeProvisioningCodeAsync(_deviceCode, replacementCode.Code);
+        Assert.False(string.IsNullOrWhiteSpace(replacement.DeviceSecret));
+    }
+
+    [Fact]
     public async Task ProvisioningEndpointsDoNotCacheOneTimeSecrets()
     {
         using var codeResponse = await _client.PostAsync(
