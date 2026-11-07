@@ -89,9 +89,9 @@ void normalizeCumulativeEnergy(PzemReading& reading){
   double totalWh=0;
   bool reset=ems::normalizeEnergy(reading.energyWattHours,energyCounter,totalWh);
   reading.energyWattHours=static_cast<float>(totalWh);
-  // Persist every sample so a reset after a power interruption loses at most
-  // one telemetry interval, rather than the previous five-minute checkpoint.
-  persistMeterState(reset || millis()-lastMeterPersistMs>=TELEMETRY_INTERVAL_MS);
+  // Batch NVS writes to limit flash wear; a detected reset is persisted immediately.
+  // The last checkpoint can be up to five minutes old when a meter reset occurs.
+  persistMeterState(reset);
 }
 void tryCredentialRotation(){
   lastRotationAttemptMs=millis();
