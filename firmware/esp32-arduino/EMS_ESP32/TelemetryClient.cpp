@@ -76,6 +76,7 @@ bool TelemetryClient::signedPost(const char* path,const String& body,int expecte
   http.addHeader("X-EMS-Device",deviceCode); http.addHeader("X-EMS-Timestamp",timestamp);
   http.addHeader("X-EMS-Nonce",nonce); http.addHeader("X-EMS-Signature",signature);
   int status=http.POST(body); lastHttpStatus=status;
+  const auto disposition=ems::classifyHttpStatus(status,expectedStatus);
   if(status<0) Serial.printf("[http] Transport/TLS failure (%d).\n",status);
   else if(disposition==ems::HttpDisposition::Success) {
     if(status==HTTP_CODE_CONFLICT) Serial.println("[telemetry] Duplicate sample already exists; treating as delivered.");
