@@ -102,7 +102,7 @@ bool TelemetryClient::enqueue(const String& payload) {
 bool TelemetryClient::flushQueue() {
   Preferences p; if(!p.begin("ems-queue",false)) return false;
   String current=p.getString("items","[]"); p.end();
-  DynamicJsonDocument doc(12288);
+  JsonDocument doc;
   if(deserializeJson(doc,current)){Serial.println("[queue] Corrupt queue; clearing invalid queue data.");p.begin("ems-queue",false);p.remove("items");p.end();return false;}
   JsonArray a=doc.as<JsonArray>(); bool delivered=false;
   while(a.size()>0) {
