@@ -102,9 +102,15 @@ void tryCredentialRotation(){
     preferences.putString("previous",deviceSecret);
     preferences.putBool("rotationPending",true);
     size_t saved=preferences.putString("secret",replacement);
+    if(saved==0){preferences.putBool("rotationPending",false);preferences.remove("previous");}
     preferences.end();
     if(saved==0){Serial.println("[rotation] Could not persist replacement; old credential remains active.");return;}
     previousDeviceSecret=deviceSecret;deviceSecret=replacement;rotationPending=true;
+  }else if(replacement!=deviceSecret){
+    if(!preferences.begin("ems-device",false))return;
+    size_t saved=preferences.putString("secret",replacement);preferences.end();
+    if(saved==0){Serial.println("[rotation] Could not persist replacement after interrupted preparation.");return;}
+    deviceSecret=replacement;
   }
   TelemetryClient candidate(EMS_API_BASE_URL,EMS_DEVICE_CODE,replacement,EMS_ROOT_CA_CERT);
   if(!candidate.heartbeat()){
