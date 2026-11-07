@@ -50,7 +50,7 @@ See [TESTING.md](TESTING.md) for test database behavior and CI details.
 
 ## Firmware development
 
-Main sketch: firmware/esp32-arduino/EMS_ESP32.ino. Use Config.example.h as a template for a local Config.h, which is ignored by Git. Never commit Wi-Fi passwords, provisioning codes, device secrets or private CA material.
+Main sketch: firmware/esp32-arduino/EMS_ESP32. Use Config.example.h as a template for a local Config.h, which is ignored by Git. Never commit Wi-Fi passwords, provisioning codes, device secrets or private CA material.
 
 For an ESP32-WROOM-32 class board, ESP32 Dev Module is a provisional Arduino IDE selection. The main firmware expects a PZEM-004T v3.x; without the meter, use firmware/esp32-arduino/ESP32_Bench_Diagnostic for USB-only chip diagnostics. The bench sketch validates basic boot/serial behavior only.
 
