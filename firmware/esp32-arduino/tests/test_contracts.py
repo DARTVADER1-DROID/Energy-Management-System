@@ -28,11 +28,11 @@ class FirmwareContractTests(unittest.TestCase):
         for token in ("voltageVolts>1000", "currentAmps>10000",
                       "activePowerWatts>10000000", "energyWattHours>1000000000000.0"):
             self.assertIn(token, CLIENT)
-        self.assertIn("v.voltageVolts<=1000", PZEM)
-        self.assertIn("v.currentAmps<=10000", PZEM)
+        self.assertIn("voltage >= 0.0 && voltage <= 1000.0", CORE)
+        self.assertIn("current >= 0.0 && current <= 10000.0", CORE)
 
     def test_queue_is_bounded_and_does_not_evict_oldest(self):
-        self.assertIn("MAX_PENDING_SAMPLES = 8", CLIENT)
+        self.assertIn("kMaxPendingSamples = 8", CORE)
         self.assertIn("Queue capacity reached; retaining existing samples", CLIENT)
         self.assertIn('p.putString("items",encoded)', CLIENT)
         self.assertIn("Permanently rejected HTTP 400", CLIENT)
@@ -47,7 +47,7 @@ class FirmwareContractTests(unittest.TestCase):
         self.assertIn("if(now<1700000000)", CLIENT)
 
     def test_provisioning_retry_has_exponential_cap(self):
-        self.assertIn("provisionBackoffMs*2UL,1800000UL", MAIN)
+        self.assertIn("ems::nextProvisionBackoff(provisionBackoffMs)", MAIN)\n        self.assertIn("currentMs * 2U", CORE)
         self.assertIn("nextProvisionAttemptMs", MAIN)
 
     def test_rotation_persists_before_first_authenticated_request(self):
