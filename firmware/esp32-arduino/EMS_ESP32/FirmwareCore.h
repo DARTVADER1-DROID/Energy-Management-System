@@ -3,12 +3,17 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 namespace ems {
 
 constexpr std::size_t kMaxPendingSamples = 8;
 constexpr uint32_t kInitialProvisionBackoffMs = 30000U;
 constexpr uint32_t kMaxProvisionBackoffMs = 1800000U;
+
+inline bool isHttpsBaseUrl(const char* url) {
+    return url != nullptr && std::strncmp(url, "https://", 8) == 0 && url[8] != '\0';
+}
 
 inline bool validMeasurement(double voltage, double current, double power,
                              double energy, double frequency, double powerFactor) {
