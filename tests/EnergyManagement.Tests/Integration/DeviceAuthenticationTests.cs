@@ -75,7 +75,7 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
     }
 
     [Fact]
-    public async Task AdministratorCanProvisionDeviceAndExchangeCodeOnlyOnce()
+    public async Task AdministratorCanProvisionDeviceAndRecoverLostExchangeResponseIdempotently()
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         var service = scope.ServiceProvider.GetRequiredService<DeviceAuthenticationService>();
@@ -104,8 +104,14 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
             new[] { "ProvisioningCodeCreated", "DeviceProvisioned" },
             initialAuditEvents);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.ExchangeProvisioningCodeAsync(_deviceCode, code.Code));
+        // Simulate a lost provisioning response / reboot after the server committed.
+        // Retrying the same code within its original validity window must return the
+        // same active secret, not create another credential.
+        var recovered = await service.ExchangeProvisioningCodeAsync(_deviceCode, code.Code);
+        Assert.Equal(result.DeviceSecret, recovered.DeviceSecret);
+        Assert.Single(await securityDb.Credentials.ToArrayAsync());
+        Assert.Contains("DeviceProvisioningRecovered",
+            await securityDb.AuditEvents.Select(item => item.EventType).ToArrayAsync());
     }
 
     [Fact]
