@@ -3,28 +3,29 @@
 @{
     ViewData["Title"] = "Sign in";
 }
-<div class="mx-auto mt-16 max-w-md rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
-    <p class="text-sm font-semibold uppercase tracking-wider text-slate-500">Energy Management System</p>
-    <h1 class="mt-2 text-2xl font-semibold text-slate-900">Sign in</h1>
-    <p class="mt-2 text-sm text-slate-600">Use the account created by your household administrator.</p>
+<div class="auth-card">
+    <div class="auth-brand"><span class="auth-brand-mark" aria-hidden="true">ϟ</span><span>ENERGY<span class="text-violet-600">OS</span></span></div>
+    <p class="eyebrow">Welcome back</p>
+    <h1 class="mt-2">Sign in to your workspace</h1>
+    <p class="auth-description mt-2">Access your household energy operations and connected devices.</p>
     @if (TempData["StatusMessage"] is string status)
     {
-        <div class="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">@status</div>
+        <div class="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">@status</div>
     }
-    <form method="post" class="mt-6 space-y-5">
+    <form method="post" class="mt-7 space-y-5">
         <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
-        <div asp-validation-summary="ModelOnly" class="text-sm text-red-700"></div>
+        <div asp-validation-summary="ModelOnly" class="rounded-lg text-sm text-rose-700 dark:text-rose-300"></div>
         <div>
-            <label asp-for="Input.Email" class="block text-sm font-medium text-slate-700">Email</label>
-            <input asp-for="Input.Email" autocomplete="username" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
-            <span asp-validation-for="Input.Email" class="text-sm text-red-700"></span>
+            <label asp-for="Input.Email" class="field-label">Email address</label>
+            <input asp-for="Input.Email" type="email" autocomplete="username" class="control-input mt-2 w-full" placeholder="you@example.com" />
+            <span asp-validation-for="Input.Email" class="mt-1 block text-xs text-rose-600"></span>
         </div>
         <div>
-            <label asp-for="Input.Password" class="block text-sm font-medium text-slate-700">Password</label>
-            <input asp-for="Input.Password" autocomplete="current-password" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
-            <span asp-validation-for="Input.Password" class="text-sm text-red-700"></span>
+            <div class="flex items-center justify-between gap-3"><label asp-for="Input.Password" class="field-label">Password</label><a asp-page="/Account/ForgotPassword" class="text-xs font-semibold text-violet-700 hover:text-violet-900 dark:text-violet-300">Forgot password?</a></div>
+            <input asp-for="Input.Password" type="password" autocomplete="current-password" class="control-input mt-2 w-full" placeholder="Enter your password" />
+            <span asp-validation-for="Input.Password" class="mt-1 block text-xs text-rose-600"></span>
         </div>
-        <button type="submit" class="w-full rounded-lg bg-slate-900 px-4 py-2.5 font-medium text-white">Sign in</button>
+        <button type="submit" class="primary-button w-full py-3">Sign in <span aria-hidden="true">→</span></button>
     </form>
-    <a asp-page="/Account/ForgotPassword" class="mt-4 inline-block text-sm text-slate-600 underline">Forgot password?</a>
+    <p class="mt-7 border-t border-slate-200 pt-5 text-center text-xs leading-5 text-slate-500 dark:border-slate-800">Secure access for authorized household members.</p>
 </div>

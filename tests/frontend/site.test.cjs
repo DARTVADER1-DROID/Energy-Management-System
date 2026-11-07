@@ -84,7 +84,32 @@ test("frontend script safely initializes when optional wizard and navigation ele
 test("purple brand tokens and readable muted text colours are defined for both themes", () => {
     const css = fs.readFileSync(path.join(__dirname, "../../src/EnergyManagement.Api/Web/Styles/tailwind.css"), "utf8");
     assert.match(css, /--color-blue-600:\s*#7c3aed/i);
-    assert.match(css, /status-muted[\s\S]*text-slate-600[\s\S]*dark:text-slate-300/);
-    assert.match(css, /html:not\(\.dark\)[\s\S]*\.text-slate-500\s*\{\s*color:\s*#475569/i);
-    assert.match(css, /html\.dark[\s\S]*\.text-slate-500\s*\{\s*color:\s*#cbd5e1/i);
+    assert.match(css, /\.status-muted\s*\{[^}]*background:[^}]*color:/);
+    assert.match(css, /\.dark \.status-muted[\s\S]*background:/);
+    assert.match(css, /html:not\(\.dark\)[\s\S]*\.text-slate-500\s*\{\s*color:\s*#625d70/i);
+    assert.match(css, /html\.dark[\s\S]*\.text-slate-500\s*\{\s*color:\s*#b8b1c8/i);
+});
+
+test("form controls use contrasting theme-aware foreground, surface and placeholder colours", () => {
+    const css = fs.readFileSync(path.join(__dirname, "../../src/EnergyManagement.Api/Web/Styles/tailwind.css"), "utf8");
+    assert.match(css, /main input:not\(\[type=hidden\]\)[\s\S]*color:var\(--ems-text\)/);
+    assert.match(css, /input::placeholder[\s\S]*color:/);
+    assert.match(css, /html\.dark input::placeholder/);
+    assert.match(css, /-webkit-text-fill-color:\s*var\(--ems-text\)/);
+});
+
+test("password fields are explicitly masked and have an accessible reveal control", () => {
+    const login = fs.readFileSync(path.join(__dirname, "../../src/EnergyManagement.Api/Web/Pages/Account/Login.cshtml"), "utf8");
+    const script = fs.readFileSync(path.join(__dirname, "../../src/EnergyManagement.Api/wwwroot/js/site.js"), "utf8");
+    assert.match(login, /Input\.Password" type="password"/);
+    assert.match(script, /input\[type="password"\]/);
+    assert.match(script, /aria-pressed/);
+    assert.match(script, /Hide password/);
+});
+
+test("application shell exposes both theme modes and preserves responsive navigation", () => {
+    const layout = fs.readFileSync(path.join(__dirname, "../../src/EnergyManagement.Api/Web/Pages/Shared/_Layout.cshtml"), "utf8");
+    assert.match(layout, /id="theme-toggle"/);
+    assert.match(layout, /id="sidebar-toggle"/);
+    assert.match(layout, /id="sidebar-backdrop"/);
 });
