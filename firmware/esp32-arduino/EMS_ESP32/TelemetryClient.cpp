@@ -88,11 +88,11 @@ bool TelemetryClient::enqueue(const String& payload) {
   String current=p.getString("items","[]"); DynamicJsonDocument doc(12288);
   if(deserializeJson(doc,current)){doc.clear();doc.to<JsonArray>();}
   JsonArray a=doc.as<JsonArray>();
-  while(a.size()>=MAX_PENDING_SAMPLES) a.remove(0);
+  if(a.size()>=MAX_PENDING_SAMPLES){p.end();Serial.println("[queue] Queue capacity reached; retaining existing samples and rejecting newest.");return false;}
   a.add(payload); String encoded; serializeJson(doc,encoded);
   bool ok=encoded.length()<=MAX_PENDING_BYTES && p.putString("items",encoded)>0;
   p.end();
-  if(!ok) Serial.println("[queue] Persistent telemetry queue full or storage write failed; oldest pending sample may be lost.");
+  if(!ok) Serial.println("[queue] Persistent storage write failed or queue byte limit reached; existing samples retained.");
   return ok;
 }
 bool TelemetryClient::flushQueue() {
