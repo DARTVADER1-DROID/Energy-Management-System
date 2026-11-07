@@ -3,20 +3,19 @@
 @{
     ViewData["Title"] = "Confirm your identity";
 }
-<div class="mx-auto max-w-xl">
+<div class="auth-card">
+    <div class="auth-brand"><span class="auth-brand-mark" aria-hidden="true">ϟ</span><span>ENERGY<span class="text-violet-600">OS</span></span></div>
     <p class="eyebrow">Security check</p>
-    <h2 class="page-heading">Confirm your identity</h2>
-    <p class="mt-2 text-sm leading-6 text-slate-500">This action requires a recent sign-in. Confirm your password; if MFA is enabled, you will also be asked for your authenticator code.</p>
-    <section class="panel mt-6 p-6">
-        <form method="post" class="space-y-4">
-            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
-            <div asp-validation-summary="ModelOnly" class="text-sm text-rose-600"></div>
-            <div>
-                <label asp-for="Password" class="field-label">Password</label>
-                <input asp-for="Password" autocomplete="current-password" class="control-input mt-1 w-full" autofocus />
-                <span asp-validation-for="Password" class="text-xs text-rose-600"></span>
-            </div>
-            <button type="submit" class="primary-button w-full">Verify and continue</button>
-        </form>
-    </section>
+    <h1 class="mt-2">Confirm your identity</h1>
+    <p class="auth-description mt-2">This action requires a recent sign-in. Confirm your password to continue.</p>
+    <form method="post" class="mt-7 space-y-4">
+        <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+        <div asp-validation-summary="ModelOnly" class="text-sm text-rose-600"></div>
+        <div>
+            <label asp-for="Password" class="field-label">Password</label>
+            <input asp-for="Password" type="password" autocomplete="current-password" class="control-input mt-2 w-full" autofocus placeholder="Enter your password" />
+            <span asp-validation-for="Password" class="mt-1 block text-xs text-rose-600"></span>
+        </div>
+        <button type="submit" class="primary-button w-full">Verify and continue</button>
+    </form>
 </div>
