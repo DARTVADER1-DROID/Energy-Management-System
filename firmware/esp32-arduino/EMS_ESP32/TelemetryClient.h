@@ -9,6 +9,7 @@ class TelemetryClient {
  private:
   String baseUrl, deviceCode, encodedSecret;
   const char* rootCa;
+  int lastHttpStatus = 0;
   bool signedPost(const char* path, const String& body, int expectedStatus);
   bool decodeSecret(uint8_t* output, size_t& outputLength) const;
   bool createSignature(const String& method, const String& path, const String& timestamp,
