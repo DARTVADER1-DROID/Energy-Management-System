@@ -44,14 +44,9 @@ The device credential encryption key is supplied by deployment configuration. Pr
 
 ## 5. Signed device requests and replay protection
 
-The signature is HMAC-SHA-256 over a canonical request containing:
-- HTTP method
-- exact request path and query
-- timestamp
-- nonce
-- SHA-256 digest of the request body
+The signature is HMAC-SHA-256 over a canonical request containing HTTP method, exact request path and query, timestamp, nonce and SHA-256 body digest.
 
-The request includes X-EMS-Device, X-EMS-Timestamp, X-EMS-Nonce and X-EMS-Signature. Server checks include device state, active credential, signature, timestamp freshness and nonce uniqueness. Signed requests are rate-limited. Firmware refuses signed traffic when its clock has not completed fresh NTP synchronization.
+Headers: X-EMS-Device, X-EMS-Timestamp, X-EMS-Nonce and X-EMS-Signature. Server checks include device state, active credential, signature, timestamp freshness and nonce uniqueness. Signed requests are rate-limited. Firmware refuses signed traffic when its clock has not completed fresh NTP synchronization.
 
 Telemetry sampleId de-duplication is separate from request nonce replay protection: a retried payload can retain its sample ID while using fresh request authentication metadata.
 
