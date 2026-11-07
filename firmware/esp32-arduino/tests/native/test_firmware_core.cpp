@@ -51,7 +51,7 @@ int main() {
     for (int status : {401, 403, 408, 429, 500, 503, -1})
         assert(classifyHttpStatus(status, 202) == HttpDisposition::Retry);
 
-    // Bounded queue must preserve existing data rather than evicting oldest.
+    // Endpoint configuration must reject plaintext, empty and malformed URLs.\n    assert(isHttpsBaseUrl("https://ems.example.com"));\n    assert(!isHttpsBaseUrl("http://ems.example.com"));\n    assert(!isHttpsBaseUrl("https://"));\n    assert(!isHttpsBaseUrl(nullptr));\n\n    // Bounded queue must preserve existing data rather than evicting oldest.
     assert(canEnqueue(0));
     assert(canEnqueue(7));
     assert(!canEnqueue(8));
