@@ -101,9 +101,10 @@
                 }
             };
 
+            const findInvalidField = index => [...steps[index].querySelectorAll("input, select, textarea")]
+                .find(field => field.willValidate && !field.checkValidity());
             const validateStep = index => {
-                const invalid = [...steps[index].querySelectorAll("input, select, textarea")]
-                    .find(field => field.willValidate && !field.checkValidity());
+                const invalid = findInvalidField(index);
                 if (!invalid) return true;
                 invalid.reportValidity();
                 invalid.focus();
@@ -116,13 +117,12 @@
             wizard.querySelector("[data-wizard-back]")?.addEventListener("click", () => showStep(activeStep - 1));
             wizard.addEventListener("submit", event => {
                 for (let index = 0; index < steps.length; index++) {
-                    if (!validateStep(index)) {
+                    const invalid = findInvalidField(index);
+                    if (invalid) {
                         event.preventDefault();
                         showStep(index);
-                        const invalid = [...steps[index].querySelectorAll("input, select, textarea")]
-                            .find(field => field.willValidate && !field.checkValidity());
-                        invalid?.reportValidity();
-                        invalid?.focus();
+                        invalid.reportValidity();
+                        invalid.focus();
                         return;
                     }
                 }
