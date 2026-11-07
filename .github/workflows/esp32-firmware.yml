@@ -4,7 +4,7 @@ on:
   push:
     paths:
       - "firmware/esp32-arduino/**"
-      - "src/EnergyManagement.Api/Modules/Devices/**"
+      - "src/EnergyManagement.Api/Modules/Devices/**"\n      - "src/EnergyManagement.Api/Modules/Telemetry/**"
       - "tests/EnergyManagement.Tests/Integration/DeviceAuthenticationTests.cs"
       - ".github/workflows/esp32-firmware.yml"
   pull_request:
@@ -42,7 +42,7 @@ jobs:
       - name: Install Arduino CLI
         run: |
           mkdir -p "$HOME/.local/bin"
-          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR="$HOME/.local/bin" sh
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/v1.2.2/install.sh | BINDIR="$HOME/.local/bin" sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Install pinned ESP32 core and libraries
@@ -56,4 +56,4 @@ jobs:
       - name: Compile firmware (secrets replaced with safe placeholders)
         run: |
           cp firmware/esp32-arduino/EMS_ESP32/Config.example.h firmware/esp32-arduino/EMS_ESP32/Config.h
-          arduino-cli compile --fqbn esp32:esp32:esp32 firmware/esp32-arduino/EMS_ESP32
+          arduino-cli compile --warnings all --fqbn esp32:esp32:esp32 firmware/esp32-arduino/EMS_ESP32
