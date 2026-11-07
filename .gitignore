@@ -33,6 +33,7 @@ build/
 *.hex
 *.bin
 *.map
+firmware/esp32-arduino/EMS_ESP32/Config.h
 
 # OS files
 .DS_Store

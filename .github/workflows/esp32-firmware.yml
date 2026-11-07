@@ -1,0 +1,41 @@
+name: ESP32 Arduino firmware
+
+on:
+  push:
+    paths:
+      - "firmware/esp32-arduino/**"
+      - ".github/workflows/esp32-firmware.yml"
+  pull_request:
+    paths:
+      - "firmware/esp32-arduino/**"
+      - ".github/workflows/esp32-firmware.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile-esp32:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Arduino CLI
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR="$HOME/.local/bin" sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install ESP32 core and libraries
+        run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32
+          arduino-cli lib install ArduinoJson PZEM004Tv30
+
+      - name: Compile firmware (secrets replaced with safe placeholders)
+        run: |
+          cp firmware/esp32-arduino/EMS_ESP32/Config.example.h firmware/esp32-arduino/EMS_ESP32/Config.h
+          arduino-cli compile --fqbn esp32:esp32:esp32 firmware/esp32-arduino/EMS_ESP32
