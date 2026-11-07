@@ -1,87 +1,101 @@
-# Energy Management System
+# Energy Management System (EMS)
 
-See the [project changelog](docs/CHANGELOG.md) for merged features and verified project updates.
+Residential energy monitoring platform with an ESP32 edge device, .NET 10 backend, PostgreSQL persistence and server-rendered web application.
 
-A residential energy monitoring and management platform, developed incrementally.
+> **Development status:** active development / staging. This repository is not a certified electrical protection system and is not approved for production mains control.
 
-## Current development
+## What is in the repository
 
-- Backend: .NET 10 modular monolith with ASP.NET Core Minimal APIs and server-rendered Razor Pages.
-- Persistence: PostgreSQL with EF Core and module-owned migrations.
-- Identity and access: email/password authentication, household membership/roles, invitations, administrator controls and recent-authentication gates. MFA is currently disabled for all accounts.
-- Device security: single-use provisioning codes, per-device HMAC-SHA-256 credentials, timestamp/nonce replay protection, credential rotation/revocation and security audit history.
-- Telemetry: versioned flexible envelope, signed ingestion, JSONB persistence, per-device sample deduplication and household-scoped history queries.
-- Dashboard: latest persisted household measurements for power, voltage, current and cumulative energy.
+- **Backend:** .NET 10 ASP.NET Core modular monolith; Minimal APIs and Razor Pages in one deployable application.
+- **Persistence:** PostgreSQL through EF Core; separate energy/device and Identity/security persistence boundaries.
+- **Human identity:** ASP.NET Core Identity sign-in, password reset, household membership, invitations and role checks. MFA is currently disabled for all users by the current migration.
+- **Device identity:** one-time provisioning codes, per-device HMAC-SHA-256 credentials, replay protection, rotation and revocation.
+- **Telemetry:** versioned schema-v1 envelope, validated ingestion, JSONB storage, sample de-duplication and household-scoped history queries.
+- **Dashboard:** latest stored readings per device, with available power, voltage, current and cumulative-energy aggregates.
+- **Firmware:** Arduino C++ monitoring client for ESP32-WROOM-class boards and PZEM-004T v3.x; HTTPS provisioning, NTP, signed heartbeat/telemetry, NVS credential storage and a bounded offline queue.
+- **Bench diagnostic:** independent USB-only ESP32 chip/memory diagnostic sketch.
+- **Validation:** .NET/PostgreSQL integration tests, frontend Node tests, firmware native C++ and Python contract tests, Arduino CLI compilation and Docker image build in CI.
 
-The telemetry contract supports root measurements now and optional L1/L2/L3 phase measurements as hardware evolves. See [telemetry ingestion](docs/TELEMETRY-001-INGESTION.md), [security implementation](docs/SECURITY-001-AUTHENTICATION-AND-DEVICE-IDENTITY.md), and [architecture](docs/ARCHITECTURE.md).
+See [Feature catalogue](docs/FEATURES.md) for implemented, partial and planned capabilities.
 
-## Not yet implemented
+## Repository map
 
-- ESP32 firmware, USB serial / temporary Wi-Fi provisioning client, NTP synchronization and secure local credential storage.
-- Physical metering sensor integration and hardware-specific acquisition drivers.
-- Local safety state machine, relay/contactor control and physical feedback integration.
-- Offline telemetry queue, command polling, alert evaluation/notifications and historical charts.
-- Production HTTPS/proxy and physical-device end-to-end validation.
+```text
+.
+├── src/EnergyManagement.Api/       # ASP.NET Core host, modules, Razor Pages and static assets
+├── tests/
+│   ├── EnergyManagement.Tests/     # .NET domain and PostgreSQL integration tests
+│   └── frontend/                   # Node frontend regression tests
+├── firmware/esp32-arduino/
+│   ├── EMS_ESP32/                  # Main monitoring firmware
+│   ├── ESP32_Bench_Diagnostic/     # USB-only board diagnostic
+│   └── tests/                      # Native C++ and Python contract tests
+├── docs/                           # Architecture, API, security, operations and diagrams
+├── scripts/                        # Local test helpers
+├── .github/workflows/              # CI workflows
+├── Dockerfile
+└── render.yaml                     # Temporary staging Blueprint
+```
 
-## Run the API and Swagger UI locally
+## Documentation
 
-Requirements: .NET 10 SDK and a reachable PostgreSQL database. Configure the
-`ConnectionStrings__EnergyManagement` environment variable before starting the API.
+| Document | Description |
+|---|---|
+| [Feature catalogue](docs/FEATURES.md) | What exists now, partial features and explicit exclusions. |
+| [Architecture](docs/ARCHITECTURE.md) | Component boundaries, data flow and design rules. |
+| [API reference](docs/API.md) | Health, human-authenticated and device-authenticated routes. |
+| [Data model](docs/DATA-MODEL.md) | Main entities, persistence and migration ownership. |
+| [Security](docs/SECURITY-001-AUTHENTICATION-AND-DEVICE-IDENTITY.md) | Human/device identities, authorization and credential lifecycle. |
+| [Telemetry contract](docs/TELEMETRY-001-INGESTION.md) | Schema v1, validation, signing and storage. |
+| [Development](docs/DEVELOPMENT.md) | Local setup, coding workflow and contribution rules. |
+| [Testing](docs/TESTING.md) | Test layers, commands and CI jobs. |
+| [Frontend](docs/WEB-FRONTEND.md) | Razor Pages, Tailwind build and page inventory. |
+| [Render staging](docs/RENDER-DEPLOYMENT.md) | Staging infrastructure, configuration and operational cautions. |
+| [Firmware guide](firmware/esp32-arduino/README.md) | Main ESP32 firmware configuration and behavior. |
+| [Hardware commissioning](firmware/esp32-arduino/HARDWARE_COMMISSIONING.md) | Qualified-hardware commissioning procedure. |
+| [Diagrams](docs/diagrams/README.md) | UML-style component, sequence and flow diagrams. |
+| [Changelog](docs/CHANGELOG.md) | Notable project milestones. |
 
-Run the API from the repository root:
+## Run locally
+
+### Backend
+
+Requirements: .NET 10 SDK and PostgreSQL. Set the connection string using an environment variable; never commit credentials.
+
+PowerShell example:
 
 ```powershell
 $env:ASPNETCORE_ENVIRONMENT = "Development"
 $env:ConnectionStrings__EnergyManagement = "Host=localhost;Port=5432;Database=energy_management;Username=postgres;Password=YOUR_LOCAL_PASSWORD"
-dotnet ef database update --project src/EnergyManagement.Api/EnergyManagement.Api.csproj --startup-project src/EnergyManagement.Api/EnergyManagement.Api.csproj
 dotnet run --project src/EnergyManagement.Api/EnergyManagement.Api.csproj
 ```
 
-Open the Swagger UI at `/swagger` on the URL printed by `dotnet run` (typically
-`http://localhost:5000/swagger` or `https://localhost:7000/swagger`). The OpenAPI
-document is available at `/swagger/v1/swagger.json`. Swagger UI and its document endpoint are enabled only in the Development environment.
-The API also exposes `/health/live` for process liveness and `/health/ready` for a
-PostgreSQL connectivity readiness check. Install the EF CLI once with
-`dotnet tool install --global dotnet-ef --version 10.0.0` before applying migrations.
+Apply migrations with the EF Core CLI when needed. See [Development](docs/DEVELOPMENT.md). In Development, Swagger is available at /swagger. Health endpoints are /health/live and /health/ready.
 
-## Run the test suite locally
+### Frontend assets
 
-Requirements: .NET 10 SDK, Docker Desktop with Docker Compose, and PowerShell.
+```bash
+npm install
+npm run build
+npm run test:frontend
+```
 
-From the repository root, run:
+### Automated tests
+
+On Windows with .NET 10, Docker Desktop / Compose and PowerShell:
 
 ```powershell
 .\scripts\test.ps1
 ```
 
-The script starts an isolated PostgreSQL 17 test database, runs the test project in
-Release configuration (including restore and build), and stops the database afterward.
-No separately installed PostgreSQL server is required.
+This creates an isolated disposable PostgreSQL 17 test database and runs the .NET suite. Firmware CI can be run through GitHub Actions; local instructions are in [Testing](docs/TESTING.md).
 
-To keep the database running for debugging:
+### ESP32 firmware
 
-```powershell
-.\scripts\test.ps1 -KeepDatabase
-```
+Use Arduino IDE with the Espressif ESP32 core. Select **ESP32 Dev Module** provisionally for a typical ESP32-WROOM-32. Main firmware requires a PZEM-004T v3.x and local-only Config.h derived from Config.example.h. For a first board-only test, use the dependency-free [USB bench diagnostic](firmware/esp32-arduino/ESP32_Bench_Diagnostic/README.md).
 
-The default host port is 55432. Set `EMS_TEST_POSTGRES_PORT` before running the script
-to use another available port. The script temporarily sets
-`EMS_TEST_CONNECTION_STRING` for the test process and restores its previous value.
+## Safety and release gate
 
-See [test coverage and details](docs/TESTING.md),
-[Feature 001 test-suite documentation](docs/FEATURE-001-TEST-SUITE.md), and the
-[development workflow](docs/DEVELOPMENT.md).
+Current firmware is monitoring-only. Relay/contactor control, remote switching, protective trips and cloud commands are not implemented. Backend threshold settings are advisory and threshold evaluation/notification delivery are incomplete. Do not connect mains or switching hardware based on this software. A qualified electrician must perform all mains work, and independent certified protective devices remain mandatory.
 
-## Safety and deployment note
-
-Authentication, MFA and household role-based authorization are implemented, but this
-project is still under active development and is not production-ready. Do not connect
-unvalidated hardware or rely on the cloud service for immediate electrical protection.
-All time-critical sensing, fault handling and protective shutdown must execute locally
-on the firmware; backend telemetry and warning thresholds are advisory only. Use
-properly rated breakers, fuses and RCDs independently of this software.
-
-Do not expose a deployment publicly until production HTTPS/proxy behavior, secrets,
-database operations, firmware security and end-to-end hardware behavior have been
-validated. A successful automated test run is not a substitute for electrical safety
-certification or physical-device testing.
+A successful CI build does not establish hardware compatibility, metering accuracy, electrical safety or production readiness. Production requires security review, TLS/proxy and database operational validation, physical commissioning, calibration, soak testing and qualified sign-off.
