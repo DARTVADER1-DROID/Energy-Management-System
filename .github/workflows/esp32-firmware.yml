@@ -60,3 +60,5 @@ jobs:
         run: |
           cp firmware/esp32-arduino/EMS_ESP32/Config.example.h firmware/esp32-arduino/EMS_ESP32/Config.h
           arduino-cli compile --warnings all --fqbn esp32:esp32:esp32 firmware/esp32-arduino/EMS_ESP32
+          # Dependency-free board diagnostic must also compile for the same target.
+          arduino-cli compile --warnings all --fqbn esp32:esp32:esp32 firmware/esp32-arduino/ESP32_Bench_Diagnostic
