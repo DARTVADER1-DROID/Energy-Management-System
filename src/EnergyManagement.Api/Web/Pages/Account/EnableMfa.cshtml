@@ -1,35 +1,10 @@
 @page
 @model EnergyManagement.Api.Web.Pages.Account.EnableMfaModel
 @{
-    ViewData["Title"] = "Set up authenticator";
+    ViewData["Title"] = "Authenticator setup unavailable";
 }
-<div class="mx-auto mt-12 max-w-xl rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
-    <h1 class="text-2xl font-semibold text-slate-900">Set up authenticator MFA</h1>
-    @if (Model.RecoveryCodes.Count > 0)
-    {
-        <p class="mt-4 font-semibold text-emerald-700">MFA is enabled. Save these ten recovery codes now; they are shown only once.</p>
-        <ol class="mt-4 grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-4 font-mono text-sm">
-            @foreach (var code in Model.RecoveryCodes)
-            {
-                <li>@code</li>
-            }
-        </ol>
-        <a asp-page="/Index" class="mt-6 inline-block rounded-lg bg-slate-900 px-4 py-2 text-white">Continue to dashboard</a>
-    }
-    else
-    {
-        <ol class="mt-4 list-decimal space-y-2 pl-5 text-sm text-slate-600">
-            <li>Open an authenticator app and add a new account.</li>
-            <li>Enter this setup key manually.</li>
-            <li>Enter the current six-digit code to verify enrollment.</li>
-        </ol>
-        <p class="mt-4 rounded-lg bg-slate-50 p-4 font-mono text-lg tracking-widest">@Model.AuthenticatorKey</p>
-        <form method="post" class="mt-6 space-y-4">
-            <div asp-validation-summary="ModelOnly" class="text-sm text-red-700"></div>
-            <label asp-for="Input.Code" class="block text-sm font-medium text-slate-700">Authenticator code</label>
-            <input asp-for="Input.Code" inputmode="numeric" autocomplete="one-time-code" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
-            <span asp-validation-for="Input.Code" class="text-sm text-red-700"></span>
-            <button type="submit" class="w-full rounded-lg bg-slate-900 px-4 py-2.5 font-medium text-white">Verify and enable MFA</button>
-        </form>
-    }
+<div class="mx-auto mt-16 max-w-md rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
+    <h1 class="text-2xl font-semibold text-slate-900">Authenticator setup is disabled</h1>
+    <p class="mt-3 text-sm text-slate-600">This deployment currently uses email and password sign-in.</p>
+    <a asp-page="/Account/Profile" class="primary-button mt-6 inline-flex">Return to account</a>
 </div>
