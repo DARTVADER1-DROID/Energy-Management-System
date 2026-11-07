@@ -35,8 +35,6 @@ public sealed class ReauthenticateModel(
             user.UserName!, Password, isPersistent: false, lockoutOnFailure: true);
 
         if (result.Succeeded) return LocalRedirect(ReturnUrl);
-        if (result.RequiresTwoFactor)
-            return RedirectToPage("/Account/TwoFactorLogin", new { returnUrl = ReturnUrl });
 
         ModelState.AddModelError(string.Empty,
             "The password could not be verified. Check it and try again.");
