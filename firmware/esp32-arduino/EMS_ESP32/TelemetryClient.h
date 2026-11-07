@@ -15,4 +15,6 @@ class TelemetryClient {
                        const String& nonce, const String& body, String& signature) const;
   String createNonce() const;
   String createSampleId() const;
+  bool enqueue(const String& payload);
+  bool flushQueue();
 };
