@@ -4,13 +4,15 @@ on:
   push:
     paths:
       - "firmware/esp32-arduino/**"
-      - "src/EnergyManagement.Api/Modules/Devices/**"\n      - "src/EnergyManagement.Api/Modules/Telemetry/**"
+      - "src/EnergyManagement.Api/Modules/Devices/**"
+      - "src/EnergyManagement.Api/Modules/Telemetry/**"
       - "tests/EnergyManagement.Tests/Integration/DeviceAuthenticationTests.cs"
       - ".github/workflows/esp32-firmware.yml"
   pull_request:
     paths:
       - "firmware/esp32-arduino/**"
       - "src/EnergyManagement.Api/Modules/Devices/**"
+      - "src/EnergyManagement.Api/Modules/Telemetry/**"
       - "tests/EnergyManagement.Tests/Integration/DeviceAuthenticationTests.cs"
       - ".github/workflows/esp32-firmware.yml"
   workflow_dispatch:
@@ -20,7 +22,7 @@ permissions:
 
 jobs:
   firmware-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -34,16 +36,17 @@ jobs:
           /tmp/ems-firmware-tests
 
   compile-esp32:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Install Arduino CLI
+      - name: Install pinned Arduino CLI
         run: |
           mkdir -p "$HOME/.local/bin"
           curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/v1.2.2/install.sh | BINDIR="$HOME/.local/bin" sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          arduino-cli version
 
       - name: Install pinned ESP32 core and libraries
         run: |
