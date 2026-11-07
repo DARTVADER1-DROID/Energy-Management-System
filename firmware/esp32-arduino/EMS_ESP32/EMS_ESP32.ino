@@ -99,12 +99,14 @@ void tryCredentialRotation(){
   if(replacement.length()==0||(!rotationPending&&replacement==deviceSecret))return;
   if(!rotationPending){
     if(!preferences.begin("ems-device",false))return;
-    preferences.putString("previous",deviceSecret);
-    preferences.putBool("rotationPending",true);
-    size_t saved=preferences.putString("secret",replacement);
-    if(saved==0){preferences.putBool("rotationPending",false);preferences.remove("previous");}
+    size_t previousSaved=preferences.putString("previous",deviceSecret);
+    size_t pendingSaved=previousSaved>0?preferences.putBool("rotationPending",true):0;
+    size_t replacementSaved=pendingSaved>0?preferences.putString("secret",replacement):0;
+    if(replacementSaved==0){preferences.putBool("rotationPending",false);preferences.remove("previous");}
     preferences.end();
-    if(saved==0){Serial.println("[rotation] Could not persist replacement; old credential remains active.");return;}
+    if(previousSaved==0||pendingSaved==0||replacementSaved==0){
+      Serial.println("[rotation] Could not atomically prepare replacement in NVS; old credential remains active.");return;
+    }
     previousDeviceSecret=deviceSecret;deviceSecret=replacement;rotationPending=true;
   }else if(replacement!=deviceSecret){
     if(!preferences.begin("ems-device",false))return;
@@ -115,13 +117,21 @@ void tryCredentialRotation(){
   TelemetryClient candidate(EMS_API_BASE_URL,EMS_DEVICE_CODE,replacement,EMS_ROOT_CA_CERT);
   if(!candidate.heartbeat()){
     if(candidate.lastStatus()==HTTP_CODE_UNAUTHORIZED){
+      bool restored=false;
       if(preferences.begin("ems-device",false)){
-        preferences.putString("secret",previousDeviceSecret);
-        preferences.putBool("rotationPending",false);
-        preferences.remove("previous");preferences.end();
+        size_t bytes=preferences.putString("secret",previousDeviceSecret);
+        if(bytes>0){
+          preferences.putBool("rotationPending",false);
+          preferences.remove("previous");restored=true;
+        }
+        preferences.end();
       }
-      deviceSecret=previousDeviceSecret;rotationPending=false;rotationRejected=true;
-      Serial.println("[rotation] Backend rejected replacement; restored prior key. Update or clear the configured replacement secret.");
+      if(restored){
+        deviceSecret=previousDeviceSecret;rotationPending=false;rotationRejected=true;
+        Serial.println("[rotation] Backend rejected replacement; prior key restored. Update or clear the configured replacement secret.");
+      }else{
+        Serial.println("[rotation] Backend rejected replacement but NVS rollback failed; retaining pending state for recovery.");
+      }
     }else Serial.println("[rotation] Result uncertain (network/TLS/server); keeping both keys and retrying safely.");
     return;
   }
