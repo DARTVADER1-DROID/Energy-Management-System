@@ -11,8 +11,8 @@
 #include <string.h>
 
 namespace {
-constexpr size_t MAX_PENDING_SAMPLES = 12;
-constexpr size_t MAX_PENDING_BYTES = 10000;
+constexpr size_t MAX_PENDING_SAMPLES = 8;
+constexpr size_t MAX_PENDING_BYTES = 3500;
 String toUpperHex(const uint8_t* bytes, size_t length) {
   static const char* digits = "0123456789ABCDEF";
   String output; output.reserve(length * 2);
@@ -62,6 +62,7 @@ bool TelemetryClient::createSignature(const String& method,const String& path,co
   signature=toUpperHex(mac,sizeof(mac)); memset(mac,0,sizeof(mac)); return true;
 }
 bool TelemetryClient::signedPost(const char* path,const String& body,int expectedStatus) {
+  lastHttpStatus=0;
   if(!rootCa||!*rootCa||strstr(rootCa,"PASTE_TRUSTED_ROOT_CA")){Serial.println("[tls] Trusted CA missing; request blocked.");return false;}
   time_t now=time(nullptr); if(now<1700000000){Serial.println("[ntp] Invalid clock; signed request blocked.");return false;}
   char ts[16]; snprintf(ts,sizeof(ts),"%lld",(long long)now);
@@ -72,7 +73,7 @@ bool TelemetryClient::signedPost(const char* path,const String& body,int expecte
   http.setTimeout(10000); http.addHeader("Content-Type","application/json");
   http.addHeader("X-EMS-Device",deviceCode); http.addHeader("X-EMS-Timestamp",timestamp);
   http.addHeader("X-EMS-Nonce",nonce); http.addHeader("X-EMS-Signature",signature);
-  int status=http.POST(body);
+  int status=http.POST(body); lastHttpStatus=status;
   if(status<0) Serial.printf("[http] Transport/TLS failure (%d).\n",status);
   else if(status==expectedStatus || (expectedStatus==HTTP_CODE_ACCEPTED && status==HTTP_CODE_CONFLICT)) {
     if(status==HTTP_CODE_CONFLICT) Serial.println("[telemetry] Duplicate sample already exists; treating as delivered.");
@@ -103,7 +104,15 @@ bool TelemetryClient::flushQueue() {
   JsonArray a=doc.as<JsonArray>(); bool delivered=false;
   while(a.size()>0) {
     String payload=a[0].as<String>();
-    if(!signedPost("/api/device-telemetry",payload,HTTP_CODE_ACCEPTED)) break;
+    if(!signedPost("/api/device-telemetry",payload,HTTP_CODE_ACCEPTED)) {
+      if(lastHttpStatus==HTTP_CODE_BAD_REQUEST) {
+        Serial.println("[queue] Permanently rejected HTTP 400 sample removed so it cannot block newer data.");
+        a.remove(0); String rejectedUpdate; serializeJson(doc,rejectedUpdate);
+        if(!p.begin("ems-queue",false)) return delivered;
+        p.putString("items",rejectedUpdate); p.end(); continue;
+      }
+      break;
+    }
     a.remove(0); delivered=true;
     String updated; serializeJson(doc,updated);
     if(!p.begin("ems-queue",false)) return delivered;
@@ -130,6 +139,7 @@ bool TelemetryClient::publish(const PzemReading& r) {
   if(isfinite(r.powerFactor)&&r.powerFactor>=-1&&r.powerFactor<=1)m["powerFactor"]=r.powerFactor;
   String body; serializeJson(doc,body);
   if(signedPost("/api/device-telemetry",body,HTTP_CODE_ACCEPTED)) return true;
+  if(lastHttpStatus==HTTP_CODE_BAD_REQUEST) return false;
   if(enqueue(body)){Serial.println("[queue] Sample persisted for retry with its original ID and capture time.");}
   return false;
 }
