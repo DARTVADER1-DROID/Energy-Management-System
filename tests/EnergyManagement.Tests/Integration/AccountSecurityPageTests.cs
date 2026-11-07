@@ -26,7 +26,7 @@ public sealed class AccountSecurityPageTests(PostgreSqlFixture postgres) : IAsyn
 
         var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
         await domainDb.Database.MigrateAsync();
-        await identityDb.Database.MigrateAsync("202611060004_MfaRecoveryCodes");
+        await identityDb.Database.MigrateAsync("202611070006_SecurityAuditEvents");
         identityDb.Users.Add(new ApplicationUser
         {
             Id = 1,
