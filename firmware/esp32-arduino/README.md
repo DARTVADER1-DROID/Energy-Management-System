@@ -10,7 +10,7 @@ Monitoring-only firmware for an ESP32-WROOM-class board and PZEM-004T v3.x. It i
 - HMAC-SHA256 heartbeat and telemetry with a 128-bit random nonce and UUIDv4 sample IDs.
 - PZEM voltage, current, active power, cumulative energy, frequency, and power-factor readings.
 - Numeric validation against the backend's telemetry bounds before transmission.
-- Bounded persistent offline queue: up to 12 complete telemetry payloads, retaining their original sample IDs and capture timestamps. Retries use fresh HMAC timestamps/nonces. HTTP 409 is treated as an already-accepted duplicate. When full, the queue retains existing samples and rejects the newest sample.
+- Bounded persistent offline queue: up to 8 complete telemetry payloads, retaining their original sample IDs and capture timestamps. Retries use fresh HMAC timestamps/nonces. HTTP 409 is treated as an already-accepted duplicate. When full, the queue retains existing samples and rejects the newest sample.
 - HTTP/TLS/authentication diagnostics without logging secrets or signatures.
 - Cumulative meter-counter reset detection and an offset to keep the reported total monotonic across detected resets.
 
@@ -56,7 +56,7 @@ PZEM measurement wiring can expose lethal mains voltage. Mains wiring, CT placem
 
 ## Queue and energy-counter limitations
 
-- The queue holds 12 samples (approximately six minutes at the default 30-second interval). It is bounded to protect device storage. Longer outages can overflow it; the newest sample is rejected rather than deleting older pending samples.
+- The queue holds 8 samples (approximately four minutes at the default 30-second interval). It is bounded to protect device storage. Longer outages can overflow it; the newest sample is rejected rather than deleting older pending samples.
 - The backend accepts capture timestamps no older than seven days. Extended offline periods therefore require operator review; queued samples can become too old for ingestion.
 - A meter reset is detected when its reported cumulative energy falls below the last saved raw counter. The prior total is retained as an offset, but energy consumed during the interval in which the meter was reset cannot be reconstructed.
 - The queue and energy metadata use Preferences/NVS. Flash encryption, secure boot provisioning, and physical flash-extraction protection are deliberately not changed in this work.
