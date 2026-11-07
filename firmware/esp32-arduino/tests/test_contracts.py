@@ -100,7 +100,7 @@ class FirmwareContractTests(unittest.TestCase):
 
     def test_provisioning_recovery_is_time_bounded_and_revocable(self):
         self.assertIn("code.UsedAtUtc.HasValue", AUTH)
-        self.assertIn("code.ExpiresAtUtc > now", AUTH)
+        self.assertIn("item.ExpiresAtUtc > now", AUTH)
         self.assertIn("DeviceProvisioningRecovered", AUTH)
         self.assertIn("item.RevokedAtUtc == null", AUTH)
 
