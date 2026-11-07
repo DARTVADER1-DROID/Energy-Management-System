@@ -34,7 +34,7 @@ Never commit `Config.h`. The firmware blocks HTTPS requests if a trusted CA is a
 5. Allow Wi-Fi and NTP synchronization. The sketch exchanges the code at `POST /api/device-auth/provision`.
 6. The returned device secret is stored in NVS. Remove the one-time code from local configuration after successful provisioning.
 
-**Power-loss recovery boundary:** the backend consumes the provisioning code and creates the credential before the ESP32 can persist the returned secret. If power is lost in that narrow interval, firmware alone cannot recover the one-time secret. An administrator must revoke the orphaned credential from the device details page, issue a fresh provisioning code, and provision again. The backend does not currently provide an idempotent secret-retrieval exchange.
+**Power-loss recovery:** the backend now makes the provisioning exchange idempotent for the original code's remaining validity window. If the server created the credential but the ESP32 lost power or the HTTP response before saving it, the device can retry the same code and receive the same active credential. The recovery code expires at its original 10-minute deadline. If that deadline has passed, an administrator must revoke the orphaned credential and issue a fresh provisioning code. Issuing a new code revokes older recovery tokens, including already-used ones.
 
 ## Credential rotation
 
