@@ -158,16 +158,14 @@ builder.Services.ConfigureApplicationCookie(options =>
     };
 });
 
-builder.Services.AddScoped<IAuthorizationHandler, AdministratorMfaAuthorizationHandler>();
 builder.Services.AddAuthorization(options =>
 {
-    var authenticatedWithAdministratorMfa = new AuthorizationPolicyBuilder()
+    var authenticatedUser = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
-        .AddRequirements(new AdministratorMfaRequirement())
         .Build();
 
-    options.DefaultPolicy = authenticatedWithAdministratorMfa;
-    options.FallbackPolicy = authenticatedWithAdministratorMfa;
+    options.DefaultPolicy = authenticatedUser;
+    options.FallbackPolicy = authenticatedUser;
 
     options.AddPolicy("HouseholdAdministrator", policy =>
         policy.RequireAuthenticatedUser().RequireRole("Administrator"));
@@ -244,8 +242,6 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AllowAnonymousToPage("/Account/AccessDenied");
     options.Conventions.AllowAnonymousToPage("/Account/ForgotPassword");
     options.Conventions.AllowAnonymousToPage("/Account/ResetPassword");
-    options.Conventions.AllowAnonymousToPage("/Account/EnableMfa");
-    options.Conventions.AllowAnonymousToPage("/Account/TwoFactorLogin");
     options.Conventions.AllowAnonymousToPage("/Account/AcceptInvitation");
 });
 
