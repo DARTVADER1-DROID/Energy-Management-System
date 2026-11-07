@@ -29,7 +29,7 @@ int main() {
     double total = 0;
     assert(!normalizeEnergy(100.0, state, total) && total == 100.0);
     assert(!normalizeEnergy(101.0, state, total) && total == 101.0);
-    assert(!normalizeEnergy(100.5, state, total) && total == 101.0); // jitter cannot decrease cumulative energy
+    assert(!normalizeEnergy(100.5, state, total) && total == 101.0);
     assert(normalizeEnergy(2.0, state, total) && total == 103.0);
     assert(!normalizeEnergy(3.0, state, total) && total == 104.0);
     const double prior = total;
@@ -51,12 +51,18 @@ int main() {
     for (int status : {401, 403, 408, 429, 500, 503, -1})
         assert(classifyHttpStatus(status, 202) == HttpDisposition::Retry);
 
-    // Endpoint configuration must reject plaintext, empty and malformed URLs.\n    assert(isHttpsBaseUrl("https://ems.example.com"));\n    assert(!isHttpsBaseUrl("http://ems.example.com"));\n    assert(!isHttpsBaseUrl("https://"));\n    assert(!isHttpsBaseUrl(nullptr));\n\n    // Bounded queue must preserve existing data rather than evicting oldest.
+    // Endpoint configuration must reject plaintext, empty and malformed URLs.
+    assert(isHttpsBaseUrl("https://ems.example.com"));
+    assert(!isHttpsBaseUrl("http://ems.example.com"));
+    assert(!isHttpsBaseUrl("https://"));
+    assert(!isHttpsBaseUrl(nullptr));
+
+    // Bounded queue must preserve existing data rather than evicting oldest.
     assert(canEnqueue(0));
     assert(canEnqueue(7));
     assert(!canEnqueue(8));
     assert(!canEnqueue(100));
 
-    std::cout << "FirmwareCore native tests passed\n";
+    std::cout << "FirmwareCore native tests passed\\n";
     return 0;
 }
