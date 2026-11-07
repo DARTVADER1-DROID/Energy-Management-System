@@ -62,9 +62,19 @@ PZEM measurement wiring can expose lethal mains voltage. Mains wiring, CT placem
 - The queue and energy metadata use Preferences/NVS. Flash encryption, secure boot provisioning, and physical flash-extraction protection are deliberately not changed in this work.
 - A successful CI compile and source-level regression suite do not replace physical hardware-in-loop testing or prove PZEM measurement accuracy.
 
-## Validation
+## Validation and production gate
 
-The GitHub Actions workflow pins ESP32 core 3.3.12, ArduinoJson 7.4.3, and PZEM004Tv30 1.2.1. It runs firmware contract/edge-case regression checks and compiles the ESP32 sketch. Hardware tests still require the actual board, confirmed PZEM revision, USB data cable, and safe low-voltage test setup.
+The GitHub Actions workflow pins ESP32 core 3.3.12, ArduinoJson 7.4.3, and PZEM004Tv30 1.2.1. It runs Python backend/firmware contract checks, native C++17 edge-case tests, the backend .NET suite, and an Arduino CLI compile.
+
+Run host tests locally from the repository root:
+
+```sh
+python -m unittest discover -s firmware/esp32-arduino/tests -v
+g++ -std=c++17 -Wall -Wextra -Werror -pedantic firmware/esp32-arduino/tests/native/test_firmware_core.cpp -o /tmp/ems-firmware-tests
+/tmp/ems-firmware-tests
+```
+
+See [PRODUCTION_ACCEPTANCE.md](PRODUCTION_ACCEPTANCE.md) for the complete hardware-in-the-loop test matrix and release gates. A successful CI compile and source-level regression suite do not replace physical hardware-in-loop testing or prove PZEM measurement accuracy. The firmware must remain supervised monitoring-only until the hardware acceptance matrix is completed.
 
 ## Flashing
 
