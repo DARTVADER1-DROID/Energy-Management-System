@@ -21,19 +21,25 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Install Python test runner
+        run: python -m pip install --upgrade pip
+
+      - name: Run firmware contract and edge-case regression tests
+        run: python -m unittest discover -s firmware/esp32-arduino/tests -v
+
       - name: Install Arduino CLI
         run: |
           mkdir -p "$HOME/.local/bin"
           curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR="$HOME/.local/bin" sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-      - name: Install ESP32 core and libraries
+      - name: Install pinned ESP32 core and libraries
         run: |
           arduino-cli config init
           arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
           arduino-cli core update-index
-          arduino-cli core install esp32:esp32
-          arduino-cli lib install ArduinoJson PZEM004Tv30
+          arduino-cli core install esp32:esp32@3.3.12
+          arduino-cli lib install ArduinoJson@7.4.3 PZEM004Tv30@1.2.1
 
       - name: Compile firmware (secrets replaced with safe placeholders)
         run: |
