@@ -13,7 +13,8 @@ namespace {
 Preferences preferences;
 PzemReader meter(PZEM_RX_PIN,PZEM_TX_PIN);
 TelemetryClient* telemetry=nullptr;
-String deviceSecret;
+String deviceSecret, previousDeviceSecret;
+bool rotationPending=false;
 unsigned long lastTelemetryMs=0,lastHeartbeatMs=0;
 unsigned long nextProvisionAttemptMs=0,provisionBackoffMs=30000UL;
 float energyOffsetWh=0,lastRawEnergyWh=-1;
@@ -61,7 +62,12 @@ bool provisionDevice(){
   deviceSecret=candidate;Serial.println("[provision] Credential stored.");return true;
 }
 void loadCredential(){
-  if(preferences.begin("ems-device",true)){deviceSecret=preferences.getString("secret","");preferences.end();}
+  if(preferences.begin("ems-device",true)){
+    deviceSecret=preferences.getString("secret","");
+    previousDeviceSecret=preferences.getString("previous","");
+    rotationPending=preferences.getBool("rotationPending",false);
+    preferences.end();
+  }
 }
 void persistMeterState(bool force){
   if(!force&&millis()-lastMeterPersistMs<300000UL)return;
@@ -88,20 +94,35 @@ void normalizeCumulativeEnergy(PzemReading& reading){
   if(reset)persistMeterState(true);else persistMeterState(false);
 }
 void tryCredentialRotation(){
-  const String replacement=EMS_ROTATED_DEVICE_SECRET;
-  if(replacement.length()==0||replacement==deviceSecret)return;
-  // Persist before first use: the backend adopts and revokes the old key on the first
-  // successful request signed by the replacement credential.
-  if(!preferences.begin("ems-device",false))return;
-  size_t saved=preferences.putString("secret",replacement);preferences.end();
-  if(saved==0){Serial.println("[rotation] Could not persist replacement; old credential remains active.");return;}
+  String replacement=rotationPending?deviceSecret:String(EMS_ROTATED_DEVICE_SECRET);
+  if(replacement.length()==0||(!rotationPending&&replacement==deviceSecret))return;
+  if(!rotationPending){
+    if(!preferences.begin("ems-device",false))return;
+    preferences.putString("previous",deviceSecret);
+    preferences.putBool("rotationPending",true);
+    size_t saved=preferences.putString("secret",replacement);
+    preferences.end();
+    if(saved==0){Serial.println("[rotation] Could not persist replacement; old credential remains active.");return;}
+    previousDeviceSecret=deviceSecret;deviceSecret=replacement;rotationPending=true;
+  }
   TelemetryClient candidate(EMS_API_BASE_URL,EMS_DEVICE_CODE,replacement,EMS_ROOT_CA_CERT);
   if(!candidate.heartbeat()){
-    if(preferences.begin("ems-device",false)){preferences.putString("secret",deviceSecret);preferences.end();}
-    Serial.println("[rotation] Replacement not accepted; restored previous credential.");
+    if(candidate.lastStatus()==HTTP_CODE_UNAUTHORIZED){
+      if(preferences.begin("ems-device",false)){
+        preferences.putString("secret",previousDeviceSecret);
+        preferences.putBool("rotationPending",false);
+        preferences.remove("previous");preferences.end();
+      }
+      deviceSecret=previousDeviceSecret;rotationPending=false;
+      Serial.println("[rotation] Backend rejected replacement; restored prior key.");
+    }else Serial.println("[rotation] Result uncertain (network/TLS/server); keeping both keys and retrying safely.");
     return;
   }
-  deviceSecret=replacement;delete telemetry;telemetry=nullptr;
+  if(preferences.begin("ems-device",false)){
+    preferences.putBool("rotationPending",false);preferences.remove("previous");preferences.end();
+  }
+  deviceSecret=replacement;previousDeviceSecret="";rotationPending=false;
+  delete telemetry;telemetry=nullptr;
   Serial.println("[rotation] Replacement credential confirmed and stored.");
 }
 void createTelemetryClient(){
