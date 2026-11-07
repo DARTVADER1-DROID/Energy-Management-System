@@ -1,4 +1,5 @@
 #include "TelemetryClient.h"
+#include "FirmwareCore.h"
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
@@ -11,7 +12,7 @@
 #include <string.h>
 
 namespace {
-constexpr size_t MAX_PENDING_SAMPLES = 8;
+constexpr size_t MAX_PENDING_SAMPLES = ems::kMaxPendingSamples;
 constexpr size_t MAX_PENDING_BYTES = 3500;
 String toUpperHex(const uint8_t* bytes, size_t length) {
   static const char* digits = "0123456789ABCDEF";
@@ -89,7 +90,7 @@ bool TelemetryClient::enqueue(const String& payload) {
   String current=p.getString("items","[]"); DynamicJsonDocument doc(12288);
   if(deserializeJson(doc,current)){doc.clear();doc.to<JsonArray>();}
   JsonArray a=doc.as<JsonArray>();
-  if(a.size()>=MAX_PENDING_SAMPLES){p.end();Serial.println("[queue] Queue capacity reached; retaining existing samples and rejecting newest.");return false;}
+  if(!ems::canEnqueue(a.size(),MAX_PENDING_SAMPLES)){p.end();Serial.println("[queue] Queue capacity reached; retaining existing samples and rejecting newest.");return false;}
   a.add(payload); String encoded; serializeJson(doc,encoded);
   bool ok=encoded.length()<=MAX_PENDING_BYTES && p.putString("items",encoded)>0;
   p.end();
@@ -105,7 +106,7 @@ bool TelemetryClient::flushQueue() {
   while(a.size()>0) {
     String payload=a[0].as<String>();
     if(!signedPost("/api/device-telemetry",payload,HTTP_CODE_ACCEPTED)) {
-      if(lastHttpStatus==HTTP_CODE_BAD_REQUEST) {
+      if(ems::classifyHttpStatus(lastHttpStatus,HTTP_CODE_ACCEPTED)==ems::HttpDisposition::PermanentReject) {
         Serial.println("[queue] Permanently rejected HTTP 400 sample removed so it cannot block newer data.");
         a.remove(0); String rejectedUpdate; serializeJson(doc,rejectedUpdate);
         if(!p.begin("ems-queue",false)) return delivered;
@@ -139,7 +140,7 @@ bool TelemetryClient::publish(const PzemReading& r) {
   if(isfinite(r.powerFactor)&&r.powerFactor>=-1&&r.powerFactor<=1)m["powerFactor"]=r.powerFactor;
   String body; serializeJson(doc,body);
   if(signedPost("/api/device-telemetry",body,HTTP_CODE_ACCEPTED)) return true;
-  if(lastHttpStatus==HTTP_CODE_BAD_REQUEST) return false;
+  if(ems::classifyHttpStatus(lastHttpStatus,HTTP_CODE_ACCEPTED)==ems::HttpDisposition::PermanentReject) return false;
   if(enqueue(body)){Serial.println("[queue] Sample persisted for retry with its original ID and capture time.");}
   return false;
 }
