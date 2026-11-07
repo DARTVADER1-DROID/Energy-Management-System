@@ -35,11 +35,14 @@ inline bool normalizeEnergy(double rawWh, EnergyCounterState& state, double& tot
     bool reset = false;
     if (state.initialized && rawWh + 1.0 < state.lastRawWh) {
         state.offsetWh += state.lastRawWh;
+        state.lastRawWh = rawWh;
         reset = true;
+    } else if (!state.initialized || rawWh > state.lastRawWh) {
+        // Ignore sub-1 Wh backward jitter instead of lowering the cumulative total.
+        state.lastRawWh = rawWh;
     }
-    state.lastRawWh = rawWh;
     state.initialized = true;
-    totalWh = rawWh + state.offsetWh;
+    totalWh = state.lastRawWh + state.offsetWh;
     return reset;
 }
 
