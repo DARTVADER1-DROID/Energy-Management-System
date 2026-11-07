@@ -1,0 +1,22 @@
+sequenceDiagram
+  autonumber
+  actor Admin as Household Administrator
+  participant UI as EMS Razor Pages
+  participant API as Device API / Identity
+  participant DB as PostgreSQL
+  participant ESP as ESP32 firmware
+
+  Admin->>UI: Reauthenticate and request provisioning code
+  UI->>API: Authorized provisioning-code request
+  API->>DB: Store hashed, short-lived single-use code
+  API-->>UI: Display code once
+  Admin->>ESP: Configure device code and one-time code locally
+  ESP->>ESP: Connect Wi-Fi and synchronize NTP
+  ESP->>API: HTTPS POST /api/device-auth/provision
+  API->>DB: Validate code, device state and expiry
+  API->>DB: Create encrypted device credential / recovery record
+  API-->>ESP: Return device secret over validated HTTPS
+  ESP->>ESP: Persist credential in NVS
+  ESP->>API: Signed heartbeat with HMAC headers
+  API->>DB: Validate signature, timestamp and nonce; update last-seen
+  API-->>ESP: Heartbeat accepted
