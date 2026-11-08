@@ -314,19 +314,23 @@ public sealed class DeviceRegistrationBoundaryApiTests(PostgreSqlFixture postgre
     }
 
     [Fact]
-    public async Task DeactivateDevice_IsIdempotentAndDeviceRemainsInList()
+    public async Task DeleteDevice_PermanentlyRemovesDeviceAndOmitsItFromInventory()
     {
-        var householdId = await CreateHouseholdAsync("Inactive Listing Home");
+        var householdId = await CreateHouseholdAsync("Permanent Deletion Home");
         var device = await RegisterDeviceAsync(householdId);
 
-        var first = await _client.PatchAsync($"/api/devices/{device.DeviceCode}/deactivate", null);
-        var second = await _client.PatchAsync($"/api/devices/{device.DeviceCode}/deactivate", null);
+        using var delete = await _client.DeleteAsync($"/api/devices/{device.DeviceCode}");
+        using var secondDelete = await _client.DeleteAsync($"/api/devices/{device.DeviceCode}");
         var list = await _client.GetFromJsonAsync<DeviceResponse[]>("/api/devices");
 
-        Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
-        Assert.Equal(HttpStatusCode.NoContent, second.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, delete.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, secondDelete.StatusCode);
         Assert.NotNull(list);
-        Assert.False(Assert.Single(list).IsActive);
+        Assert.DoesNotContain(list, item => item.DeviceCode == device.DeviceCode);
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var domainDb = scope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
+        Assert.False(await domainDb.Devices.AnyAsync(item => item.DeviceCode == device.DeviceCode));
     }
 
     [Fact]
