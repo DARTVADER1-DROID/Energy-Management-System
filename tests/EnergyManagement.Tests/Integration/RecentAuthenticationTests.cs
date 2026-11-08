@@ -91,17 +91,17 @@ public sealed class RecentAuthenticationTests(PostgreSqlFixture postgres) : IAsy
     }
 
     [Fact]
-    public async Task HouseholdAdministratorSeesDeviceDeactivationControl()
+    public async Task HouseholdAdministratorSeesDeviceRemovalControl()
     {
         var response = await _client.GetAsync($"/Devices/{_deviceCode}");
         var html = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("Deactivate registration", html);
+        Assert.Contains("Remove device", html);
     }
 
     [Fact]
-    public async Task HouseholdMemberCannotSeeDeviceDeactivationControlOrSecurityAudit()
+    public async Task HouseholdMemberCannotSeeDeviceRemovalControlOrSecurityAudit()
     {
         await using (var scope = _factory.Services.CreateAsyncScope())
         {
@@ -118,7 +118,7 @@ public sealed class RecentAuthenticationTests(PostgreSqlFixture postgres) : IAsy
         var html = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.DoesNotContain("Deactivate registration", html);
+        Assert.DoesNotContain("Remove device", html);
         Assert.DoesNotContain("ProvisioningCodeCreated", html);
         Assert.DoesNotContain("DeviceProvisioned", html);
     }
