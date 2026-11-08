@@ -25,6 +25,32 @@
         <span class="status-pill @(Model.Device.IsActive ? "status-neutral" : "status-muted")">@(Model.Device.IsActive ? "Active registration" : "Deactivated")</span>
     </div>
 </div>
+@if (Model.CanManageDevice)
+{
+    <section class="panel mt-6 p-6">
+        <p class="eyebrow">Device management</p>
+        <h3 class="mt-1 text-lg font-semibold">Edit device configuration</h3>
+        <p class="mt-1 text-sm text-slate-500">Update the device's descriptive metadata and dashboard warning thresholds. These thresholds are informational only and do not control electrical protection.</p>
+        <form method="post" asp-page-handler="Update" asp-route-deviceCode="@Model.Device.DeviceCode" class="mt-5 grid gap-4 md:grid-cols-2">
+            <div><label asp-for="Edit.Name" class="field-label">Device name</label><input asp-for="Edit.Name" class="control-input mt-1 w-full" /></div>
+            <div><label asp-for="Edit.HardwareModel" class="field-label">Hardware model</label><input asp-for="Edit.HardwareModel" class="control-input mt-1 w-full" /></div>
+            <div><label asp-for="Edit.FirmwareVersion" class="field-label">Firmware version</label><input asp-for="Edit.FirmwareVersion" class="control-input mt-1 w-full" /></div>
+            <div><label asp-for="Edit.InstallationLocation" class="field-label">Installation location</label><input asp-for="Edit.InstallationLocation" class="control-input mt-1 w-full" /></div>
+            <div><label asp-for="Edit.ElectricalConfiguration" class="field-label">Electrical configuration</label><select asp-for="Edit.ElectricalConfiguration" asp-items="Html.GetEnumSelectList<EnergyManagement.Api.Modules.Devices.ElectricalConfiguration>()" class="control-select mt-1 w-full"></select></div>
+            <div><label asp-for="Edit.Description" class="field-label">Description</label><input asp-for="Edit.Description" class="control-input mt-1 w-full" /></div>
+            <div><label asp-for="Edit.MinimumVoltage" class="field-label">Minimum voltage (V)</label><input asp-for="Edit.MinimumVoltage" type="number" min="0" step="0.01" class="control-input mt-1 w-full" /></div>
+            <div><label asp-for="Edit.MaximumVoltage" class="field-label">Maximum voltage (V)</label><input asp-for="Edit.MaximumVoltage" type="number" min="0" step="0.01" class="control-input mt-1 w-full" /></div>
+            <div><label asp-for="Edit.MaximumCurrent" class="field-label">Maximum current (A)</label><input asp-for="Edit.MaximumCurrent" type="number" min="0" step="0.01" class="control-input mt-1 w-full" /></div>
+            <div><label asp-for="Edit.MaximumInstantaneousPower" class="field-label">Maximum power (W)</label><input asp-for="Edit.MaximumInstantaneousPower" type="number" min="0" step="0.01" class="control-input mt-1 w-full" /></div>
+            <div><label asp-for="Edit.MaximumDailyEnergy" class="field-label">Maximum daily energy (kWh)</label><input asp-for="Edit.MaximumDailyEnergy" type="number" min="0" step="0.01" class="control-input mt-1 w-full" /></div>
+            <div><label asp-for="Edit.MaximumTemperature" class="field-label">Maximum temperature (°C)</label><input asp-for="Edit.MaximumTemperature" type="number" min="0" step="0.1" class="control-input mt-1 w-full" /></div>
+            <div><label asp-for="Edit.WarningPersistenceSeconds" class="field-label">Warning persistence (seconds)</label><input asp-for="Edit.WarningPersistenceSeconds" type="number" min="1" max="86400" class="control-input mt-1 w-full" /></div>
+            <div class="md:col-span-2"><span asp-validation-summary="All" class="text-sm text-rose-600"></span></div>
+            <div class="md:col-span-2 flex justify-end"><button type="submit" class="primary-button">Save device changes</button></div>
+        </form>
+    </section>
+}
+
 @if (Model.CanManageDevice && Model.Device.IsActive && !Model.CanRotateDeviceCredential)
 {
     <section class="panel mt-6 p-6">
