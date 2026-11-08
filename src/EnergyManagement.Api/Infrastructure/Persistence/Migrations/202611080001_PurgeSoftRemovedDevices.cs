@@ -15,6 +15,12 @@ public sealed class PurgeSoftRemovedDevices : Migration
         // by the devices -> telemetry_readings ON DELETE CASCADE relationship.
         // Security audit events are intentionally retained for accountability.
         migrationBuilder.Sql("""
+            INSERT INTO device_security_audit_events
+                ("DeviceId", "ActorUserId", "EventType", "Details", "CreatedAtUtc")
+            SELECT "Id", NULL, 'DevicePermanentlyDeleted',
+                'Legacy soft-removed device permanently purged during migration.', NOW()
+            FROM devices WHERE "IsActive" = FALSE;
+
             DELETE FROM device_credentials
             WHERE "DeviceId" IN (SELECT "Id" FROM devices WHERE "IsActive" = FALSE);
 
