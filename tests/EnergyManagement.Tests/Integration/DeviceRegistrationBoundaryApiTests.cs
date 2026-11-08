@@ -28,6 +28,12 @@ public sealed class DeviceRegistrationBoundaryApiTests(PostgreSqlFixture postgre
 
         var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
         await identityDb.Database.MigrateAsync();
+
+        // EnsureDeletedAsync drops every schema in the shared test database. Reapply
+        // the device-security schema as well as the domain and identity schemas before
+        // exercising endpoints that touch credentials, provisioning codes, or nonces.
+        var securityDb = scope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
+        await securityDb.Database.MigrateAsync();
         identityDb.Users.Add(new ApplicationUser
         {
             Id = 1,
