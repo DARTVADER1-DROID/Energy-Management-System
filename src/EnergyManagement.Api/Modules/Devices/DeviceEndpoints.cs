@@ -30,7 +30,7 @@ public static class DeviceEndpoints
         devices.MapPost("/{householdId:int}", RegisterDeviceAsync);
         devices.MapGet("/", ListDevicesAsync);
         devices.MapGet("/{deviceCode}", GetDeviceAsync);
-        devices.MapPatch("/{deviceCode}/deactivate", DeactivateDeviceAsync);
+        devices.MapDelete("/{deviceCode}", DeleteDeviceAsync);
         devices.MapPost("/{deviceCode}/provisioning-codes", CreateProvisioningCodeAsync)
             .RequireRateLimiting("device-provisioning");
         devices.MapPost("/{deviceCode}/credential-rotations", CreateCredentialRotationAsync)
@@ -176,7 +176,7 @@ public static class DeviceEndpoints
         var accessibleHouseholds = await householdAccess.GetHouseholdIdsAsync(
             GetUserId(user), cancellationToken);
         var query = dbContext.Devices.AsNoTracking()
-            .Where(device => accessibleHouseholds.Contains(device.HouseholdId));
+            .Where(device => accessibleHouseholds.Contains(device.HouseholdId) && device.IsActive);
         if (householdId.HasValue)
             query = query.Where(device => device.HouseholdId == householdId.Value);
 
@@ -204,7 +204,7 @@ public static class DeviceEndpoints
         CancellationToken cancellationToken)
     {
         var device = await dbContext.Devices.AsNoTracking()
-            .SingleOrDefaultAsync(item => item.DeviceCode == deviceCode, cancellationToken);
+            .SingleOrDefaultAsync(item => item.DeviceCode == deviceCode && item.IsActive, cancellationToken);
 
         if (device is null || !await householdAccess.IsMemberAsync(
                 GetUserId(user), device.HouseholdId, cancellationToken))
@@ -213,28 +213,37 @@ public static class DeviceEndpoints
         return TypedResults.Ok(DeviceResponse.From(device));
     }
 
-    private static async Task<IResult> DeactivateDeviceAsync(
+    private static async Task<IResult> DeleteDeviceAsync(
         string deviceCode,
-        EnergyManagementDbContext dbContext,
+        DeviceAuthenticationService authenticationService,
         HouseholdAccessService householdAccess,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
-        var device = await dbContext.Devices
-            .SingleOrDefaultAsync(item => item.DeviceCode == deviceCode, cancellationToken);
-
-        if (device is null) return TypedResults.NotFound();
-        if (!await householdAccess.IsAdministratorAsync(
-                GetUserId(user), device.HouseholdId, cancellationToken))
-            return TypedResults.Forbid();
-
         if (!user.HasRecentAuthentication())
             return TypedResults.Problem(statusCode: 428, title: "Recent authentication required",
-                detail: "Reauthenticate before deactivating a device.");
+                detail: "Reauthenticate before permanently deleting a device.");
 
-        device.Deactivate();
-        await dbContext.SaveChangesAsync(cancellationToken);
-        return TypedResults.NoContent();
+        try
+        {
+            var deletedCredentialCount = await authenticationService.RemoveDeviceAsync(
+                deviceCode, GetUserId(user), householdAccess, cancellationToken);
+            return TypedResults.Ok(new
+            {
+                deviceCode,
+                deleted = true,
+                deletedCredentialCount,
+                message = "Device and telemetry were permanently deleted. Security audit history was retained."
+            });
+        }
+        catch (KeyNotFoundException)
+        {
+            return TypedResults.NotFound("Device was not found.");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return TypedResults.Forbid();
+        }
     }
 
     private static async Task<IResult> CreateProvisioningCodeAsync(

@@ -26,6 +26,9 @@ public sealed class DetailsModel(
     public DateTimeOffset? RotationExpiresAtUtc { get; private set; }
     public IReadOnlyList<DeviceSecurityAuditSummary> SecurityEvents { get; private set; } = [];
 
+    [BindProperty]
+    public DeviceEditInput Edit { get; set; } = new();
+
     public async Task<IActionResult> OnGetAsync(string deviceCode, CancellationToken cancellationToken)
     {
         var userId = User.GetUserId();
@@ -34,6 +37,22 @@ public sealed class DetailsModel(
         if (device is null) return NotFound();
 
         Device = device;
+        Edit = new DeviceEditInput
+        {
+            Name = device.Name,
+            HardwareModel = device.HardwareModel,
+            FirmwareVersion = device.FirmwareVersion,
+            InstallationLocation = device.InstallationLocation,
+            ElectricalConfiguration = device.ElectricalConfiguration,
+            Description = device.Description,
+            MinimumVoltage = device.MinimumVoltage,
+            MaximumVoltage = device.MaximumVoltage,
+            MaximumCurrent = device.MaximumCurrent,
+            MaximumInstantaneousPower = device.MaximumInstantaneousPower,
+            MaximumDailyEnergy = device.MaximumDailyEnergy,
+            MaximumTemperature = device.MaximumTemperature,
+            WarningPersistenceSeconds = device.WarningPersistenceSeconds
+        };
         CanManageDevice = await householdAccess.IsAdministratorAsync(
             userId, device.HouseholdId, cancellationToken);
         CanRotateDeviceCredential = CanManageDevice &&
@@ -162,6 +181,56 @@ public sealed class DetailsModel(
         return RedirectToPage(new { deviceCode });
     }
 
+    public async Task<IActionResult> OnPostUpdateAsync(
+        string deviceCode, CancellationToken cancellationToken)
+    {
+        var device = await energyDb.Devices.SingleOrDefaultAsync(
+            item => item.DeviceCode == deviceCode, cancellationToken);
+        if (device is null) return NotFound();
+
+        var userId = User.GetUserId();
+        if (!await householdAccess.IsMemberAsync(userId, device.HouseholdId, cancellationToken))
+            return NotFound();
+        if (!await householdAccess.IsAdministratorAsync(userId, device.HouseholdId, cancellationToken))
+            return Forbid();
+        if (!User.HasRecentAuthentication())
+        {
+            var returnUrl = Url.Page("/Devices/Details", new { deviceCode });
+            return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
+        }
+
+        if (!ModelState.IsValid || !Enum.IsDefined(Edit.ElectricalConfiguration))
+        {
+            if (!Enum.IsDefined(Edit.ElectricalConfiguration))
+                ModelState.AddModelError("Edit.ElectricalConfiguration", "Choose a supported electrical configuration.");
+            return await OnGetAsync(deviceCode, cancellationToken);
+        }
+
+        try
+        {
+            device.UpdateMetadata(Edit.Name, Edit.HardwareModel, Edit.FirmwareVersion,
+                Edit.InstallationLocation, Edit.ElectricalConfiguration, Edit.Description);
+            device.UpdateThresholds(new DeviceThresholds
+            {
+                MinimumVoltage = Edit.MinimumVoltage,
+                MaximumVoltage = Edit.MaximumVoltage,
+                MaximumCurrent = Edit.MaximumCurrent,
+                MaximumInstantaneousPower = Edit.MaximumInstantaneousPower,
+                MaximumDailyEnergy = Edit.MaximumDailyEnergy,
+                MaximumTemperature = Edit.MaximumTemperature,
+                WarningPersistenceSeconds = Edit.WarningPersistenceSeconds
+            });
+            await energyDb.SaveChangesAsync(cancellationToken);
+            TempData["StatusMessage"] = "Device configuration updated.";
+            return RedirectToPage(new { deviceCode });
+        }
+        catch (ArgumentException exception)
+        {
+            ModelState.AddModelError(string.Empty, exception.Message);
+            return await OnGetAsync(deviceCode, cancellationToken);
+        }
+    }
+
     public async Task<IActionResult> OnPostRemoveAsync(
         string deviceCode, CancellationToken cancellationToken)
     {
@@ -199,7 +268,7 @@ public sealed class DetailsModel(
         }
 
         TempData["StatusMessage"] =
-            $"Device removed from active inventory. {revoked} credential(s) revoked; unused provisioning codes were invalidated. Historical telemetry and security audit records were retained.";
+            $"Device permanently deleted. {revoked} credential(s) and all provisioning data were purged; associated telemetry was deleted. Security audit history was retained.";
         return RedirectToPage("/Devices/Index", new { householdId = device.HouseholdId });
     }
 
@@ -215,3 +284,32 @@ public sealed class DetailsModel(
 
 public sealed record DeviceSecurityAuditSummary(
     string EventType, string Actor, string Details, DateTimeOffset CreatedAtUtc);
+
+public sealed class DeviceEditInput
+{
+    [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.StringLength(120)]
+    public string Name { get; set; } = string.Empty;
+    [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.StringLength(80)]
+    public string HardwareModel { get; set; } = string.Empty;
+    [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.StringLength(80)]
+    public string FirmwareVersion { get; set; } = string.Empty;
+    [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.StringLength(160)]
+    public string InstallationLocation { get; set; } = string.Empty;
+    public ElectricalConfiguration ElectricalConfiguration { get; set; }
+    [System.ComponentModel.DataAnnotations.StringLength(1000)]
+    public string? Description { get; set; }
+    [System.ComponentModel.DataAnnotations.Range(typeof(decimal), "0", "100000")]
+    public decimal? MinimumVoltage { get; set; }
+    [System.ComponentModel.DataAnnotations.Range(typeof(decimal), "0", "100000")]
+    public decimal? MaximumVoltage { get; set; }
+    [System.ComponentModel.DataAnnotations.Range(typeof(decimal), "0", "100000")]
+    public decimal? MaximumCurrent { get; set; }
+    [System.ComponentModel.DataAnnotations.Range(typeof(decimal), "0", "100000000")]
+    public decimal? MaximumInstantaneousPower { get; set; }
+    [System.ComponentModel.DataAnnotations.Range(typeof(decimal), "0", "100000000")]
+    public decimal? MaximumDailyEnergy { get; set; }
+    [System.ComponentModel.DataAnnotations.Range(typeof(decimal), "0", "10000")]
+    public decimal? MaximumTemperature { get; set; }
+    [System.ComponentModel.DataAnnotations.Range(1, 86400)]
+    public int? WarningPersistenceSeconds { get; set; }
+}

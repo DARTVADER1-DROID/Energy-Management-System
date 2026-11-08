@@ -5,6 +5,7 @@ using System.Text;
 using EnergyManagement.Api.Infrastructure.Persistence;
 using EnergyManagement.Api.Infrastructure.IdentityPersistence;
 using EnergyManagement.Api.Modules.Devices;
+using EnergyManagement.Api.Modules.Telemetry;
 using EnergyManagement.Api.Modules.Identity;
 using EnergyManagement.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -72,6 +73,41 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
                 ElectricalConfiguration.SinglePhase, null, new DeviceThresholdsRequest()),
             CancellationToken.None);
         _deviceCode = device.DeviceCode;
+    }
+
+    [Fact]
+    public async Task PermanentRemovalDeletesDeviceTelemetryAndCredentialsButRetainsAuditHistory()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var service = scope.ServiceProvider.GetRequiredService<DeviceAuthenticationService>();
+        var access = scope.ServiceProvider.GetRequiredService<HouseholdAccessService>();
+        var domainDb = scope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
+        var securityDb = scope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
+
+        var provisioningCode = await service.CreateProvisioningCodeAsync(_deviceCode, 1, access);
+        await service.ExchangeProvisioningCodeAsync(_deviceCode, provisioningCode.Code);
+
+        var device = await domainDb.Devices.SingleAsync(item => item.DeviceCode == _deviceCode);
+        domainDb.TelemetryReadings.Add(new TelemetryReading(
+            device.Id, Guid.NewGuid(), 1, DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow, "{}"));
+        securityDb.RequestNonces.Add(new DeviceRequestNonce(
+            device.Id, Convert.ToHexString(RandomNumberGenerator.GetBytes(16)), DateTimeOffset.UtcNow));
+        await domainDb.SaveChangesAsync();
+        await securityDb.SaveChangesAsync();
+
+        var deletedCredentialCount = await service.RemoveDeviceAsync(_deviceCode, 1, access);
+
+        Assert.Equal(1, deletedCredentialCount);
+        Assert.False(await domainDb.Devices.AnyAsync(item => item.Id == device.Id));
+        Assert.False(await domainDb.TelemetryReadings.AnyAsync(item => item.DeviceId == device.Id));
+        Assert.False(await securityDb.Credentials.AnyAsync(item => item.DeviceId == device.Id));
+        Assert.False(await securityDb.ProvisioningCodes.AnyAsync(item => item.DeviceId == device.Id));
+        Assert.False(await securityDb.RequestNonces.AnyAsync(item => item.DeviceId == device.Id));
+        Assert.Contains(await securityDb.AuditEvents
+            .Where(item => item.DeviceId == device.Id)
+            .Select(item => item.EventType)
+            .ToArrayAsync(), eventType => eventType == "DevicePermanentlyDeleted");
     }
 
     [Fact]
@@ -485,6 +521,10 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
             {
                 return false;
             }
+            catch (KeyNotFoundException)
+            {
+                return false;
+            }
         }
 
         async Task<int> RemoveAsync()
@@ -504,19 +544,12 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
         await using var verifyScope = _factory.Services.CreateAsyncScope();
         var energyDb = verifyScope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
         var securityDb = verifyScope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
-        var device = await energyDb.Devices.AsNoTracking().SingleAsync(
-            item => item.DeviceCode == _deviceCode);
-
-        Assert.False(device.IsActive);
-        Assert.All(await securityDb.ProvisioningCodes.AsNoTracking()
-            .Where(item => item.DeviceId == device.Id).ToArrayAsync(),
-            code => Assert.NotNull(code.RevokedAtUtc));
-        Assert.All(await securityDb.Credentials.AsNoTracking()
-            .Where(item => item.DeviceId == device.Id).ToArrayAsync(),
-            credential => Assert.NotNull(credential.RevokedAtUtc));
-        Assert.Contains("CredentialsRevoked",
-            await securityDb.AuditEvents.Where(item => item.DeviceId == device.Id)
-                .Select(item => item.EventType).ToArrayAsync());
+        Assert.False(await energyDb.Devices.AsNoTracking()
+            .AnyAsync(item => item.DeviceCode == _deviceCode));
+        Assert.Empty(await securityDb.ProvisioningCodes.AsNoTracking().ToArrayAsync());
+        Assert.Empty(await securityDb.Credentials.AsNoTracking().ToArrayAsync());
+        Assert.Contains("DevicePermanentlyDeleted",
+            await securityDb.AuditEvents.Select(item => item.EventType).ToArrayAsync());
     }
 
     [Fact]
@@ -565,16 +598,12 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
         await using var verifyScope = _factory.Services.CreateAsyncScope();
         var energyDb = verifyScope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
         var securityDb = verifyScope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
-        var device = await energyDb.Devices.AsNoTracking().SingleAsync(
-            item => item.DeviceCode == _deviceCode);
-
-        Assert.False(device.IsActive);
-        Assert.Empty(await securityDb.Credentials.AsNoTracking()
-            .Where(item => item.DeviceId == device.Id && item.RevokedAtUtc == null)
-            .ToArrayAsync());
-        Assert.All(await securityDb.ProvisioningCodes.AsNoTracking()
-            .Where(item => item.DeviceId == device.Id).ToArrayAsync(),
-            code => Assert.NotNull(code.RevokedAtUtc));
+        Assert.False(await energyDb.Devices.AsNoTracking()
+            .AnyAsync(item => item.DeviceCode == _deviceCode));
+        Assert.Empty(await securityDb.Credentials.AsNoTracking().ToArrayAsync());
+        Assert.Empty(await securityDb.ProvisioningCodes.AsNoTracking().ToArrayAsync());
+        Assert.Contains("DevicePermanentlyDeleted",
+            await securityDb.AuditEvents.Select(item => item.EventType).ToArrayAsync());
     }
 
     [Fact]
@@ -598,6 +627,10 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
             {
                 return false;
             }
+            catch (KeyNotFoundException)
+            {
+                return false;
+            }
         }
 
         async Task<int> RemoveAsync()
@@ -617,15 +650,11 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
         await using var verifyScope = _factory.Services.CreateAsyncScope();
         var energyDb = verifyScope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
         var securityDb = verifyScope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
-        var device = await energyDb.Devices.AsNoTracking().SingleAsync(
-            item => item.DeviceCode == _deviceCode);
-
-        Assert.False(device.IsActive);
-        Assert.NotEmpty(await securityDb.Credentials.AsNoTracking()
-            .Where(item => item.DeviceId == device.Id).ToArrayAsync());
-        Assert.All(await securityDb.Credentials.AsNoTracking()
-            .Where(item => item.DeviceId == device.Id).ToArrayAsync(),
-            credential => Assert.NotNull(credential.RevokedAtUtc));
+        Assert.False(await energyDb.Devices.AsNoTracking()
+            .AnyAsync(item => item.DeviceCode == _deviceCode));
+        Assert.Empty(await securityDb.Credentials.AsNoTracking().ToArrayAsync());
+        Assert.Contains("DevicePermanentlyDeleted",
+            await securityDb.AuditEvents.Select(item => item.EventType).ToArrayAsync());
     }
 
     [Fact]
@@ -648,12 +677,11 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
         await using var verifyScope = _factory.Services.CreateAsyncScope();
         var energyDb = verifyScope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
         var securityDb = verifyScope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
-        var device = await energyDb.Devices.AsNoTracking().SingleAsync(
-            item => item.DeviceCode == _deviceCode);
-        Assert.False(device.IsActive);
-        Assert.All(await securityDb.Credentials.AsNoTracking()
-            .Where(item => item.DeviceId == device.Id).ToArrayAsync(),
-            credential => Assert.NotNull(credential.RevokedAtUtc));
+        Assert.False(await energyDb.Devices.AsNoTracking()
+            .AnyAsync(item => item.DeviceCode == _deviceCode));
+        Assert.Empty(await securityDb.Credentials.AsNoTracking().ToArrayAsync());
+        Assert.Contains("DevicePermanentlyDeleted",
+            await securityDb.AuditEvents.Select(item => item.EventType).ToArrayAsync());
     }
 
     [Fact]

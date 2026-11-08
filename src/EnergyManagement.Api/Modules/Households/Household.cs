@@ -32,6 +32,13 @@ public sealed class Household
 
     public string Name { get; private set; } = string.Empty;
 
+    public void Rename(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name.Trim().Length is < 2 or > 120)
+            throw new ArgumentException("Household name must contain 2 to 120 characters.", nameof(name));
+        Name = name.Trim();
+    }
+
     public int NextDeviceNumber { get; private set; } = 1;
 
     public string HouseholdCode => $"H{Id:000}";

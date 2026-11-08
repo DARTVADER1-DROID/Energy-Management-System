@@ -12,7 +12,7 @@ This catalogue describes what is present in the repository at the current develo
 | Account security | Recent-authentication gates and audit events | Sensitive account/device actions require reauthentication where configured; household membership changes are audited. |
 | MFA | Current deployment state | MFA is disabled for all users by the current migration. Do not describe MFA as an active security control. |
 | Households | Create/list/read | Household records and generated household codes are persisted in PostgreSQL. |
-| Devices | Register/list/read/deactivate | Device metadata, electrical configuration and warning-threshold configuration; stable generated device codes. |
+| Devices | Register/list/read/update/permanently delete | Device metadata, electrical configuration and warning-threshold configuration; stable generated device codes. Permanent deletion purges telemetry and credentials while retaining security audit history. |
 | Device identity | Provisioning and credentials | Short-lived one-time provisioning codes, device-specific HMAC credentials, credential rotation and revocation. |
 | Device authentication | Signed device requests | HMAC-SHA-256 signatures cover method, path, timestamp, nonce and body digest; timestamp and nonce replay checks apply. |
 | Telemetry API | Ingest/query | Schema v1 envelopes, numeric sanity validation, per-device sample de-duplication, JSONB persistence and household-scoped history reads. |

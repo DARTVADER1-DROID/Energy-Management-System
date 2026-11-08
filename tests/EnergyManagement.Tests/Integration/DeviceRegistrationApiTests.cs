@@ -356,7 +356,7 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
     }
 
     [Fact]
-    public async Task DeactivateDevice_KeepsDeviceRetrievableAndInactive()
+    public async Task DeleteDevice_RemovesDeviceFromDatabaseAndMakesLookupReturnNotFound()
     {
         var householdId = await CreateHouseholdAsync("Family Home");
         var registerResponse = await _client.PostAsJsonAsync(
@@ -364,16 +364,15 @@ public sealed class DeviceRegistrationApiTests(PostgreSqlFixture postgres) : IAs
         var registered = await registerResponse.Content.ReadFromJsonAsync<DeviceResponse>();
         Assert.NotNull(registered);
 
-        var deactivateResponse = await _client.PatchAsync(
-            $"/api/devices/{registered.DeviceCode}/deactivate", content: null);
+        var deleteResponse = await _client.DeleteAsync($"/api/devices/{registered.DeviceCode}");
         var getResponse = await _client.GetAsync($"/api/devices/{registered.DeviceCode}");
-        var retrieved = await getResponse.Content.ReadFromJsonAsync<DeviceResponse>();
 
-        Assert.Equal(HttpStatusCode.NoContent, deactivateResponse.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
-        Assert.NotNull(retrieved);
-        Assert.False(retrieved.IsActive);
-        Assert.Equal(registered.DeviceCode, retrieved.DeviceCode);
+        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var domainDb = scope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
+        Assert.False(await domainDb.Devices.AnyAsync(item => item.DeviceCode == registered.DeviceCode));
     }
 
     [Fact]
