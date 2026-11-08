@@ -246,30 +246,6 @@ public static class DeviceEndpoints
         }
     }
 
-    private static async Task<IResult> DeactivateDeviceAsync(
-        string deviceCode,
-        EnergyManagementDbContext dbContext,
-        HouseholdAccessService householdAccess,
-        ClaimsPrincipal user,
-        CancellationToken cancellationToken)
-    {
-        var device = await dbContext.Devices
-            .SingleOrDefaultAsync(item => item.DeviceCode == deviceCode, cancellationToken);
-
-        if (device is null) return TypedResults.NotFound();
-        if (!await householdAccess.IsAdministratorAsync(
-                GetUserId(user), device.HouseholdId, cancellationToken))
-            return TypedResults.Forbid();
-
-        if (!user.HasRecentAuthentication())
-            return TypedResults.Problem(statusCode: 428, title: "Recent authentication required",
-                detail: "Reauthenticate before deactivating a device.");
-
-        device.Deactivate();
-        await dbContext.SaveChangesAsync(cancellationToken);
-        return TypedResults.NoContent();
-    }
-
     private static async Task<IResult> CreateProvisioningCodeAsync(
         string deviceCode,
         DeviceAuthenticationService authenticationService,
