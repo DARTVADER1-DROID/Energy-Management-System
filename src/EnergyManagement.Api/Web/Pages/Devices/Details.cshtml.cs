@@ -181,12 +181,12 @@ public sealed class DetailsModel(
             return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
         }
 
-        // Revoke first so a partial failure always fails closed: the device cannot
-        // continue authenticating even if the subsequent deactivation write fails.
         int revoked;
         try
         {
-            revoked = await deviceAuthenticationService.RevokeCredentialsAsync(
+            // Removal and all credential-issuing operations share a per-device
+            // PostgreSQL advisory lock inside DeviceAuthenticationService.
+            revoked = await deviceAuthenticationService.RemoveDeviceAsync(
                 deviceCode, userId, householdAccess, cancellationToken);
         }
         catch (KeyNotFoundException)
@@ -196,12 +196,6 @@ public sealed class DetailsModel(
         catch (UnauthorizedAccessException)
         {
             return Forbid();
-        }
-
-        if (device.IsActive)
-        {
-            device.Deactivate();
-            await energyDb.SaveChangesAsync(cancellationToken);
         }
 
         TempData["StatusMessage"] =
