@@ -307,9 +307,9 @@ public sealed class DeviceRegistrationBoundaryApiTests(PostgreSqlFixture postgre
     }
 
     [Fact]
-    public async Task DeactivateDevice_UnknownCodeReturnsNotFound()
+    public async Task DeleteDevice_UnknownCodeReturnsNotFound()
     {
-        var response = await _client.PatchAsync("/api/devices/H999-DEV999/deactivate", null);
+        var response = await _client.DeleteAsync("/api/devices/H999-DEV999");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
