@@ -466,6 +466,118 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
     }
 
     [Fact]
+    public async Task ConcurrentProvisioningAndRemovalCannotLeaveAnActiveProvisioningCode()
+    {
+        var start = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        async Task<bool> TryCreateProvisioningCodeAsync()
+        {
+            await using var scope = _factory.Services.CreateAsyncScope();
+            var service = scope.ServiceProvider.GetRequiredService<DeviceAuthenticationService>();
+            var access = scope.ServiceProvider.GetRequiredService<HouseholdAccessService>();
+            await start.Task;
+            try
+            {
+                await service.CreateProvisioningCodeAsync(_deviceCode, 1, access);
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }
+
+        async Task<int> RemoveAsync()
+        {
+            await using var scope = _factory.Services.CreateAsyncScope();
+            var service = scope.ServiceProvider.GetRequiredService<DeviceAuthenticationService>();
+            var access = scope.ServiceProvider.GetRequiredService<HouseholdAccessService>();
+            await start.Task;
+            return await service.RemoveDeviceAsync(_deviceCode, 1, access);
+        }
+
+        var provisioningTask = TryCreateProvisioningCodeAsync();
+        var removalTask = RemoveAsync();
+        start.SetResult(true);
+        await Task.WhenAll(provisioningTask, removalTask);
+
+        await using var verifyScope = _factory.Services.CreateAsyncScope();
+        var energyDb = verifyScope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
+        var securityDb = verifyScope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
+        var device = await energyDb.Devices.AsNoTracking().SingleAsync(
+            item => item.DeviceCode == _deviceCode);
+
+        Assert.False(device.IsActive);
+        Assert.All(await securityDb.ProvisioningCodes.AsNoTracking()
+            .Where(item => item.DeviceId == device.Id).ToArrayAsync(),
+            code => Assert.NotNull(code.RevokedAtUtc));
+        Assert.All(await securityDb.Credentials.AsNoTracking()
+            .Where(item => item.DeviceId == device.Id).ToArrayAsync(),
+            credential => Assert.NotNull(credential.RevokedAtUtc));
+        Assert.Contains("CredentialsRevoked",
+            await securityDb.AuditEvents.Where(item => item.DeviceId == device.Id)
+                .Select(item => item.EventType).ToArrayAsync());
+    }
+
+    [Fact]
+    public async Task ConcurrentProvisioningExchangeAndRemovalCannotLeaveAnActiveCredential()
+    {
+        string provisioningCode;
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var service = scope.ServiceProvider.GetRequiredService<DeviceAuthenticationService>();
+            var access = scope.ServiceProvider.GetRequiredService<HouseholdAccessService>();
+            provisioningCode = (await service.CreateProvisioningCodeAsync(_deviceCode, 1, access)).Code;
+        }
+
+        var start = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        async Task<bool> TryExchangeProvisioningCodeAsync()
+        {
+            await using var scope = _factory.Services.CreateAsyncScope();
+            var service = scope.ServiceProvider.GetRequiredService<DeviceAuthenticationService>();
+            await start.Task;
+            try
+            {
+                await service.ExchangeProvisioningCodeAsync(_deviceCode, provisioningCode);
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }
+
+        async Task<int> RemoveAsync()
+        {
+            await using var scope = _factory.Services.CreateAsyncScope();
+            var service = scope.ServiceProvider.GetRequiredService<DeviceAuthenticationService>();
+            var access = scope.ServiceProvider.GetRequiredService<HouseholdAccessService>();
+            await start.Task;
+            return await service.RemoveDeviceAsync(_deviceCode, 1, access);
+        }
+
+        var exchangeTask = TryExchangeProvisioningCodeAsync();
+        var removalTask = RemoveAsync();
+        start.SetResult(true);
+        await Task.WhenAll(exchangeTask, removalTask);
+
+        await using var verifyScope = _factory.Services.CreateAsyncScope();
+        var energyDb = verifyScope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
+        var securityDb = verifyScope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
+        var device = await energyDb.Devices.AsNoTracking().SingleAsync(
+            item => item.DeviceCode == _deviceCode);
+
+        Assert.False(device.IsActive);
+        Assert.Empty(await securityDb.Credentials.AsNoTracking()
+            .Where(item => item.DeviceId == device.Id && item.RevokedAtUtc == null)
+            .ToArrayAsync());
+        Assert.All(await securityDb.ProvisioningCodes.AsNoTracking()
+            .Where(item => item.DeviceId == device.Id).ToArrayAsync(),
+            code => Assert.NotNull(code.RevokedAtUtc));
+    }
+
+    [Fact]
     public async Task NonAdministratorCannotRevokeDeviceCredentials()
     {
         await ProvisionDeviceAsync();
