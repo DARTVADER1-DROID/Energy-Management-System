@@ -162,6 +162,41 @@ public sealed class DetailsModel(
         return RedirectToPage(new { deviceCode });
     }
 
+    public async Task<IActionResult> OnPostRemoveAsync(
+        string deviceCode, CancellationToken cancellationToken)
+    {
+        var device = await energyDb.Devices.SingleOrDefaultAsync(
+            item => item.DeviceCode == deviceCode, cancellationToken);
+        if (device is null) return NotFound();
+
+        var userId = User.GetUserId();
+        if (!await householdAccess.IsMemberAsync(userId, device.HouseholdId, cancellationToken))
+            return NotFound();
+        if (!await householdAccess.IsAdministratorAsync(userId, device.HouseholdId, cancellationToken))
+            return Forbid();
+
+        if (!User.HasRecentAuthentication())
+        {
+            var returnUrl = Url.Page("/Devices/Details", new { deviceCode });
+            return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
+        }
+
+        // Revoke first so a partial failure always fails closed: the device cannot
+        // continue authenticating even if the subsequent deactivation write fails.
+        var revoked = await deviceAuthenticationService.RevokeCredentialsAsync(
+            deviceCode, userId, householdAccess, cancellationToken);
+
+        if (device.IsActive)
+        {
+            device.Deactivate();
+            await energyDb.SaveChangesAsync(cancellationToken);
+        }
+
+        TempData["StatusMessage"] =
+            $"Device removed from active inventory. {revoked} credential(s) revoked. Historical telemetry and audit records were retained.";
+        return RedirectToPage("/Devices/Index", new { householdId = device.HouseholdId });
+    }
+
     public async Task<IActionResult> OnPostDeactivateAsync(
         string deviceCode, CancellationToken cancellationToken)
     {
