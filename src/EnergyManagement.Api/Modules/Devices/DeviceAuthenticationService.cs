@@ -558,6 +558,18 @@ public sealed class DeviceAuthenticationService(
 
         await using var transaction = await securityDb.Database.BeginTransactionAsync(
             IsolationLevel.ReadCommitted, cancellationToken);
+        await AcquireDeviceMutationLockAsync(device.Id, cancellationToken);
+
+        // Re-check device state after obtaining the same lock used by removal.
+        // This makes an in-flight request linearize either before removal or fail
+        // after removal; it cannot authenticate in the deactivation/revocation gap.
+        var deviceIsStillActive = await energyDb.Devices.AsNoTracking().AnyAsync(
+            item => item.Id == device.Id && item.IsActive, cancellationToken);
+        if (!deviceIsStillActive)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return null;
+        }
 
         // The signature was checked against a snapshot read above. Lock the active
         // credential rows and revalidate before accepting the nonce so a concurrent
