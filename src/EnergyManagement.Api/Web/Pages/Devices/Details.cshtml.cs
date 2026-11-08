@@ -268,7 +268,7 @@ public sealed class DetailsModel(
         }
 
         TempData["StatusMessage"] =
-            $"Device removed from active inventory. {revoked} credential(s) revoked; unused provisioning codes were invalidated. Historical telemetry and security audit records were retained.";
+            $"Device permanently deleted. {revoked} credential(s) and all provisioning data were purged; associated telemetry was deleted. Security audit history was retained.";
         return RedirectToPage("/Devices/Index", new { householdId = device.HouseholdId });
     }
 
