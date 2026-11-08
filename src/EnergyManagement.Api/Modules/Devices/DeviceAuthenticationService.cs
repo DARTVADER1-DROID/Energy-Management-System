@@ -114,7 +114,6 @@ public sealed class DeviceAuthenticationService(
         var device = await energyDb.Devices.SingleOrDefaultAsync(
             item => item.DeviceCode == deviceCode, cancellationToken)
             ?? throw new InvalidOperationException("The provisioning request is invalid or expired.");
-        var now = DateTimeOffset.UtcNow;
         var codeHash = Hash(provisioningCode);
         await using var transaction = await securityDb.Database.BeginTransactionAsync(
             IsolationLevel.ReadCommitted, cancellationToken);
@@ -126,6 +125,7 @@ public sealed class DeviceAuthenticationService(
         if (!device.IsActive)
             throw new InvalidOperationException("The provisioning request is invalid or expired.");
 
+        var now = DateTimeOffset.UtcNow;
         var code = await securityDb.ProvisioningCodes.AsNoTracking().SingleOrDefaultAsync(item =>
             item.DeviceId == device.Id && item.CodeHash == codeHash &&
             item.RevokedAtUtc == null && item.ExpiresAtUtc > now,
