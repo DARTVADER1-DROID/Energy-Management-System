@@ -19,6 +19,7 @@ public sealed class DeviceAuthenticationService(
     private static readonly TimeSpan MaximumRequestAge = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan NonceRetention = TimeSpan.FromMinutes(10);
     private const int MaximumBodyBytes = 1024 * 1024;
+    private const int DeviceMutationLockNamespace = 0x454D5301;
 
     public async Task<ProvisioningCodeResult> CreateProvisioningCodeAsync(
         string deviceCode,
@@ -38,6 +39,13 @@ public sealed class DeviceAuthenticationService(
             administratorUserId, device.HouseholdId, cancellationToken))
             throw new UnauthorizedAccessException("Only a household administrator can provision this device.");
 
+        await using var transaction = await securityDb.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable, cancellationToken);
+        await AcquireDeviceMutationLockAsync(device.Id, cancellationToken);
+
+        device = await energyDb.Devices.AsNoTracking().SingleOrDefaultAsync(
+            item => item.Id == device.Id, cancellationToken)
+            ?? throw new KeyNotFoundException("The selected device was not found.");
         if (!device.IsActive)
             throw new InvalidOperationException("A deactivated device cannot be provisioned.");
 
@@ -47,9 +55,6 @@ public sealed class DeviceAuthenticationService(
 
         var encryptionKey = GetEncryptionKey();
         CryptographicOperations.ZeroMemory(encryptionKey);
-
-        await using var transaction = await securityDb.Database.BeginTransactionAsync(
-            IsolationLevel.Serializable, cancellationToken);
         var now = DateTimeOffset.UtcNow;
         await securityDb.ProvisioningCodes
             .Where(code => code.DeviceId == device.Id && code.RevokedAtUtc == null)
@@ -109,13 +114,17 @@ public sealed class DeviceAuthenticationService(
         var device = await energyDb.Devices.SingleOrDefaultAsync(
             item => item.DeviceCode == deviceCode, cancellationToken)
             ?? throw new InvalidOperationException("The provisioning request is invalid or expired.");
-        if (!device.IsActive)
-            throw new InvalidOperationException("The provisioning request is invalid or expired.");
-
         var now = DateTimeOffset.UtcNow;
         var codeHash = Hash(provisioningCode);
         await using var transaction = await securityDb.Database.BeginTransactionAsync(
             IsolationLevel.Serializable, cancellationToken);
+        await AcquireDeviceMutationLockAsync(device.Id, cancellationToken);
+
+        device = await energyDb.Devices.AsNoTracking().SingleOrDefaultAsync(
+            item => item.Id == device.Id, cancellationToken)
+            ?? throw new InvalidOperationException("The provisioning request is invalid or expired.");
+        if (!device.IsActive)
+            throw new InvalidOperationException("The provisioning request is invalid or expired.");
 
         var code = await securityDb.ProvisioningCodes.AsNoTracking().SingleOrDefaultAsync(item =>
             item.DeviceId == device.Id && item.CodeHash == codeHash &&
@@ -250,6 +259,59 @@ public sealed class DeviceAuthenticationService(
         return revokedCount;
     }
 
+    public async Task<int> RemoveDeviceAsync(
+        string deviceCode,
+        int administratorUserId,
+        HouseholdAccessService householdAccess,
+        CancellationToken cancellationToken = default)
+    {
+        var device = await energyDb.Devices.AsNoTracking().SingleOrDefaultAsync(
+            item => item.DeviceCode == deviceCode, cancellationToken)
+            ?? throw new KeyNotFoundException("The selected device was not found.");
+
+        if (!await householdAccess.IsMemberAsync(
+            administratorUserId, device.HouseholdId, cancellationToken))
+            throw new KeyNotFoundException("The selected device was not found.");
+
+        if (!await householdAccess.IsAdministratorAsync(
+            administratorUserId, device.HouseholdId, cancellationToken))
+            throw new UnauthorizedAccessException("Only a household administrator can remove a device.");
+
+        await using var transaction = await securityDb.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable, cancellationToken);
+        await AcquireDeviceMutationLockAsync(device.Id, cancellationToken);
+
+        // Deactivate first while holding the same per-device lock used by every
+        // credential-issuing path. If a later security write fails, authentication
+        // still fails closed because it requires an active device.
+        await energyDb.Devices
+            .Where(item => item.Id == device.Id && item.IsActive)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(item => item.IsActive, false),
+                cancellationToken);
+
+        var now = DateTimeOffset.UtcNow;
+        var revokedCount = await securityDb.Credentials
+            .Where(item => item.DeviceId == device.Id && item.RevokedAtUtc == null)
+            .ExecuteUpdateAsync(setters =>
+                setters.SetProperty(item => item.RevokedAtUtc, now), cancellationToken);
+
+        await securityDb.ProvisioningCodes
+            .Where(item => item.DeviceId == device.Id && item.RevokedAtUtc == null)
+            .ExecuteUpdateAsync(setters =>
+                setters.SetProperty(item => item.RevokedAtUtc, now), cancellationToken);
+
+        securityDb.AuditEvents.Add(new DeviceSecurityAuditEvent(
+            device.Id, administratorUserId, "CredentialsRevoked",
+            $"Device removed; {revokedCount} active credential(s) and active provisioning code(s) revoked."));
+        await securityDb.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        logger.LogWarning(
+            "Administrator {AdministratorUserId} removed device {DeviceCode} and revoked {CredentialCount} credential(s).",
+            administratorUserId, deviceCode, revokedCount);
+        return revokedCount;
+    }
+
     public Task<bool> HasActiveCredentialAsync(
         int deviceId, CancellationToken cancellationToken = default) =>
         securityDb.Credentials.AsNoTracking().AnyAsync(item =>
@@ -274,11 +336,15 @@ public sealed class DeviceAuthenticationService(
             administratorUserId, device.HouseholdId, cancellationToken))
             throw new UnauthorizedAccessException("Only a household administrator can rotate device credentials.");
 
-        if (!device.IsActive)
-            throw new InvalidOperationException("A deactivated device cannot rotate credentials.");
-
         await using var transaction = await securityDb.Database.BeginTransactionAsync(
             IsolationLevel.Serializable, cancellationToken);
+        await AcquireDeviceMutationLockAsync(device.Id, cancellationToken);
+
+        device = await energyDb.Devices.AsNoTracking().SingleOrDefaultAsync(
+            item => item.Id == device.Id, cancellationToken)
+            ?? throw new KeyNotFoundException("The selected device was not found.");
+        if (!device.IsActive)
+            throw new InvalidOperationException("A deactivated device cannot rotate credentials.");
         var now = DateTimeOffset.UtcNow;
         await securityDb.ProvisioningCodes
             .Where(item => item.DeviceId == device.Id && item.RevokedAtUtc == null)
@@ -624,6 +690,17 @@ public sealed class DeviceAuthenticationService(
         using var aes = new AesGcm(key, 16);
         aes.Decrypt(nonce, ciphertext, tag, plaintext);
         return plaintext;
+    }
+
+    private async Task AcquireDeviceMutationLockAsync(
+        int deviceId,
+        CancellationToken cancellationToken)
+    {
+        // Transaction-scoped PostgreSQL advisory lock serializes every operation
+        // that can issue credentials with device removal for this device.
+        await securityDb.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_xact_lock({DeviceMutationLockNamespace}, {deviceId})",
+            cancellationToken);
     }
 
     private static string Hash(string value) =>
