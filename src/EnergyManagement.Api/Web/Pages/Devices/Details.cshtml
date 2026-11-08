@@ -18,11 +18,11 @@
         @if (Model.CanManageDevice)
         {
             <form method="post" asp-page-handler="Remove" asp-route-deviceCode="@Model.Device.DeviceCode"
-                  onsubmit="return confirm('Remove this device from active inventory? All active credentials and unused provisioning codes will be revoked. Historical telemetry and security audit records will be retained.');">
-                <button type="submit" class="secondary-button border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950/40">Remove device</button>
+                  onsubmit="return confirm('Permanently delete this device? Its device record, telemetry, credentials, provisioning codes, and request nonces will be deleted. This cannot be undone. Security audit history will be retained.');">
+                <button type="submit" class="secondary-button border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950/40">Delete device permanently</button>
             </form>
         }
-        <span class="status-pill @(Model.Device.IsActive ? "status-neutral" : "status-muted")">@(Model.Device.IsActive ? "Active registration" : "Deactivated")</span>
+        <span class="status-pill status-neutral">Active registration</span>
     </div>
 </div>
 @if (Model.CanManageDevice)
