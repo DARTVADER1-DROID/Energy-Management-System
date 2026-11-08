@@ -22,6 +22,30 @@ public sealed class HouseholdTests
     }
 
     [Fact]
+    public void Rename_TrimsAndReplacesHouseholdName()
+    {
+        var household = new Household("Original home");
+
+        household.Rename("  Updated home  ");
+
+        Assert.Equal("Updated home", household.Name);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("x")]
+    [InlineData("                                                                                                                         ")]
+    public void Rename_RejectsInvalidName(string? name)
+    {
+        var household = new Household("Original home");
+
+        Assert.Throws<ArgumentException>(() => household.Rename(name!));
+        Assert.Equal("Original home", household.Name);
+    }
+
+    [Fact]
     public void AllocateDeviceNumber_ReturnsIncreasingNumbers()
     {
         var household = new Household("My Home");
