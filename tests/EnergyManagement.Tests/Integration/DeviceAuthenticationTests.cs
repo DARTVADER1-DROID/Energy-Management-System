@@ -629,6 +629,34 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
     }
 
     [Fact]
+    public async Task RemovingDeviceRevokesCredentialsAndRejectsSubsequentHeartbeats()
+    {
+        var secret = await ProvisionDeviceAsync();
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var service = scope.ServiceProvider.GetRequiredService<DeviceAuthenticationService>();
+            var access = scope.ServiceProvider.GetRequiredService<HouseholdAccessService>();
+            await service.RemoveDeviceAsync(_deviceCode, 1, access);
+        }
+
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+        using var response = await SendHeartbeatAsync(
+            timestamp, nonce, SignHeartbeat(WebEncoders.Base64UrlDecode(secret), timestamp, nonce));
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+
+        await using var verifyScope = _factory.Services.CreateAsyncScope();
+        var energyDb = verifyScope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
+        var securityDb = verifyScope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
+        var device = await energyDb.Devices.AsNoTracking().SingleAsync(
+            item => item.DeviceCode == _deviceCode);
+        Assert.False(device.IsActive);
+        Assert.All(await securityDb.Credentials.AsNoTracking()
+            .Where(item => item.DeviceId == device.Id).ToArrayAsync(),
+            credential => Assert.NotNull(credential.RevokedAtUtc));
+    }
+
+    [Fact]
     public async Task NonAdministratorCannotRemoveDevice()
     {
         await using var scope = _factory.Services.CreateAsyncScope();
