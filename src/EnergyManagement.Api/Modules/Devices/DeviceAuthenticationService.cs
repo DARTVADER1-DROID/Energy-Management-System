@@ -653,9 +653,12 @@ public sealed class DeviceAuthenticationService(
                 deviceCode);
         }
 
-        await transaction.CommitAsync(cancellationToken);
+        // Keep the per-device advisory lock until the last-seen write completes.
+        // Otherwise deletion could acquire the lock after nonce commit but before
+        // this update, turning a valid in-flight heartbeat into a concurrency error.
         device.UpdateLastSeen(now);
         await energyDb.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return device;
     }
 
