@@ -162,7 +162,7 @@ public sealed class DetailsModel(
         return RedirectToPage(new { deviceCode });
     }
 
-    public async Task<IActionResult> OnPostDeactivateAsync(
+    public async Task<IActionResult> OnPostRemoveAsync(
         string deviceCode, CancellationToken cancellationToken)
     {
         var device = await energyDb.Devices.SingleOrDefaultAsync(
@@ -181,14 +181,34 @@ public sealed class DetailsModel(
             return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
         }
 
-        if (device.IsActive)
+        int revoked;
+        try
         {
-            device.Deactivate();
-            await energyDb.SaveChangesAsync(cancellationToken);
-            TempData["StatusMessage"] = "Device registration deactivated.";
+            // Removal and all credential-issuing operations share a per-device
+            // PostgreSQL advisory lock inside DeviceAuthenticationService.
+            revoked = await deviceAuthenticationService.RemoveDeviceAsync(
+                deviceCode, userId, householdAccess, cancellationToken);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
         }
 
-        return RedirectToPage(new { deviceCode });
+        TempData["StatusMessage"] =
+            $"Device removed from active inventory. {revoked} credential(s) revoked; unused provisioning codes were invalidated. Historical telemetry and security audit records were retained.";
+        return RedirectToPage("/Devices/Index", new { householdId = device.HouseholdId });
+    }
+
+    public async Task<IActionResult> OnPostDeactivateAsync(
+        string deviceCode, CancellationToken cancellationToken)
+    {
+        // Keep the legacy handler safe for stale clients: it now follows the same
+        // serialized removal path and cannot bypass credential revocation.
+        return await OnPostRemoveAsync(deviceCode, cancellationToken);
     }
 }
 
