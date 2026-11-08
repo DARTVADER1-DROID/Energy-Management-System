@@ -1,5 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using EnergyManagement.Api.Modules.Identity;
+using EnergyManagement.Api.Infrastructure.Persistence;
+using EnergyManagement.Api.Modules.Households;
+using Microsoft.EntityFrameworkCore;
 using EnergyManagement.Api.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -8,7 +11,8 @@ namespace EnergyManagement.Api.Web.Pages.Households;
 
 public sealed class UsersModel(
     DashboardReadService dashboardReadService,
-    HouseholdInvitationService invitationService) : PageModel
+    HouseholdInvitationService invitationService,
+    EnergyManagementDbContext energyDb) : PageModel
 {
     [BindProperty]
     public int HouseholdId { get; set; }
@@ -25,6 +29,32 @@ public sealed class UsersModel(
     {
         var result = await LoadAsync(householdId, cancellationToken);
         return result ?? Page();
+    }
+
+    public async Task<IActionResult> OnPostRenameHouseholdAsync(
+        int householdId, string name, CancellationToken cancellationToken)
+    {
+        var access = await LoadAsync(householdId, cancellationToken);
+        if (access is not null) return access;
+        if (!User.HasRecentAuthentication())
+        {
+            var returnUrl = Url.Page("/Households/Users", new { householdId });
+            return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
+        }
+
+        if (string.IsNullOrWhiteSpace(name) || name.Trim().Length is < 2 or > 120)
+        {
+            TempData["ErrorMessage"] = "Household name must contain 2 to 120 characters.";
+            return RedirectToPage(new { householdId });
+        }
+
+        var household = await energyDb.Households.SingleOrDefaultAsync(
+            item => item.Id == householdId, cancellationToken);
+        if (household is null) return NotFound();
+        household.Rename(name);
+        await energyDb.SaveChangesAsync(cancellationToken);
+        TempData["StatusMessage"] = "Household name updated.";
+        return RedirectToPage(new { householdId });
     }
 
     public async Task<IActionResult> OnPostInviteAsync(CancellationToken cancellationToken)
