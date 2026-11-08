@@ -276,41 +276,49 @@ public sealed class DeviceAuthenticationService(
 
         if (!await householdAccess.IsAdministratorAsync(
             administratorUserId, device.HouseholdId, cancellationToken))
-            throw new UnauthorizedAccessException("Only a household administrator can remove a device.");
+            throw new UnauthorizedAccessException("Only a household administrator can permanently delete a device.");
 
+        // Both DbContexts use the same PostgreSQL database. Run cleanup and the
+        // parent-row DELETE on the security context's connection so the advisory
+        // lock, credential cleanup, telemetry cascade, and audit write are atomic.
         await using var transaction = await securityDb.Database.BeginTransactionAsync(
             IsolationLevel.ReadCommitted, cancellationToken);
         await AcquireDeviceMutationLockAsync(device.Id, cancellationToken);
 
-        // Deactivate first while holding the same per-device lock used by every
-        // credential-issuing path. If a later security write fails, authentication
-        // still fails closed because it requires an active device.
-        await energyDb.Devices
-            .Where(item => item.Id == device.Id && item.IsActive)
-            .ExecuteUpdateAsync(setters => setters.SetProperty(item => item.IsActive, false),
-                cancellationToken);
+        var currentDevice = await energyDb.Devices.AsNoTracking()
+            .SingleOrDefaultAsync(item => item.Id == device.Id, cancellationToken);
+        if (currentDevice is null)
+            throw new KeyNotFoundException("The selected device was not found.");
 
-        var now = DateTimeOffset.UtcNow;
-        var revokedCount = await securityDb.Credentials
-            .Where(item => item.DeviceId == device.Id && item.RevokedAtUtc == null)
-            .ExecuteUpdateAsync(setters =>
-                setters.SetProperty(item => item.RevokedAtUtc, now), cancellationToken);
+        var credentialCount = await securityDb.Credentials
+            .Where(item => item.DeviceId == device.Id)
+            .ExecuteDeleteAsync(cancellationToken);
+        var provisioningCodeCount = await securityDb.ProvisioningCodes
+            .Where(item => item.DeviceId == device.Id)
+            .ExecuteDeleteAsync(cancellationToken);
+        var nonceCount = await securityDb.RequestNonces
+            .Where(item => item.DeviceId == device.Id)
+            .ExecuteDeleteAsync(cancellationToken);
 
-        await securityDb.ProvisioningCodes
-            .Where(item => item.DeviceId == device.Id && item.RevokedAtUtc == null)
-            .ExecuteUpdateAsync(setters =>
-                setters.SetProperty(item => item.RevokedAtUtc, now), cancellationToken);
+        // The telemetry_readings FK is ON DELETE CASCADE, so device telemetry
+        // is physically removed with the device. Security audit events deliberately
+        // remain as immutable records keyed by the former device ID.
+        var deleted = await securityDb.Database.ExecuteSqlInterpolatedAsync(
+            $"DELETE FROM devices WHERE \"Id\" = {device.Id}", cancellationToken);
+        if (deleted != 1)
+            throw new KeyNotFoundException("The selected device was not found.");
 
         securityDb.AuditEvents.Add(new DeviceSecurityAuditEvent(
-            device.Id, administratorUserId, "CredentialsRevoked",
-            $"Device removed; {revokedCount} active credential(s) and active provisioning code(s) revoked."));
+            device.Id, administratorUserId, "DevicePermanentlyDeleted",
+            $"Device {deviceCode} deleted; {credentialCount} credentials, {provisioningCodeCount} provisioning codes, and {nonceCount} nonces purged."));
+
         await securityDb.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
         logger.LogWarning(
-            "Administrator {AdministratorUserId} removed device {DeviceCode} and revoked {CredentialCount} credential(s).",
-            administratorUserId, deviceCode, revokedCount);
-        return revokedCount;
+            "Administrator {AdministratorUserId} permanently deleted device {DeviceCode}; {CredentialCount} credentials, {ProvisioningCodeCount} provisioning codes, and {NonceCount} nonces purged.",
+            administratorUserId, deviceCode, credentialCount, provisioningCodeCount, nonceCount);
+        return credentialCount;
     }
 
     public Task<bool> HasActiveCredentialAsync(
