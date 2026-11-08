@@ -521,6 +521,14 @@ public sealed class DeviceAuthenticationTests(PostgreSqlFixture postgres) : IAsy
             {
                 return false;
             }
+            catch (KeyNotFoundException)
+            {
+                return false;
+            }
+            catch (KeyNotFoundException)
+            {
+                return false;
+            }
         }
 
         async Task<int> RemoveAsync()
