@@ -18,7 +18,7 @@
         @if (Model.CanManageDevice)
         {
             <form method="post" asp-page-handler="Remove" asp-route-deviceCode="@Model.Device.DeviceCode"
-                  onsubmit="return confirm('Remove @Model.Device.Name (@Model.Device.DeviceCode) from active inventory? All active credentials and unused provisioning codes will be revoked. Historical telemetry and security audit records will be retained.');">
+                  onsubmit="return confirm('Remove this device from active inventory? All active credentials and unused provisioning codes will be revoked. Historical telemetry and security audit records will be retained.');">
                 <button type="submit" class="secondary-button border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950/40">Remove device</button>
             </form>
         }
