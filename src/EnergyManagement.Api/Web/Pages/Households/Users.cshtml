@@ -34,6 +34,21 @@
 </section>
 
 <section class="panel mt-5 p-6">
+<section class="panel mt-5 p-5">
+    <p class="eyebrow">Household settings</p>
+    <h3 class="mt-1 font-semibold">Edit household details</h3>
+    <form method="post" asp-page-handler="RenameHousehold" class="mt-4 flex flex-wrap items-end gap-3"
+          onsubmit="return confirm('Save this household name?');">
+        <input type="hidden" name="householdId" value="@Model.HouseholdId" />
+        <div class="min-w-64 flex-1">
+            <label for="householdName" class="field-label">Household name</label>
+            <input id="householdName" name="name" value="@Model.Households.First(item => item.Id == Model.HouseholdId).Name"
+                   maxlength="120" minlength="2" required class="control-input mt-1 w-full" />
+        </div>
+        <button type="submit" class="primary-button">Save household</button>
+    </form>
+</section>
+
     <p class="eyebrow">Invite</p>
     <h3 class="mt-1 text-lg font-semibold">Add a household user</h3>
     <p class="mt-1 text-sm text-slate-500">An email invitation will be sent with a single-use link that expires after 24 hours.</p>
