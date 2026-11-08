@@ -183,8 +183,20 @@ public sealed class DetailsModel(
 
         // Revoke first so a partial failure always fails closed: the device cannot
         // continue authenticating even if the subsequent deactivation write fails.
-        var revoked = await deviceAuthenticationService.RevokeCredentialsAsync(
-            deviceCode, userId, householdAccess, cancellationToken);
+        int revoked;
+        try
+        {
+            revoked = await deviceAuthenticationService.RevokeCredentialsAsync(
+                deviceCode, userId, householdAccess, cancellationToken);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
 
         if (device.IsActive)
         {
@@ -193,7 +205,7 @@ public sealed class DetailsModel(
         }
 
         TempData["StatusMessage"] =
-            $"Device removed from active inventory. {revoked} credential(s) revoked. Historical telemetry and audit records were retained.";
+            $"Device removed from active inventory. {revoked} credential(s) revoked; unused provisioning codes were invalidated. Historical telemetry and security audit records were retained.";
         return RedirectToPage("/Devices/Index", new { householdId = device.HouseholdId });
     }
 
