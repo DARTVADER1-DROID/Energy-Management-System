@@ -206,30 +206,9 @@ public sealed class DetailsModel(
     public async Task<IActionResult> OnPostDeactivateAsync(
         string deviceCode, CancellationToken cancellationToken)
     {
-        var device = await energyDb.Devices.SingleOrDefaultAsync(
-            item => item.DeviceCode == deviceCode, cancellationToken);
-        if (device is null) return NotFound();
-
-        var userId = User.GetUserId();
-        if (!await householdAccess.IsMemberAsync(userId, device.HouseholdId, cancellationToken))
-            return NotFound();
-        if (!await householdAccess.IsAdministratorAsync(userId, device.HouseholdId, cancellationToken))
-            return Forbid();
-
-        if (!User.HasRecentAuthentication())
-        {
-            var returnUrl = Url.Page("/Devices/Details", new { deviceCode });
-            return RedirectToPage("/Account/Reauthenticate", new { returnUrl });
-        }
-
-        if (device.IsActive)
-        {
-            device.Deactivate();
-            await energyDb.SaveChangesAsync(cancellationToken);
-            TempData["StatusMessage"] = "Device registration deactivated.";
-        }
-
-        return RedirectToPage(new { deviceCode });
+        // Keep the legacy handler safe for stale clients: it now follows the same
+        // serialized removal path and cannot bypass credential revocation.
+        return await OnPostRemoveAsync(deviceCode, cancellationToken);
     }
 }
 
