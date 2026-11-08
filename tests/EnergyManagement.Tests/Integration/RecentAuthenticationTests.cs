@@ -97,7 +97,7 @@ public sealed class RecentAuthenticationTests(PostgreSqlFixture postgres) : IAsy
         var html = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("Remove device", html);
+        Assert.Contains("Delete device permanently", html);
     }
 
     [Fact]
