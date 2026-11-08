@@ -40,7 +40,7 @@ public sealed class DeviceAuthenticationService(
             throw new UnauthorizedAccessException("Only a household administrator can provision this device.");
 
         await using var transaction = await securityDb.Database.BeginTransactionAsync(
-            IsolationLevel.Serializable, cancellationToken);
+            IsolationLevel.ReadCommitted, cancellationToken);
         await AcquireDeviceMutationLockAsync(device.Id, cancellationToken);
 
         device = await energyDb.Devices.AsNoTracking().SingleOrDefaultAsync(
@@ -117,7 +117,7 @@ public sealed class DeviceAuthenticationService(
         var now = DateTimeOffset.UtcNow;
         var codeHash = Hash(provisioningCode);
         await using var transaction = await securityDb.Database.BeginTransactionAsync(
-            IsolationLevel.Serializable, cancellationToken);
+            IsolationLevel.ReadCommitted, cancellationToken);
         await AcquireDeviceMutationLockAsync(device.Id, cancellationToken);
 
         device = await energyDb.Devices.AsNoTracking().SingleOrDefaultAsync(
@@ -236,7 +236,8 @@ public sealed class DeviceAuthenticationService(
             throw new UnauthorizedAccessException("Only a household administrator can revoke device credentials.");
 
         await using var transaction = await securityDb.Database.BeginTransactionAsync(
-            IsolationLevel.Serializable, cancellationToken);
+            IsolationLevel.ReadCommitted, cancellationToken);
+        await AcquireDeviceMutationLockAsync(device.Id, cancellationToken);
         var now = DateTimeOffset.UtcNow;
         var revokedCount = await securityDb.Credentials
             .Where(item => item.DeviceId == device.Id && item.RevokedAtUtc == null)
@@ -278,7 +279,7 @@ public sealed class DeviceAuthenticationService(
             throw new UnauthorizedAccessException("Only a household administrator can remove a device.");
 
         await using var transaction = await securityDb.Database.BeginTransactionAsync(
-            IsolationLevel.Serializable, cancellationToken);
+            IsolationLevel.ReadCommitted, cancellationToken);
         await AcquireDeviceMutationLockAsync(device.Id, cancellationToken);
 
         // Deactivate first while holding the same per-device lock used by every
@@ -337,7 +338,7 @@ public sealed class DeviceAuthenticationService(
             throw new UnauthorizedAccessException("Only a household administrator can rotate device credentials.");
 
         await using var transaction = await securityDb.Database.BeginTransactionAsync(
-            IsolationLevel.Serializable, cancellationToken);
+            IsolationLevel.ReadCommitted, cancellationToken);
         await AcquireDeviceMutationLockAsync(device.Id, cancellationToken);
 
         device = await energyDb.Devices.AsNoTracking().SingleOrDefaultAsync(
