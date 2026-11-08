@@ -31,7 +31,6 @@ public static class DeviceEndpoints
         devices.MapGet("/", ListDevicesAsync);
         devices.MapGet("/{deviceCode}", GetDeviceAsync);
         devices.MapDelete("/{deviceCode}", DeleteDeviceAsync);
-        devices.MapPatch("/{deviceCode}/deactivate", DeactivateDeviceAsync);
         devices.MapPost("/{deviceCode}/provisioning-codes", CreateProvisioningCodeAsync)
             .RequireRateLimiting("device-provisioning");
         devices.MapPost("/{deviceCode}/credential-rotations", CreateCredentialRotationAsync)
