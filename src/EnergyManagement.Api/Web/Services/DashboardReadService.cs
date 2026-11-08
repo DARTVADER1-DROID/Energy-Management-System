@@ -46,7 +46,7 @@ public sealed class DashboardReadService(
     {
         var device = await dbContext.Devices
             .AsNoTracking()
-            .SingleOrDefaultAsync(item => item.DeviceCode == deviceCode, cancellationToken);
+            .SingleOrDefaultAsync(item => item.DeviceCode == deviceCode && item.IsActive, cancellationToken);
 
         return device is null || !await householdAccess.IsMemberAsync(
                 userId, device.HouseholdId, cancellationToken)
@@ -90,10 +90,10 @@ public sealed class DashboardReadService(
         }
 
         var devices = dbContext.Devices.AsNoTracking()
-            .Where(item => item.HouseholdId == selected.Id);
+            .Where(item => item.HouseholdId == selected.Id && item.IsActive);
 
         var totalDevices = await devices.CountAsync(cancellationToken);
-        var activeDevices = await devices.CountAsync(item => item.IsActive, cancellationToken);
+        var activeDevices = totalDevices;
         var devicesSeen = await devices.CountAsync(item => item.LastSeenAtUtc != null, cancellationToken);
         var latestSeen = await devices
             .Where(item => item.LastSeenAtUtc != null)
@@ -179,7 +179,7 @@ public sealed class DashboardReadService(
         var accessibleIds = households.Select(item => item.Id).ToArray();
 
         var query = dbContext.Devices.AsNoTracking()
-            .Where(item => accessibleIds.Contains(item.HouseholdId));
+            .Where(item => accessibleIds.Contains(item.HouseholdId) && item.IsActive);
         if (householdId.HasValue)
         {
             query = query.Where(item => item.HouseholdId == householdId.Value);
