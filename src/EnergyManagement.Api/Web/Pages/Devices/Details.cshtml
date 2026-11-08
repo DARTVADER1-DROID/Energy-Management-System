@@ -17,9 +17,9 @@
         <a asp-page="/Devices/Index" asp-route-householdId="@Model.Device.HouseholdId" class="secondary-button">← Inventory</a>
         @if (Model.CanManageDevice && Model.Device.IsActive)
         {
-            <form method="post" asp-page-handler="Deactivate" asp-route-deviceCode="@Model.Device.DeviceCode"
-                  onsubmit="return confirm('Deactivate this device registration? The device will no longer be treated as an active household device.');">
-                <button type="submit" class="secondary-button text-rose-700 dark:text-rose-300">Deactivate registration</button>
+            <form method="post" asp-page-handler="Remove" asp-route-deviceCode="@Model.Device.DeviceCode"
+                  onsubmit="return confirm('Remove this device from active inventory? Its credentials will be revoked immediately. Historical telemetry and security audit records will be retained. This action cannot be undone.');">
+                <button type="submit" class="secondary-button text-rose-700 dark:text-rose-300">Remove device</button>
             </form>
         }
         <span class="status-pill @(Model.Device.IsActive ? "status-neutral" : "status-muted")">@(Model.Device.IsActive ? "Active registration" : "Deactivated")</span>
