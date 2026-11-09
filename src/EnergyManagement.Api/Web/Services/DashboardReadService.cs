@@ -12,6 +12,8 @@ public sealed class DashboardReadService(
     EnergyManagementDbContext dbContext,
     HouseholdAccessService householdAccess)
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
     public async Task<IReadOnlyList<HouseholdOption>> GetHouseholdsAsync(
         int userId,
         CancellationToken cancellationToken)
@@ -28,16 +30,13 @@ public sealed class DashboardReadService(
         int userId,
         CancellationToken cancellationToken)
     {
-        var memberships = await dbContextIdentityMemberships(userId, cancellationToken);
+        var memberships = await householdAccess.GetAdministratorHouseholdIdsAsync(userId, cancellationToken);
         return await dbContext.Households.AsNoTracking()
             .Where(item => memberships.Contains(item.Id))
             .OrderBy(item => item.Name)
             .Select(item => new HouseholdOption(item.Id, item.HouseholdCode, item.Name))
             .ToArrayAsync(cancellationToken);
     }
-
-    private Task<int[]> dbContextIdentityMemberships(int userId, CancellationToken cancellationToken) =>
-        householdAccess.GetAdministratorHouseholdIdsAsync(userId, cancellationToken);
 
     public async Task<DeviceDetails?> GetDeviceDetailsAsync(
         string deviceCode,
@@ -121,7 +120,7 @@ public sealed class DashboardReadService(
         foreach (var reading in latestReadings)
         {
             var envelope = JsonSerializer.Deserialize<TelemetryEnvelope>(
-                reading.PayloadJson, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                reading.PayloadJson, JsonOptions);
             if (envelope is null)
                 continue;
 
