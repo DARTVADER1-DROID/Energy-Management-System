@@ -22,7 +22,13 @@ public sealed class EnergyManagementApiFactory(string connectionString)
                 ["ConnectionStrings:EnergyManagement"] = connectionString,
                 ["Database:ApplyMigrationsOnStartup"] = "true",
                 ["EMS_PUBLIC_BASE_URL"] = "https://ems.example.test",
-                ["EMS_DEVICE_CREDENTIAL_ENCRYPTION_KEY"] = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+                ["EMS_DEVICE_CREDENTIAL_ENCRYPTION_KEY"] = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+                // Integration tests create their own deterministic users after host startup.
+                // Disable environment-provided bootstrap credentials so startup cannot
+                // pre-seed a colliding administrator into each isolated test database.
+                ["EMS_BOOTSTRAP_ADMIN_EMAIL"] = "",
+                ["EMS_BOOTSTRAP_ADMIN_PASSWORD"] = "",
+                ["EMS_BOOTSTRAP_HOUSEHOLD_NAME"] = ""
             });
         });
 
