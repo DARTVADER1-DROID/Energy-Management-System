@@ -614,7 +614,8 @@ public sealed class AdminCrudPageTests(PostgreSqlFixture postgres) : IAsyncLifet
             new ApplicationUser { Id = 2, UserName = "client@example.test", Email = "client@example.test", EmailConfirmed = true },
             new ApplicationUser { Id = 3, UserName = "other-admin@example.test", Email = "other-admin@example.test", EmailConfirmed = true });
         identity.Roles.Add(new IdentityRole<int>("Administrator") { Id = 1, NormalizedName = "ADMINISTRATOR" });
-        identity.Roles.Add(new IdentityRole<int>("Household Member") { Id = 2, NormalizedName = "HOUSEHOLD MEMBER" },
+        identity.Roles.AddRange(
+            new IdentityRole<int>("Household Member") { Id = 2, NormalizedName = "HOUSEHOLD MEMBER" },
             new IdentityRole<int>("Read-only Viewer") { Id = 3, NormalizedName = "READ-ONLY VIEWER" });
         identity.UserRoles.AddRange(
             new IdentityUserRole<int> { UserId = 1, RoleId = 1 },
