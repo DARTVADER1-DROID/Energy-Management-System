@@ -80,7 +80,24 @@ public sealed class ClientsModel(
             return RedirectToPage();
         }
 
-        var emailResult = await userManager.SetEmailAsync(user, EditInput.Email.Trim());
+        var email = EditInput.Email.Trim();
+        var existingEmail = await userManager.FindByEmailAsync(email);
+        var existingUserName = await userManager.FindByNameAsync(email);
+        if ((existingEmail is not null && existingEmail.Id != user.Id) ||
+            (existingUserName is not null && existingUserName.Id != user.Id))
+        {
+            ModelState.AddModelError(string.Empty, "That email address is already assigned to another account.");
+            return await ReloadAsync(cancellationToken);
+        }
+
+        var userNameResult = await userManager.SetUserNameAsync(user, email);
+        if (!userNameResult.Succeeded)
+        {
+            AddIdentityErrors(userNameResult);
+            return await ReloadAsync(cancellationToken);
+        }
+
+        var emailResult = await userManager.SetEmailAsync(user, email);
         if (!emailResult.Succeeded)
         {
             AddIdentityErrors(emailResult);
