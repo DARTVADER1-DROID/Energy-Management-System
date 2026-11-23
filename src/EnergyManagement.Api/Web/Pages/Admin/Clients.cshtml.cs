@@ -45,8 +45,9 @@ public sealed class ClientsModel(
         if (accessResult is not null) return accessResult;
         if (!User.HasRecentAuthentication()) return Reauthenticate();
         CreateInput.Email = CreateInput.Email?.Trim() ?? string.Empty;
-        RemoveModelStatePrefix(nameof(EditInput));
-        RemoveModelStatePrefix(nameof(CreateInput));
+        // The page contains two independently bound forms. Validate only the active
+        // form; otherwise absent fields from the other form can invalidate this POST.
+        ModelState.Clear();
         TryValidateModel(CreateInput, nameof(CreateInput));
         if (!ModelState.IsValid) return await ReloadAsync(cancellationToken);
 
@@ -75,8 +76,7 @@ public sealed class ClientsModel(
         if (accessResult is not null) return accessResult;
         if (!User.HasRecentAuthentication()) return Reauthenticate();
         EditInput.Email = EditInput.Email?.Trim() ?? string.Empty;
-        RemoveModelStatePrefix(nameof(CreateInput));
-        RemoveModelStatePrefix(nameof(EditInput));
+        ModelState.Clear();
         TryValidateModel(EditInput, nameof(EditInput));
         if (!ModelState.IsValid) return await ReloadAsync(cancellationToken);
 
@@ -154,24 +154,26 @@ public sealed class ClientsModel(
             return RedirectToPage();
         }
 
+        // Remove memberships and the user in one Identity transaction. This avoids
+        // depending on provider cascade behavior and preserves memberships if deletion fails.
+        await using var transaction = await identityDb.Database.BeginTransactionAsync(cancellationToken);
+        var memberships = await identityDb.HouseholdMemberships
+            .Where(item => item.UserId == userId)
+            .ToListAsync(cancellationToken);
+        identityDb.HouseholdMemberships.RemoveRange(memberships);
+        await identityDb.SaveChangesAsync(cancellationToken);
+
         var result = await userManager.DeleteAsync(user);
         if (!result.Succeeded)
         {
+            await transaction.RollbackAsync(cancellationToken);
             TempData["ErrorMessage"] = string.Join(" ", result.Errors.Select(error => error.Description));
             return RedirectToPage();
         }
 
-        TempData["StatusMessage"] = "Client account deleted. Its household memberships were removed by Identity.";
+        await transaction.CommitAsync(cancellationToken);
+        TempData["StatusMessage"] = "Client account deleted. Its household memberships were removed.";
         return RedirectToPage();
-    }
-
-    private void RemoveModelStatePrefix(string prefix)
-    {
-        foreach (var key in ModelState.Keys
-                     .Where(key => key.Equals(prefix, StringComparison.Ordinal) ||
-                          key.StartsWith(prefix + ".", StringComparison.Ordinal))
-                     .ToArray())
-            ModelState.Remove(key);
     }
 
     private async Task<IActionResult> ReloadAsync(CancellationToken cancellationToken)
