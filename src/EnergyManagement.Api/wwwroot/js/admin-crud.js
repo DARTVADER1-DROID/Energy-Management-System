@@ -56,7 +56,7 @@
                 }
 
                 form.dataset.submitting = "true";
-                form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach((button) => {
+                form.querySelectorAll('button:not([type]), button[type="submit"], input[type="submit"]').forEach((button) => {
                     button.disabled = true;
                     if (button.tagName === "BUTTON" && !button.dataset.originalText) {
                         button.dataset.originalText = button.textContent;

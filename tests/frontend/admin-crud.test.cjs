@@ -129,3 +129,29 @@ test("normalizer is available and safe for null input", () => {
     assert.equal(context.window.EMSAdminCrud.normalize(null), "");
     assert.equal(context.window.EMSAdminCrud.normalize("  ÀBC  "), "abc");
 });
+
+
+test("default HTML submit buttons without an explicit type are disabled", () => {
+    const app = boot();
+    const defaultSubmit = element({ textContent: "Create", tagName: "BUTTON" });
+    app.form.querySelectorAll = () => [defaultSubmit];
+    app.form.dispatch("submit");
+    assert.equal(defaultSubmit.disabled, true);
+    assert.equal(defaultSubmit.textContent, "Working…");
+});
+
+test("cancelled destructive action leaves the form and controls untouched", () => {
+    const app = boot({ confirmResult: false });
+    app.form.dataset.adminConfirm = "Delete permanently?";
+    const result = app.form.dispatch("submit");
+    assert.equal(result.defaultPrevented, true);
+    assert.equal(app.form.dataset.submitting, undefined);
+    assert.equal(app.submitButton.disabled, false);
+    assert.equal(app.submitButton.textContent, "Save");
+});
+
+test("empty tables report zero visible records and show the empty state", () => {
+    const app = boot({ rows: [] });
+    assert.equal(app.count.textContent, "0 of 0 shown");
+    assert.equal(app.empty.hidden, false);
+});
