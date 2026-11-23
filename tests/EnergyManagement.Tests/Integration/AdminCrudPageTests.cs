@@ -10,6 +10,7 @@ using EnergyManagement.Tests.Infrastructure;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using Xunit;
 
 namespace EnergyManagement.Tests.Integration;
@@ -19,15 +20,35 @@ public sealed class AdminCrudPageTests(PostgreSqlFixture postgres) : IAsyncLifet
 {
     private EnergyManagementApiFactory _factory = null!;
     private HttpClient _client = null!;
+    private string _databaseName = string.Empty;
+    private string _adminConnectionString = string.Empty;
 
     public async Task InitializeAsync()
     {
-        _factory = new EnergyManagementApiFactory(postgres.ConnectionString);
+        // Give each test its own database. Other integration classes use PostgreSQL
+        // too, so resetting a shared database would create cross-test races.
+        var testConnection = new NpgsqlConnectionStringBuilder(postgres.ConnectionString);
+        _databaseName = "ems_admincrud_" + Guid.NewGuid().ToString("N");
+        var adminConnection = new NpgsqlConnectionStringBuilder(postgres.ConnectionString)
+        {
+            Database = "postgres"
+        };
+        _adminConnectionString = adminConnection.ConnectionString;
+
+        await using (var connection = new NpgsqlConnection(_adminConnectionString))
+        {
+            await connection.OpenAsync();
+            await using var command = new NpgsqlCommand($"CREATE DATABASE {_databaseName}", connection);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        testConnection.Database = _databaseName;
+        _factory = new EnergyManagementApiFactory(testConnection.ConnectionString);
         _client = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false
         });
-        await ResetDatabaseAsync();
+        await SeedDatabaseAsync();
     }
 
     [Fact]
@@ -595,37 +616,31 @@ public sealed class AdminCrudPageTests(PostgreSqlFixture postgres) : IAsyncLifet
     {
         _client.Dispose();
         await _factory.DisposeAsync();
+
+        if (string.IsNullOrWhiteSpace(_databaseName)) return;
+        await using var connection = new NpgsqlConnection(_adminConnectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand($"DROP DATABASE IF EXISTS {_databaseName} WITH (FORCE)", connection);
+        await command.ExecuteNonQueryAsync();
     }
 
-    private async Task ResetDatabaseAsync()
+    private async Task SeedDatabaseAsync()
     {
         await using var scope = _factory.Services.CreateAsyncScope();
-        var domain = scope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
-        await domain.Database.EnsureDeletedAsync();
-
         var identity = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-        var security = scope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
-        await domain.Database.MigrateAsync();
-        await identity.Database.MigrateAsync();
-        await security.Database.MigrateAsync();
+        var administratorRole = await identity.Roles.SingleAsync(
+            role => role.NormalizedName == "ADMINISTRATOR");
 
         identity.Users.AddRange(
             new ApplicationUser { Id = 1, UserName = "admin@example.test", Email = "admin@example.test", EmailConfirmed = true },
             new ApplicationUser { Id = 2, UserName = "client@example.test", Email = "client@example.test", EmailConfirmed = true },
             new ApplicationUser { Id = 3, UserName = "other-admin@example.test", Email = "other-admin@example.test", EmailConfirmed = true });
-        identity.Roles.Add(new IdentityRole<int>("Administrator") { Id = 1, NormalizedName = "ADMINISTRATOR" });
-        identity.Roles.AddRange(
-            new IdentityRole<int>("Household Member") { Id = 2, NormalizedName = "HOUSEHOLD MEMBER" },
-            new IdentityRole<int>("Read-only Viewer") { Id = 3, NormalizedName = "READ-ONLY VIEWER" });
         identity.UserRoles.AddRange(
-            new IdentityUserRole<int> { UserId = 1, RoleId = 1 },
-            new IdentityUserRole<int> { UserId = 3, RoleId = 1 });
+            new IdentityUserRole<int> { UserId = 1, RoleId = administratorRole.Id },
+            new IdentityUserRole<int> { UserId = 3, RoleId = administratorRole.Id });
         await identity.SaveChangesAsync();
         await identity.Database.ExecuteSqlRawAsync(
-            """
-            SELECT setval(pg_get_serial_sequence('users', 'Id'), (SELECT MAX("Id") FROM users));
-            SELECT setval(pg_get_serial_sequence('roles', 'Id'), (SELECT MAX("Id") FROM roles));
-            """);
+            """SELECT setval(pg_get_serial_sequence('users', 'Id'), (SELECT MAX("Id") FROM users));""");
     }
 
     private async Task<int> CreateHouseholdAsync(string name)
