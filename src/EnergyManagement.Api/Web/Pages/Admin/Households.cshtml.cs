@@ -21,14 +21,16 @@ public sealed class HouseholdsModel(
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
-        if (!IsAdministrator()) return Forbid();
+        var accessResult = AdminAccessResult();
+        if (accessResult is not null) return accessResult;
         await LoadAsync(cancellationToken);
         return Page();
     }
 
     public async Task<IActionResult> OnPostCreateAsync(CancellationToken cancellationToken)
     {
-        if (!IsAdministrator()) return Forbid();
+        var accessResult = AdminAccessResult();
+        if (accessResult is not null) return accessResult;
         if (!User.HasRecentAuthentication()) return Reauthenticate();
         if (!ModelState.IsValid) { await LoadAsync(cancellationToken); return Page(); }
 
@@ -41,7 +43,8 @@ public sealed class HouseholdsModel(
 
     public async Task<IActionResult> OnPostUpdateAsync(int householdId, CancellationToken cancellationToken)
     {
-        if (!IsAdministrator()) return Forbid();
+        var accessResult = AdminAccessResult();
+        if (accessResult is not null) return accessResult;
         if (!User.HasRecentAuthentication()) return Reauthenticate();
         if (!ModelState.IsValid) { await LoadAsync(cancellationToken); return Page(); }
 
@@ -55,7 +58,8 @@ public sealed class HouseholdsModel(
 
     public async Task<IActionResult> OnPostDeleteAsync(int householdId, CancellationToken cancellationToken)
     {
-        if (!IsAdministrator()) return Forbid();
+        var accessResult = AdminAccessResult();
+        if (accessResult is not null) return accessResult;
         if (!User.HasRecentAuthentication()) return Reauthenticate();
 
         var household = await energyDb.Households.SingleOrDefaultAsync(item => item.Id == householdId, cancellationToken);
@@ -107,7 +111,11 @@ public sealed class HouseholdsModel(
         Households = rows;
     }
 
-    private bool IsAdministrator() => User.Identity?.IsAuthenticated == true && User.IsInRole("Administrator");
+    private IActionResult? AdminAccessResult()
+    {
+        if (User.Identity?.IsAuthenticated != true) return Challenge();
+        return User.IsInRole("Administrator") ? null : Forbid();
+    }
     private IActionResult Reauthenticate() => RedirectToPage("/Account/Reauthenticate",
         new { returnUrl = Url.Page("/Admin/Households") });
 
