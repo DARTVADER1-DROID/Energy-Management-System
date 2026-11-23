@@ -44,10 +44,13 @@ public sealed class ClientsModel(
         var accessResult = AdminAccessResult();
         if (accessResult is not null) return accessResult;
         if (!User.HasRecentAuthentication()) return Reauthenticate();
+        CreateInput.Email = CreateInput.Email?.Trim() ?? string.Empty;
         RemoveModelStatePrefix(nameof(EditInput));
+        RemoveModelStatePrefix(nameof(CreateInput));
+        TryValidateModel(CreateInput, nameof(CreateInput));
         if (!ModelState.IsValid) return await ReloadAsync(cancellationToken);
 
-        var email = CreateInput.Email.Trim();
+        var email = CreateInput.Email;
         var user = new ApplicationUser
         {
             UserName = email,
@@ -71,7 +74,10 @@ public sealed class ClientsModel(
         var accessResult = AdminAccessResult();
         if (accessResult is not null) return accessResult;
         if (!User.HasRecentAuthentication()) return Reauthenticate();
+        EditInput.Email = EditInput.Email?.Trim() ?? string.Empty;
         RemoveModelStatePrefix(nameof(CreateInput));
+        RemoveModelStatePrefix(nameof(EditInput));
+        TryValidateModel(EditInput, nameof(EditInput));
         if (!ModelState.IsValid) return await ReloadAsync(cancellationToken);
 
         var user = await userManager.FindByIdAsync(EditInput.UserId.ToString());
@@ -162,7 +168,8 @@ public sealed class ClientsModel(
     private void RemoveModelStatePrefix(string prefix)
     {
         foreach (var key in ModelState.Keys
-                     .Where(key => key.StartsWith(prefix + ".", StringComparison.Ordinal))
+                     .Where(key => key.Equals(prefix, StringComparison.Ordinal) ||
+                          key.StartsWith(prefix + ".", StringComparison.Ordinal))
                      .ToArray())
             ModelState.Remove(key);
     }

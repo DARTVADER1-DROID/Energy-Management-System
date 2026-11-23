@@ -328,6 +328,8 @@ public sealed class AdminCrudPageTests(PostgreSqlFixture postgres) : IAsyncLifet
         var response = await PostFormAsync("/Admin/Clients", "Delete", new() { ["userId"] = "2" });
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        var confirmation = await FollowRedirectAsync(response);
+        Assert.Contains("Client account deleted", confirmation);
         await using var verifyScope = _factory.Services.CreateAsyncScope();
         var verify = verifyScope.ServiceProvider.GetRequiredService<IdentityDbContext>();
         Assert.False(await verify.Users.AnyAsync(user => user.Id == 2));
