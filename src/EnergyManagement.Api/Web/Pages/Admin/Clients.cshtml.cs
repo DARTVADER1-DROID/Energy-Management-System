@@ -90,24 +90,26 @@ public sealed class ClientsModel(
             return await ReloadAsync(cancellationToken);
         }
 
-        var userNameResult = await userManager.SetUserNameAsync(user, email);
-        if (!userNameResult.Succeeded)
+        // Update username, normalized username, email, normalized email and lockout
+        // state through one Identity update so a failed uniqueness check cannot leave
+        // the account with a half-updated login identity.
+        user.UserName = email;
+        user.Email = email;
+        user.LockoutEnabled = true;
+        user.LockoutEnd = EditInput.IsDisabled ? DateTimeOffset.MaxValue : null;
+        var updateResult = await userManager.UpdateAsync(user);
+        if (!updateResult.Succeeded)
         {
-            AddIdentityErrors(userNameResult);
+            AddIdentityErrors(updateResult);
             return await ReloadAsync(cancellationToken);
         }
 
-        var emailResult = await userManager.SetEmailAsync(user, email);
-        if (!emailResult.Succeeded)
+        var stampResult = await userManager.UpdateSecurityStampAsync(user);
+        if (!stampResult.Succeeded)
         {
-            AddIdentityErrors(emailResult);
+            AddIdentityErrors(stampResult);
             return await ReloadAsync(cancellationToken);
         }
-
-        await userManager.SetLockoutEnabledAsync(user, true);
-        await userManager.SetLockoutEndDateAsync(user,
-            EditInput.IsDisabled ? DateTimeOffset.MaxValue : null);
-        await userManager.UpdateSecurityStampAsync(user);
         TempData["StatusMessage"] = EditInput.IsDisabled
             ? "Client details saved and account disabled."
             : "Client details saved and account enabled.";

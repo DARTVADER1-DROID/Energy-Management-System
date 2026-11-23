@@ -73,9 +73,8 @@ public sealed class HouseholdsModel(
             return RedirectToPage();
         }
 
-        await identityDb.HouseholdMemberships
-            .Where(item => item.HouseholdId == householdId)
-            .ExecuteDeleteAsync(cancellationToken);
+        // The household's membership rows are configured with ON DELETE CASCADE.
+        // Let PostgreSQL remove them in the same atomic delete as the household.
         energyDb.Households.Remove(household);
         await energyDb.SaveChangesAsync(cancellationToken);
         TempData["StatusMessage"] = $"Household {household.HouseholdCode} deleted.";
