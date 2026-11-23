@@ -620,7 +620,10 @@ public sealed class AdminCrudPageTests(PostgreSqlFixture postgres) : IAsyncLifet
             new IdentityUserRole<int> { UserId = 3, RoleId = 1 });
         await identity.SaveChangesAsync();
         await identity.Database.ExecuteSqlRawAsync(
-            """SELECT setval(pg_get_serial_sequence('users', 'Id'), (SELECT MAX("Id") FROM users));""");
+            """
+            SELECT setval(pg_get_serial_sequence('users', 'Id'), (SELECT MAX("Id") FROM users));
+            SELECT setval(pg_get_serial_sequence('roles', 'Id'), (SELECT MAX("Id") FROM roles));
+            """);
     }
 
     private async Task<int> CreateHouseholdAsync(string name)
