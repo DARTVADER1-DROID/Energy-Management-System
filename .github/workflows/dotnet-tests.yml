@@ -2,7 +2,7 @@ name: .NET tests
 
 on:
   push:
-    branches: [main, "feat/**", "feature/**", "build/**", "deploy/**", "fix/**"]
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
