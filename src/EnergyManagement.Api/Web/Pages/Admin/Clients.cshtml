@@ -38,7 +38,7 @@
                             <form method="post" asp-page-handler="Update" class="mt-2 grid gap-2">
                                 <input type="hidden" name="EditInput.UserId" value="@client.Id" />
                                 <input class="control-input" type="email" name="EditInput.Email" value="@client.Email" required maxlength="256" />
-                                <label class="flex items-center gap-2 text-xs"><input type="checkbox" name="EditInput.IsDisabled" value="true" checked="@client.IsDisabled" /> Disable account</label>
+                                <label class="flex items-center gap-2 text-xs"><input type="checkbox" name="EditInput.IsDisabled" value="true" checked="@(client.IsDisabled ? "checked" : null)" /> Disable account</label>
                                 <button class="secondary-button" type="submit">Save changes</button>
                             </form>
                             <form method="post" asp-page-handler="Delete" class="mt-2" onsubmit="return confirm('Permanently delete this client account? Accounts with retained security history can only be disabled.');">

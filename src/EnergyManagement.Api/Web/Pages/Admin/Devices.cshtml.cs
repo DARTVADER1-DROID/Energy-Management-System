@@ -27,6 +27,8 @@ public sealed class DevicesModel(
     {
         if (!IsAdministrator()) return Forbid();
         if (!User.HasRecentAuthentication()) return Reauthenticate();
+        if (!Enum.IsDefined(Input.ElectricalConfiguration))
+            ModelState.AddModelError(nameof(Input.ElectricalConfiguration), "Select a supported electrical configuration.");
         if (!ModelState.IsValid) { await LoadAsync(cancellationToken); return Page(); }
 
         try
@@ -50,6 +52,8 @@ public sealed class DevicesModel(
     {
         if (!IsAdministrator()) return Forbid();
         if (!User.HasRecentAuthentication()) return Reauthenticate();
+        if (!Enum.IsDefined(Input.ElectricalConfiguration))
+            ModelState.AddModelError(nameof(Input.ElectricalConfiguration), "Select a supported electrical configuration.");
         if (!ModelState.IsValid) { await LoadAsync(cancellationToken); return Page(); }
 
         var device = await energyDb.Devices.SingleOrDefaultAsync(item => item.Id == deviceId, cancellationToken);
