@@ -11,7 +11,7 @@
 @if (TempData["ErrorMessage"] is string error) { <div class="mt-5 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">@error</div> }
 <section class="panel mt-6 p-5">
     <h3 class="font-semibold">Register device</h3>
-    <form method="post" asp-page-handler="Create" class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <form method="post" asp-page-handler="Create" data-admin-submit class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <div><label asp-for="Input.HouseholdId" class="field-label">Household</label><select asp-for="Input.HouseholdId" class="control-select mt-1 w-full"><option value="">Select household</option>@foreach (var h in Model.Households) { <option value="@h.Id">@h.Code · @h.Name</option> }</select></div>
         <div><label asp-for="Input.Name" class="field-label">Device name</label><input asp-for="Input.Name" class="control-input mt-1 w-full" /></div>
         <div><label asp-for="Input.HardwareModel" class="field-label">Hardware model</label><input asp-for="Input.HardwareModel" class="control-input mt-1 w-full" /></div>
@@ -23,18 +23,18 @@
     </form>
 </section>
 <section class="panel mt-5 overflow-hidden">
-    <div class="border-b border-slate-200 p-5 dark:border-slate-800"><h3 class="font-semibold">Device inventory</h3><p class="mt-1 text-xs text-slate-500">Showing up to 300 devices. Deactivation preserves telemetry and credential audit history.</p></div>
-    <div class="overflow-x-auto"><table class="w-full min-w-[950px] text-left text-sm">
+    <div class="border-b border-slate-200 p-5 dark:border-slate-800"><div class="flex flex-wrap items-center justify-between gap-3"><div><h3 class="font-semibold">Device inventory</h3><p class="mt-1 text-xs text-slate-500">Showing up to 300 devices. Deactivation preserves telemetry and credential audit history.</p></div><span class="text-xs text-slate-500" data-admin-visible-count="devices" aria-live="polite"></span></div><div class="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_12rem]"><label class="sr-only" for="device-search">Search devices</label><input id="device-search" class="control-input" type="search" placeholder="Search code, name, household…" data-admin-search="devices" /><label class="sr-only" for="device-status">Filter devices by status</label><select id="device-status" class="control-select" data-admin-status-filter="devices"><option value="all">All devices</option><option value="active">Active</option><option value="deactivated">Deactivated</option></select></div></div>
+    <div class="overflow-x-auto"><table class="w-full min-w-[950px] text-left text-sm" data-admin-table="devices">
         <thead class="table-head"><tr><th>Device</th><th>Household</th><th>Hardware</th><th>Location</th><th>Status</th><th>Manage</th></tr></thead>
         <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
         @foreach (var d in Model.Devices)
         {
-            <tr class="table-row align-top">
+            <tr class="table-row align-top" data-admin-row data-status="@(d.IsActive ? "active" : "deactivated")">
                 <td><div class="font-semibold">@d.Name</div><div class="text-xs text-slate-500">@d.Code</div></td><td>@d.Household</td><td>@d.HardwareModel <span class="text-xs text-slate-500">· @d.FirmwareVersion</span></td><td>@d.InstallationLocation</td><td>@(d.IsActive ? "Active" : "Deactivated")</td>
                 <td><details><summary class="cursor-pointer font-semibold text-violet-700">Edit</summary>
                     @if (d.IsActive)
                     {
-                        <form method="post" asp-page-handler="Update" asp-route-deviceId="@d.Id" class="mt-2 grid min-w-72 gap-2">
+                        <form method="post" asp-page-handler="Update" asp-route-deviceId="@d.Id" data-admin-submit class="mt-2 grid min-w-72 gap-2">
                             <input type="hidden" name="Input.HouseholdId" value="@d.HouseholdId" />
                             <input class="control-input" name="Input.Name" value="@d.Name" required maxlength="120" />
                             <input class="control-input" name="Input.HardwareModel" value="@d.HardwareModel" required maxlength="80" />
@@ -52,12 +52,13 @@
                             <input class="control-input" type="number" name="Input.WarningPersistenceSeconds" value="@d.WarningPersistenceSeconds" placeholder="Warning persistence (seconds)" />
                             <button class="secondary-button" type="submit">Save changes</button>
                         </form>
-                        <form method="post" asp-page-handler="Deactivate" asp-route-deviceId="@d.Id" class="mt-2" onsubmit="return confirm('Deactivate this device? It will stop authenticating; telemetry history will be retained.');"><button class="secondary-button text-rose-700" type="submit">Deactivate device</button></form>
+                        <form method="post" asp-page-handler="Deactivate" asp-route-deviceId="@d.Id" data-admin-submit data-admin-confirm="Deactivate this device? It will stop authenticating; telemetry history will be retained." class="mt-2"><button class="secondary-button text-rose-700" type="submit">Deactivate device</button></form>
                     }
                     else { <p class="mt-2 text-xs text-slate-500">Deactivated devices cannot be reactivated through the admin UI.</p> }
                 </details></td>
             </tr>
         }
+        <tr data-admin-empty="devices" hidden><td colspan="6" class="p-6 text-center text-sm text-slate-500">No devices match this search.</td></tr>
         </tbody>
     </table></div>
 </section>
