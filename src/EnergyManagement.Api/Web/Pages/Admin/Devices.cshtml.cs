@@ -27,8 +27,6 @@ public sealed class DevicesModel(
     {
         if (!IsAdministrator()) return Forbid();
         if (!User.HasRecentAuthentication()) return Reauthenticate();
-        if (!Enum.IsDefined(Input.ElectricalConfiguration))
-            ModelState.AddModelError(nameof(Input.ElectricalConfiguration), "Select a supported electrical configuration.");
         if (!ModelState.IsValid) { await LoadAsync(cancellationToken); return Page(); }
 
         try
@@ -113,8 +111,15 @@ public sealed class DevicesModel(
     private IActionResult Reauthenticate() => RedirectToPage("/Account/Reauthenticate",
         new { returnUrl = Url.Page("/Admin/Devices") });
 
-    public sealed class DeviceInput
+    public sealed class DeviceInput : IValidatableObject
     {
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            if (!Enum.IsDefined(ElectricalConfiguration))
+                yield return new ValidationResult(
+                    "Select a supported electrical configuration.",
+                    [nameof(ElectricalConfiguration)]);
+        }
         [Range(1, int.MaxValue)] public int HouseholdId { get; set; }
         [Required, StringLength(120)] public string Name { get; set; } = string.Empty;
         [Required, StringLength(80)] public string HardwareModel { get; set; } = string.Empty;
