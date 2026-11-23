@@ -86,7 +86,7 @@ public sealed class HouseholdsModel(
     {
         var households = await energyDb.Households.AsNoTracking()
             .OrderBy(item => item.Id)
-            .Select(item => new { item.Id, item.Name, item.HouseholdCode })
+            .Select(item => new { item.Id, item.Name })
             .ToListAsync(cancellationToken);
         var rows = new List<HouseholdRow>(households.Count);
         foreach (var household in households)
@@ -95,7 +95,7 @@ public sealed class HouseholdsModel(
                 .CountAsync(item => item.HouseholdId == household.Id, cancellationToken);
             var memberCount = await identityDb.HouseholdMemberships.AsNoTracking()
                 .CountAsync(item => item.HouseholdId == household.Id, cancellationToken);
-            rows.Add(new HouseholdRow(household.Id, household.HouseholdCode,
+            rows.Add(new HouseholdRow(household.Id, $"H{household.Id:000}",
                 household.Name, deviceCount, memberCount));
         }
         Households = rows;

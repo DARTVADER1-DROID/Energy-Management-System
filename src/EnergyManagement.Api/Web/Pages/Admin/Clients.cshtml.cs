@@ -27,9 +27,10 @@ public sealed class ClientsModel(
         foreach (var user in users)
         {
             var isAdministrator = await userManager.IsInRoleAsync(user, "Administrator");
+            var isDisabled = user.LockoutEnd.HasValue &&
+                user.LockoutEnd.Value > DateTimeOffset.UtcNow;
             rows.Add(new ClientRow(user.Id, user.Email ?? user.UserName ?? "(no email)",
-                user.EmailConfirmed, user.CreatedAtUtc, user.LockoutEnd > DateTimeOffset.UtcNow,
-                isAdministrator));
+                user.EmailConfirmed, user.CreatedAtUtc, isDisabled, isAdministrator));
         }
         Clients = rows;
         return Page();
@@ -39,6 +40,7 @@ public sealed class ClientsModel(
     {
         if (!IsAdministrator()) return Forbid();
         if (!User.HasRecentAuthentication()) return Reauthenticate();
+        RemoveModelStatePrefix(nameof(EditInput));
         if (!ModelState.IsValid) return await ReloadAsync(cancellationToken);
 
         var email = CreateInput.Email.Trim();
@@ -64,6 +66,7 @@ public sealed class ClientsModel(
     {
         if (!IsAdministrator()) return Forbid();
         if (!User.HasRecentAuthentication()) return Reauthenticate();
+        RemoveModelStatePrefix(nameof(CreateInput));
         if (!ModelState.IsValid) return await ReloadAsync(cancellationToken);
 
         var user = await userManager.FindByIdAsync(EditInput.UserId.ToString());
@@ -124,6 +127,14 @@ public sealed class ClientsModel(
 
         TempData["StatusMessage"] = "Client account deleted. Its household memberships were removed by Identity.";
         return RedirectToPage();
+    }
+
+    private void RemoveModelStatePrefix(string prefix)
+    {
+        foreach (var key in ModelState.Keys
+                     .Where(key => key.StartsWith(prefix + ".", StringComparison.Ordinal))
+                     .ToArray())
+            ModelState.Remove(key);
     }
 
     private async Task<IActionResult> ReloadAsync(CancellationToken cancellationToken)
