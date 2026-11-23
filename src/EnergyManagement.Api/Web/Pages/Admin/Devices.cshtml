@@ -1,0 +1,63 @@
+@page
+@model EnergyManagement.Api.Web.Pages.Admin.DevicesModel
+@{
+    ViewData["Title"] = "Device management";
+}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div><p class="eyebrow">Administration</p><h2 class="page-heading">Devices</h2><p class="mt-1 text-sm text-slate-500">Register and maintain devices across all households.</p></div>
+    <a asp-page="/Admin/Clients" class="secondary-button">Clients →</a>
+</div>
+@if (TempData["StatusMessage"] is string status) { <div class="mt-5 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">@status</div> }
+@if (TempData["ErrorMessage"] is string error) { <div class="mt-5 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">@error</div> }
+<section class="panel mt-6 p-5">
+    <h3 class="font-semibold">Register device</h3>
+    <form method="post" asp-page-handler="Create" class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div><label asp-for="Input.HouseholdId" class="field-label">Household</label><select asp-for="Input.HouseholdId" class="control-select mt-1 w-full"><option value="">Select household</option>@foreach (var h in Model.Households) { <option value="@h.Id">@h.Code · @h.Name</option> }</select></div>
+        <div><label asp-for="Input.Name" class="field-label">Device name</label><input asp-for="Input.Name" class="control-input mt-1 w-full" /></div>
+        <div><label asp-for="Input.HardwareModel" class="field-label">Hardware model</label><input asp-for="Input.HardwareModel" class="control-input mt-1 w-full" /></div>
+        <div><label asp-for="Input.FirmwareVersion" class="field-label">Firmware version</label><input asp-for="Input.FirmwareVersion" class="control-input mt-1 w-full" /></div>
+        <div><label asp-for="Input.InstallationLocation" class="field-label">Installation location</label><input asp-for="Input.InstallationLocation" class="control-input mt-1 w-full" /></div>
+        <div><label asp-for="Input.ElectricalConfiguration" class="field-label">Configuration</label><select asp-for="Input.ElectricalConfiguration" asp-items="Html.GetEnumSelectList<EnergyManagement.Api.Modules.Devices.ElectricalConfiguration>()" class="control-select mt-1 w-full"></select></div>
+        <div class="md:col-span-2 xl:col-span-3"><label asp-for="Input.Description" class="field-label">Description</label><input asp-for="Input.Description" class="control-input mt-1 w-full" /></div>
+        <div class="md:col-span-2 xl:col-span-3"><button class="primary-button" type="submit">Register device</button><div asp-validation-summary="All" class="mt-2 text-sm text-rose-600"></div></div>
+    </form>
+</section>
+<section class="panel mt-5 overflow-hidden">
+    <div class="border-b border-slate-200 p-5 dark:border-slate-800"><h3 class="font-semibold">Device inventory</h3><p class="mt-1 text-xs text-slate-500">Showing up to 300 devices. Deactivation preserves telemetry and credential audit history.</p></div>
+    <div class="overflow-x-auto"><table class="w-full min-w-[950px] text-left text-sm">
+        <thead class="table-head"><tr><th>Device</th><th>Household</th><th>Hardware</th><th>Location</th><th>Status</th><th>Manage</th></tr></thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+        @foreach (var d in Model.Devices)
+        {
+            <tr class="table-row align-top">
+                <td><div class="font-semibold">@d.Name</div><div class="text-xs text-slate-500">@d.Code</div></td><td>@d.Household</td><td>@d.HardwareModel <span class="text-xs text-slate-500">· @d.FirmwareVersion</span></td><td>@d.InstallationLocation</td><td>@(d.IsActive ? "Active" : "Deactivated")</td>
+                <td><details><summary class="cursor-pointer font-semibold text-violet-700">Edit</summary>
+                    @if (d.IsActive)
+                    {
+                        <form method="post" asp-page-handler="Update" asp-route-deviceId="@d.Id" class="mt-2 grid min-w-72 gap-2">
+                            <input type="hidden" name="Input.HouseholdId" value="@d.HouseholdId" />
+                            <input class="control-input" name="Input.Name" value="@d.Name" required maxlength="120" />
+                            <input class="control-input" name="Input.HardwareModel" value="@d.HardwareModel" required maxlength="80" />
+                            <input class="control-input" name="Input.FirmwareVersion" value="@d.FirmwareVersion" required maxlength="80" />
+                            <input class="control-input" name="Input.InstallationLocation" value="@d.InstallationLocation" required maxlength="160" />
+                            <select class="control-select" name="Input.ElectricalConfiguration"><option value="SinglePhase" selected="@(d.ElectricalConfiguration == EnergyManagement.Api.Modules.Devices.ElectricalConfiguration.SinglePhase)">Single phase</option><option value="ThreePhase" selected="@(d.ElectricalConfiguration == EnergyManagement.Api.Modules.Devices.ElectricalConfiguration.ThreePhase)">Three phase</option></select>
+                            <input class="control-input" name="Input.Description" value="@d.Description" maxlength="1000" placeholder="Description" />
+                            <p class="text-xs font-semibold text-slate-500">Warning thresholds</p>
+                            <input class="control-input" type="number" step="any" name="Input.MinimumVoltage" value="@d.MinimumVoltage" placeholder="Minimum voltage" />
+                            <input class="control-input" type="number" step="any" name="Input.MaximumVoltage" value="@d.MaximumVoltage" placeholder="Maximum voltage" />
+                            <input class="control-input" type="number" step="any" name="Input.MaximumCurrent" value="@d.MaximumCurrent" placeholder="Maximum current" />
+                            <input class="control-input" type="number" step="any" name="Input.MaximumInstantaneousPower" value="@d.MaximumInstantaneousPower" placeholder="Maximum power" />
+                            <input class="control-input" type="number" step="any" name="Input.MaximumDailyEnergy" value="@d.MaximumDailyEnergy" placeholder="Maximum daily energy" />
+                            <input class="control-input" type="number" step="any" name="Input.MaximumTemperature" value="@d.MaximumTemperature" placeholder="Maximum temperature" />
+                            <input class="control-input" type="number" name="Input.WarningPersistenceSeconds" value="@d.WarningPersistenceSeconds" placeholder="Warning persistence (seconds)" />
+                            <button class="secondary-button" type="submit">Save changes</button>
+                        </form>
+                        <form method="post" asp-page-handler="Deactivate" asp-route-deviceId="@d.Id" class="mt-2" onsubmit="return confirm('Deactivate this device? It will stop authenticating; telemetry history will be retained.');"><button class="secondary-button text-rose-700" type="submit">Deactivate device</button></form>
+                    }
+                    else { <p class="mt-2 text-xs text-slate-500">Deactivated devices cannot be reactivated through the admin UI.</p> }
+                </details></td>
+            </tr>
+        }
+        </tbody>
+    </table></div>
+</section>

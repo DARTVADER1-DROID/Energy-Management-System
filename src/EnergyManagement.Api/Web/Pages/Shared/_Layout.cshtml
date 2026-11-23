@@ -62,6 +62,9 @@
                     {
                         <a asp-page="/Households/Create" class="nav-link @(currentPath.StartsWith("/Households/Create") ? "nav-link-active" : "")"><span class="nav-icon" aria-hidden="true">＋</span> Create household</a>
                         <a asp-page="/Households/Users" class="nav-link @(currentPath.StartsWith("/Households/Users") ? "nav-link-active" : "")"><span class="nav-icon" aria-hidden="true">♙</span> Household users</a>
+                        <a asp-page="/Admin/Clients" class="nav-link @(currentPath.StartsWith("/Admin/Clients") ? "nav-link-active" : "")"><span class="nav-icon" aria-hidden="true">♧</span> Client management</a>
+                        <a asp-page="/Admin/Devices" class="nav-link @(currentPath.StartsWith("/Admin/Devices") ? "nav-link-active" : "")"><span class="nav-icon" aria-hidden="true">▦</span> Device management</a>
+                        <a asp-page="/Admin/Households" class="nav-link @(currentPath.StartsWith("/Admin/Households") ? "nav-link-active" : "")"><span class="nav-icon" aria-hidden="true">⌂</span> Household management</a>
                     }
                 </div>
             </nav>
