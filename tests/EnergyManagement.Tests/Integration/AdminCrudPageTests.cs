@@ -630,17 +630,69 @@ public sealed class AdminCrudPageTests(PostgreSqlFixture postgres) : IAsyncLifet
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         var identity = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var domain = scope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
         var administratorRole = await identity.Roles.SingleAsync(
             role => role.NormalizedName == "ADMINISTRATOR");
 
-        identity.Users.AddRange(
-            new ApplicationUser { Id = 1, UserName = "admin@example.test", Email = "admin@example.test", EmailConfirmed = true },
-            new ApplicationUser { Id = 2, UserName = "client@example.test", Email = "client@example.test", EmailConfirmed = true },
-            new ApplicationUser { Id = 3, UserName = "other-admin@example.test", Email = "other-admin@example.test", EmailConfirmed = true });
-        identity.UserRoles.AddRange(
-            new IdentityUserRole<int> { UserId = 1, RoleId = administratorRole.Id },
-            new IdentityUserRole<int> { UserId = 3, RoleId = administratorRole.Id });
+        // The host may be configured with deployment bootstrap credentials by CI.
+        // Reuse its administrator if present; normalize its identity to the test account.
+        var administrator = await identity.Users.SingleOrDefaultAsync(user => user.Id == 1);
+        if (administrator is null)
+        {
+            administrator = new ApplicationUser { Id = 1 };
+            identity.Users.Add(administrator);
+        }
+        administrator.UserName = "admin@example.test";
+        administrator.NormalizedUserName = "ADMIN@EXAMPLE.TEST";
+        administrator.Email = "admin@example.test";
+        administrator.NormalizedEmail = "ADMIN@EXAMPLE.TEST";
+        administrator.EmailConfirmed = true;
+
+        var client = await identity.Users.SingleOrDefaultAsync(user => user.Id == 2);
+        if (client is null)
+        {
+            client = new ApplicationUser { Id = 2 };
+            identity.Users.Add(client);
+        }
+        client.UserName = "client@example.test";
+        client.NormalizedUserName = "CLIENT@EXAMPLE.TEST";
+        client.Email = "client@example.test";
+        client.NormalizedEmail = "CLIENT@EXAMPLE.TEST";
+        client.EmailConfirmed = true;
+
+        var otherAdministrator = await identity.Users.SingleOrDefaultAsync(user => user.Id == 3);
+        if (otherAdministrator is null)
+        {
+            otherAdministrator = new ApplicationUser { Id = 3 };
+            identity.Users.Add(otherAdministrator);
+        }
+        otherAdministrator.UserName = "other-admin@example.test";
+        otherAdministrator.NormalizedUserName = "OTHER-ADMIN@EXAMPLE.TEST";
+        otherAdministrator.Email = "other-admin@example.test";
+        otherAdministrator.NormalizedEmail = "OTHER-ADMIN@EXAMPLE.TEST";
+        otherAdministrator.EmailConfirmed = true;
+
+        if (!await identity.UserRoles.AnyAsync(role =>
+                role.UserId == administrator.Id && role.RoleId == administratorRole.Id))
+            identity.UserRoles.Add(new IdentityUserRole<int>
+                { UserId = administrator.Id, RoleId = administratorRole.Id });
+        if (!await identity.UserRoles.AnyAsync(role =>
+                role.UserId == otherAdministrator.Id && role.RoleId == administratorRole.Id))
+            identity.UserRoles.Add(new IdentityUserRole<int>
+                { UserId = otherAdministrator.Id, RoleId = administratorRole.Id });
+
+        // Bootstrap may have created a household and membership before the test seed.
+        identity.HouseholdMemberships.RemoveRange(await identity.HouseholdMemberships.ToListAsync());
+        identity.HouseholdInvitations.RemoveRange(await identity.HouseholdInvitations.ToListAsync());
+        identity.SecurityAuditEvents.RemoveRange(await identity.SecurityAuditEvents.ToListAsync());
+        identity.MfaRecoveryCodes.RemoveRange(await identity.MfaRecoveryCodes.ToListAsync());
         await identity.SaveChangesAsync();
+
+        domain.TelemetryReadings.RemoveRange(await domain.TelemetryReadings.ToListAsync());
+        domain.Devices.RemoveRange(await domain.Devices.ToListAsync());
+        domain.Households.RemoveRange(await domain.Households.ToListAsync());
+        await domain.SaveChangesAsync();
+
         await identity.Database.ExecuteSqlRawAsync(
             """SELECT setval(pg_get_serial_sequence('users', 'Id'), (SELECT MAX("Id") FROM users));""");
     }
