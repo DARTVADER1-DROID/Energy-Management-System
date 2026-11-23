@@ -649,6 +649,7 @@ public sealed class AdminCrudPageTests(PostgreSqlFixture postgres) : IAsyncLifet
         administrator.Email = "admin@example.test";
         administrator.NormalizedEmail = "ADMIN@EXAMPLE.TEST";
         administrator.EmailConfirmed = true;
+        administrator.SecurityStamp ??= Guid.NewGuid().ToString();
 
         var client = await identity.Users.SingleOrDefaultAsync(user => user.Id == 2);
         if (client is null)
@@ -661,6 +662,7 @@ public sealed class AdminCrudPageTests(PostgreSqlFixture postgres) : IAsyncLifet
         client.Email = "client@example.test";
         client.NormalizedEmail = "CLIENT@EXAMPLE.TEST";
         client.EmailConfirmed = true;
+        client.SecurityStamp ??= Guid.NewGuid().ToString();
 
         var otherAdministrator = await identity.Users.SingleOrDefaultAsync(user => user.Id == 3);
         if (otherAdministrator is null)
@@ -673,6 +675,7 @@ public sealed class AdminCrudPageTests(PostgreSqlFixture postgres) : IAsyncLifet
         otherAdministrator.Email = "other-admin@example.test";
         otherAdministrator.NormalizedEmail = "OTHER-ADMIN@EXAMPLE.TEST";
         otherAdministrator.EmailConfirmed = true;
+        otherAdministrator.SecurityStamp ??= Guid.NewGuid().ToString();
 
         if (!await identity.UserRoles.AnyAsync(role =>
                 role.UserId == administrator.Id && role.RoleId == administratorRole.Id))
