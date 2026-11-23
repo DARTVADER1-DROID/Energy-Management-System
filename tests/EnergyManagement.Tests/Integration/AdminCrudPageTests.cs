@@ -127,6 +127,7 @@ public sealed class AdminCrudPageTests(PostgreSqlFixture postgres) : IAsyncLifet
     [Theory]
     [InlineData("not-an-email", "StrongPass1!")]
     [InlineData("valid@example.test", "weak")]
+    [InlineData("valid@example.test", "StrongPassword1")]
     [InlineData("", "StrongPass1!")]
     [InlineData("valid@example.test", "")]
     public async Task ClientCreate_RejectsMalformedEmailAndWeakPassword(string email, string password)
@@ -230,6 +231,45 @@ public sealed class AdminCrudPageTests(PostgreSqlFixture postgres) : IAsyncLifet
         await using var verifyScope = _factory.Services.CreateAsyncScope();
         Assert.True(await verifyScope.ServiceProvider.GetRequiredService<IdentityDbContext>()
             .Users.AnyAsync(user => user.Id == 2));
+    }
+
+    [Fact]
+    public async Task ClientDelete_BlocksAccountReferencedByDeviceSecurityAuditHistory()
+    {
+        var householdId = await CreateHouseholdAsync("Device audit retention home");
+        var device = await RegisterDeviceAsync(householdId);
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var security = scope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
+            security.AuditEvents.Add(new DeviceSecurityAuditEvent(
+                device.Id, 2, "ProvisioningCodeCreated", "Retained security audit event"));
+            await security.SaveChangesAsync();
+        }
+
+        var response = await PostFormAsync("/Admin/Clients", "Delete", new() { ["userId"] = "2" });
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains("retained security", await FollowRedirectAsync(response));
+    }
+
+    [Fact]
+    public async Task ClientDelete_BlocksAccountReferencedByInvitationHistory()
+    {
+        var householdId = await CreateHouseholdAsync("Client invitation retention home");
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var identity = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            identity.HouseholdInvitations.Add(new HouseholdInvitation(
+                householdId, "client@example.test", "CLIENT@EXAMPLE.TEST",
+                HouseholdRole.HouseholdMember, new string('C', 64), 2,
+                DateTimeOffset.UtcNow.AddDays(1)));
+            await identity.SaveChangesAsync();
+        }
+
+        var response = await PostFormAsync("/Admin/Clients", "Delete", new() { ["userId"] = "2" });
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains("retained security", await FollowRedirectAsync(response));
     }
 
     [Fact]
@@ -579,6 +619,8 @@ public sealed class AdminCrudPageTests(PostgreSqlFixture postgres) : IAsyncLifet
             new IdentityUserRole<int> { UserId = 1, RoleId = 1 },
             new IdentityUserRole<int> { UserId = 3, RoleId = 1 });
         await identity.SaveChangesAsync();
+        await identity.Database.ExecuteSqlRawAsync(
+            """SELECT setval(pg_get_serial_sequence('users', 'Id'), (SELECT MAX("Id") FROM users));""");
     }
 
     private async Task<int> CreateHouseholdAsync(string name)
