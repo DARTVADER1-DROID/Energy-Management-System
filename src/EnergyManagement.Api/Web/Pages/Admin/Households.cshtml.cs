@@ -73,8 +73,15 @@ public sealed class HouseholdsModel(
             return RedirectToPage();
         }
 
-        // The household's membership rows are configured with ON DELETE CASCADE.
-        // Let PostgreSQL remove them in the same atomic delete as the household.
+        // Memberships live in the Identity context and have no database-level
+        // relationship to the Energy context's household table. Remove them explicitly
+        // before deleting the household to avoid orphaned memberships.
+        var memberships = await identityDb.HouseholdMemberships
+            .Where(item => item.HouseholdId == householdId)
+            .ToListAsync(cancellationToken);
+        identityDb.HouseholdMemberships.RemoveRange(memberships);
+        await identityDb.SaveChangesAsync(cancellationToken);
+
         energyDb.Households.Remove(household);
         await energyDb.SaveChangesAsync(cancellationToken);
         TempData["StatusMessage"] = $"Household {household.HouseholdCode} deleted.";
