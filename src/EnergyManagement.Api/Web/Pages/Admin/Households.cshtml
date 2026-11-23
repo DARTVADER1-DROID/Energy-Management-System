@@ -1,0 +1,41 @@
+@page
+@model EnergyManagement.Api.Web.Pages.Admin.HouseholdsModel
+@{
+    ViewData["Title"] = "Household management";
+}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div><p class="eyebrow">Administration</p><h2 class="page-heading">Households</h2><p class="mt-1 text-sm text-slate-500">Manage household records and inspect their linked resources.</p></div>
+    <a asp-page="/Admin/Devices" class="secondary-button">Devices →</a>
+</div>
+@if (TempData["StatusMessage"] is string status) { <div class="mt-5 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">@status</div> }
+@if (TempData["ErrorMessage"] is string error) { <div class="mt-5 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">@error</div> }
+<section class="panel mt-6 p-5">
+    <h3 class="font-semibold">Create household</h3>
+    <form method="post" asp-page-handler="Create" data-admin-submit class="mt-4 flex flex-wrap items-end gap-3">
+        <div class="min-w-64 flex-1"><label asp-for="Input.Name" class="field-label">Household name</label><input asp-for="Input.Name" class="control-input mt-1 w-full" maxlength="120" /></div>
+        <button class="primary-button" type="submit">Create household</button>
+        <span asp-validation-for="Input.Name" class="text-xs text-rose-600"></span>
+    </form>
+</section>
+<section class="panel mt-5 overflow-hidden">
+    <div class="border-b border-slate-200 p-5 dark:border-slate-800"><div class="flex flex-wrap items-center justify-between gap-3"><h3 class="font-semibold">All households</h3><span class="text-xs text-slate-500" data-admin-visible-count="households" aria-live="polite"></span></div><div class="mt-4"><label class="sr-only" for="household-search">Search households</label><input id="household-search" class="control-input w-full sm:max-w-md" type="search" placeholder="Search household name or code…" data-admin-search="households" /></div></div>
+    <div class="overflow-x-auto"><table class="w-full min-w-[800px] text-left text-sm" data-admin-table="households">
+        <thead class="table-head"><tr><th>Household</th><th>Devices</th><th>Members</th><th>Manage</th></tr></thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+        @foreach (var h in Model.Households)
+        {
+            <tr class="table-row" data-admin-row><td><div class="font-semibold">@h.Name</div><div class="text-xs text-slate-500">@h.Code</div></td><td>@h.DeviceCount</td><td>@h.MemberCount</td><td>
+                <details><summary class="cursor-pointer font-semibold text-violet-700">Edit</summary>
+                    <form method="post" asp-page-handler="Update" asp-route-householdId="@h.Id" data-admin-submit class="mt-2 flex gap-2">
+                        <input class="control-input" name="Input.Name" value="@h.Name" required maxlength="120" /><button class="secondary-button" type="submit">Save</button>
+                    </form>
+                    <form method="post" asp-page-handler="Delete" asp-route-householdId="@h.Id" data-admin-submit data-admin-confirm="Delete this household? It must have no devices, invitations or security audit history." class="mt-2">
+                        <button class="secondary-button text-rose-700" type="submit">Delete household</button>
+                    </form>
+                </details>
+            </td></tr>
+        }
+        <tr data-admin-empty="households" hidden><td colspan="4" class="p-6 text-center text-sm text-slate-500">No households match this search.</td></tr>
+        </tbody>
+    </table></div>
+</section>

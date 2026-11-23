@@ -1,0 +1,56 @@
+@page
+@model EnergyManagement.Api.Web.Pages.Admin.ClientsModel
+@{
+    ViewData["Title"] = "Client management";
+}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div><p class="eyebrow">Administration</p><h2 class="page-heading">Clients</h2><p class="mt-1 text-sm text-slate-500">Manage registered user accounts. Administrator accounts are protected.</p></div>
+    <a asp-page="/Admin/Devices" class="secondary-button">Devices →</a>
+</div>
+@if (TempData["StatusMessage"] is string status) { <div class="mt-5 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">@status</div> }
+@if (TempData["ErrorMessage"] is string error) { <div class="mt-5 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">@error</div> }
+<section class="panel mt-6 p-5">
+    <h3 class="font-semibold">Create client</h3>
+    <form method="post" asp-page-handler="Create" data-admin-submit class="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+        <div><label asp-for="CreateInput.Email" class="field-label">Email</label><input asp-for="CreateInput.Email" type="email" class="control-input mt-1 w-full" autocomplete="off" /><span asp-validation-for="CreateInput.Email" class="text-xs text-rose-600"></span></div>
+        <div><label asp-for="CreateInput.Password" class="field-label">Initial password</label><input asp-for="CreateInput.Password" type="password" class="control-input mt-1 w-full" autocomplete="new-password" /><span asp-validation-for="CreateInput.Password" class="text-xs text-rose-600"></span></div>
+        <button class="primary-button" type="submit">Create account</button>
+        <div asp-validation-summary="ModelOnly" class="text-sm text-rose-600 md:col-span-3"></div>
+    </form>
+</section>
+<section class="panel mt-5 overflow-hidden">
+    <div class="border-b border-slate-200 p-5 dark:border-slate-800"><div class="flex flex-wrap items-center justify-between gap-3"><div><h3 class="font-semibold">Registered accounts</h3><p class="mt-1 text-xs text-slate-500">Showing up to 250 most recently created accounts</p></div><span class="text-xs text-slate-500" data-admin-visible-count="clients" aria-live="polite"></span></div><div class="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_12rem]"><label class="sr-only" for="client-search">Search clients</label><input id="client-search" class="control-input" type="search" placeholder="Search email or account…" data-admin-search="clients" /><label class="sr-only" for="client-status">Filter clients by status</label><select id="client-status" class="control-select" data-admin-status-filter="clients"><option value="all">All accounts</option><option value="active">Active</option><option value="disabled">Disabled</option><option value="administrator">Administrators</option></select></div></div>
+    <div class="overflow-x-auto"><table class="w-full min-w-[850px] text-left text-sm" data-admin-table="clients">
+        <thead class="table-head"><tr><th>Client</th><th>Created</th><th>Email</th><th>Status</th><th>Manage</th></tr></thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+        @foreach (var client in Model.Clients)
+        {
+            <tr class="table-row" data-admin-row data-status="@(client.IsAdministrator ? "administrator" : client.IsDisabled ? "disabled" : "active")">
+                <td class="font-medium">@client.Email @if (client.IsAdministrator) { <span class="ml-1 text-xs text-violet-600">Administrator</span> }</td>
+                <td class="text-slate-500">@client.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy")</td>
+                <td>@(client.EmailConfirmed ? "Confirmed" : "Unconfirmed")</td>
+                <td>@(client.IsDisabled ? "Disabled" : "Active")</td>
+                <td>
+                    @if (!client.IsAdministrator && client.Id != User.GetUserId())
+                    {
+                        <details>
+                            <summary class="cursor-pointer font-semibold text-violet-700">Edit</summary>
+                            <form method="post" asp-page-handler="Update" data-admin-submit class="mt-2 grid gap-2">
+                                <input type="hidden" name="EditInput.UserId" value="@client.Id" />
+                                <input class="control-input" type="email" name="EditInput.Email" value="@client.Email" required maxlength="256" />
+                                <label class="flex items-center gap-2 text-xs"><input type="checkbox" name="EditInput.IsDisabled" value="true" checked="@(client.IsDisabled ? "checked" : null)" /> Disable account</label>
+                                <button class="secondary-button" type="submit">Save changes</button>
+                            </form>
+                            <form method="post" asp-page-handler="Delete" data-admin-submit data-admin-confirm="Permanently delete this client account? Accounts with retained security history can only be disabled." class="mt-2">
+                                <input type="hidden" name="userId" value="@client.Id" /><button class="secondary-button text-rose-700" type="submit">Delete account</button>
+                            </form>
+                        </details>
+                    }
+                    else { <span class="text-xs text-slate-400">Protected</span> }
+                </td>
+            </tr>
+        }
+        <tr data-admin-empty="clients" hidden><td colspan="5" class="p-6 text-center text-sm text-slate-500">No clients match this search.</td></tr>
+        </tbody>
+    </table></div>
+</section>
