@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using EnergyManagement.Api.Infrastructure.IdentityPersistence;
+using EnergyManagement.Api.Infrastructure.Persistence;
 using EnergyManagement.Api.Modules.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +11,8 @@ namespace EnergyManagement.Api.Web.Pages.Admin;
 
 public sealed class ClientsModel(
     UserManager<ApplicationUser> userManager,
-    IdentityDbContext identityDb) : PageModel
+    IdentityDbContext identityDb,
+    DeviceSecurityDbContext deviceSecurityDb) : PageModel
 {
     [BindProperty] public CreateClientInput CreateInput { get; set; } = new();
     [BindProperty] public EditClientInput EditInput { get; set; } = new();
@@ -108,13 +110,18 @@ public sealed class ClientsModel(
             return RedirectToPage();
         }
 
-        var hasAuditHistory = await identityDb.SecurityAuditEvents.AsNoTracking()
+        var hasIdentityAuditHistory = await identityDb.SecurityAuditEvents.AsNoTracking()
             .AnyAsync(item => item.ActorUserId == userId || item.TargetUserId == userId, cancellationToken);
         var createdInvitations = await identityDb.HouseholdInvitations.AsNoTracking()
             .AnyAsync(item => item.CreatedByUserId == userId, cancellationToken);
-        if (hasAuditHistory || createdInvitations)
+        var hasDeviceAuditHistory = await deviceSecurityDb.AuditEvents.AsNoTracking()
+            .AnyAsync(item => item.ActorUserId == userId, cancellationToken);
+        var createdProvisioningCodes = await deviceSecurityDb.ProvisioningCodes.AsNoTracking()
+            .AnyAsync(item => item.CreatedByUserId == userId, cancellationToken);
+        if (hasIdentityAuditHistory || createdInvitations ||
+            hasDeviceAuditHistory || createdProvisioningCodes)
         {
-            TempData["ErrorMessage"] = "This account has retained security or invitation history. Disable it instead of deleting it.";
+            TempData["ErrorMessage"] = "This account has retained security, device-provisioning, or invitation history. Disable it instead of deleting it.";
             return RedirectToPage();
         }
 
