@@ -121,7 +121,8 @@ public sealed class AdminCrudPageTests(PostgreSqlFixture postgres) : IAsyncLifet
             ["CreateInput.Password"] = "StrongPass1!"
         });
 
-        Assert.Equal(HttpStatusCode.Redirect, create.StatusCode);
+        Assert.True(create.StatusCode == HttpStatusCode.Redirect,
+            $"Expected client creation to redirect, got {create.StatusCode}: {await create.Content.ReadAsStringAsync()}");
         await using (var scope = _factory.Services.CreateAsyncScope())
         {
             var manager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
@@ -175,7 +176,8 @@ public sealed class AdminCrudPageTests(PostgreSqlFixture postgres) : IAsyncLifet
             ["EditInput.IsDisabled"] = "true"
         });
 
-        Assert.Equal(HttpStatusCode.Redirect, disabled.StatusCode);
+        Assert.True(disabled.StatusCode == HttpStatusCode.Redirect,
+            $"Expected client update to redirect, got {disabled.StatusCode}: {await disabled.Content.ReadAsStringAsync()}");
         await using (var scope = _factory.Services.CreateAsyncScope())
         {
             var manager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
