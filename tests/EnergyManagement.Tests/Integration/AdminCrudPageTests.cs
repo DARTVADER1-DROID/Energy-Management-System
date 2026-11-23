@@ -633,6 +633,7 @@ public sealed class AdminCrudPageTests(PostgreSqlFixture postgres) : IAsyncLifet
         await using var scope = _factory.Services.CreateAsyncScope();
         var identity = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
         var domain = scope.ServiceProvider.GetRequiredService<EnergyManagementDbContext>();
+        var deviceSecurity = scope.ServiceProvider.GetRequiredService<DeviceSecurityDbContext>();
         var administratorRole = await identity.Roles.SingleAsync(
             role => role.NormalizedName == "ADMINISTRATOR");
 
@@ -692,6 +693,10 @@ public sealed class AdminCrudPageTests(PostgreSqlFixture postgres) : IAsyncLifet
         identity.SecurityAuditEvents.RemoveRange(await identity.SecurityAuditEvents.ToListAsync());
         identity.MfaRecoveryCodes.RemoveRange(await identity.MfaRecoveryCodes.ToListAsync());
         await identity.SaveChangesAsync();
+
+        deviceSecurity.AuditEvents.RemoveRange(await deviceSecurity.AuditEvents.ToListAsync());
+        deviceSecurity.ProvisioningCodes.RemoveRange(await deviceSecurity.ProvisioningCodes.ToListAsync());
+        await deviceSecurity.SaveChangesAsync();
 
         domain.TelemetryReadings.RemoveRange(await domain.TelemetryReadings.ToListAsync());
         domain.Devices.RemoveRange(await domain.Devices.ToListAsync());
